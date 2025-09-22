@@ -5,18 +5,10 @@ description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"
 requires-python = ">= 3.12"
-dependencies = [
-    "numpy>=2.3.2",
-    "tinygrad>=0.11.0",
-]
+dependencies = ["numpy>=2.3.4", "tinygrad>=0.11.0"]
 
 [dependency-groups]
-dev = [
-    "pyedm>=2.2.3",
-    "pytest>=8.4.1",
-    "ruff>=0.12.10",
-    "ty>=0.0.1a19",
-]
+dev = ["pyedm>=2.2.4", "pytest>=8.4.2", "ruff>=0.14.0", "ty>=0.0.1a22"]
 
 [build-system]
 requires = ["hatchling"]
