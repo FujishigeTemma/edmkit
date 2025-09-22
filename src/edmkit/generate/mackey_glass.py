@@ -1,9 +1,7 @@
 import numpy as np
 
 
-def mackey_glass(
-    tau: float, n: int, beta: float, gamma: float, x0: float, dt: float, t_max: int
-):
+def mackey_glass(tau: float, n: int, beta: float, gamma: float, x0: float, dt: float, t_max: int):
     def f(x, x_tau):
         return beta * x_tau / (1 + x_tau**n) - gamma * x
 

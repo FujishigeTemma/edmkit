@@ -144,11 +144,11 @@ def topk(x: np.ndarray, k: int, largest=True):
     assert k > 0 and k <= len(x), f"k must satisfy 0 < k <= len(x), got k={k}, len(x)={len(x)}"
 
     if largest:
-        indices = np.argpartition(-x, k)[:k]
+        indices = np.argpartition(-x, k - 1)[:k]
     else:
-        indices = np.argpartition(x, k)[:k]
+        indices = np.argpartition(x, k - 1)[:k]
 
-    argsort = np.argsort(x[indices])
+    argsort = np.argsort(x[indices], kind="stable")
 
     indices = indices[argsort]
     values = x[indices]

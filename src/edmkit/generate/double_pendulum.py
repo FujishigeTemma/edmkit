@@ -26,11 +26,9 @@ def double_pendulum(
             - 2 * np.sin(delta) * m2 * (omega2**2 * L2 + omega1**2 * L1 * np.cos(delta))
         ) / (L1 * denom)
 
-        domega2_dt = (
-            2
-            * np.sin(delta)
-            * (omega1**2 * L1 * (m1 + m2) + g * (m1 + m2) * np.cos(theta1) + omega2**2 * L2 * m2 * np.cos(delta))
-        ) / (L2 * denom)
+        domega2_dt = (2 * np.sin(delta) * (omega1**2 * L1 * (m1 + m2) + g * (m1 + m2) * np.cos(theta1) + omega2**2 * L2 * m2 * np.cos(delta))) / (
+            L2 * denom
+        )
 
         return np.array([dtheta1_dt, dtheta2_dt, domega1_dt, domega2_dt])
 

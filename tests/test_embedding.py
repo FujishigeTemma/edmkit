@@ -9,6 +9,4 @@ def test_lagged_embed():
     e = 3
 
     X = lagged_embed(x, tau, e)
-    assert (
-        X == np.array([[5, 3, 1], [6, 4, 2], [7, 5, 3], [8, 6, 4], [9, 7, 5]])
-    ).all()
+    assert (X == np.array([[5, 3, 1], [6, 4, 2], [7, 5, 3], [8, 6, 4], [9, 7, 5]])).all()
