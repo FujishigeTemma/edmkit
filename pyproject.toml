@@ -1,10 +1,10 @@
 [project]
 name = "edmkit"
-version = "0.0.1"
+version = "0.0.0"
 description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"
-requires-python = ">= 3.12"
+requires-python = ">= 3.13"
 dependencies = ["numpy>=2.3.4", "tinygrad>=0.11.0"]
 
 [dependency-groups]
