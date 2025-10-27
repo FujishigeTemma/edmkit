@@ -1,21 +1,7 @@
 import numpy as np
-from edmkit.tensor import Tensor, dtypes
-from edmkit.util import dtw, pad, pairwise_distance, topk
+from tinygrad import Tensor, dtypes
 
-
-def test_topk():
-    x = np.array([6, 4, 2, 1, 5, 3])
-    k = 3
-
-    largest = True
-    indices, values = topk(x, k, largest)
-    assert (indices == np.array([1, 4, 0])).all()
-    assert (values == np.array([4, 5, 6])).all()
-
-    largest = False
-    indices, values = topk(x, k, largest)
-    assert (indices == np.array([3, 2, 5])).all()
-    assert (values == np.array([1, 2, 3])).all()
+from edmkit.util import dtw, pad, pairwise_distance
 
 
 def test_pad():
@@ -95,15 +81,15 @@ def test_pairwise_distance_with_batch_A_and_B():
 
 def test_dtw_identical():
     # DTW distance between identical sequences should be 0
-    A = Tensor([[1.0, 2.0], [3.0, 4.0]], dtype=dtypes.float32)
+    A = np.array([[1.0, 2.0], [3.0, 4.0]])
     distance = dtw(A, A)
     assert np.isclose(distance, 0.0)
 
 
 def test_dtw_single_difference():
     # For single-element sequences, DTW is just the squared difference.
-    A = Tensor([[1.0, 2.0]], dtype=dtypes.float32)
-    B = Tensor([[2.0, 2.0]], dtype=dtypes.float32)
+    A = np.array([[1.0, 2.0]])
+    B = np.array([[2.0, 2.0]])
     # Squared Euclidean distance between [1,2] and [2,2] is (1)^2 + (0)^2 = 1
     distance = dtw(A, B)
     assert np.isclose(distance, 1.0)
@@ -114,8 +100,8 @@ def test_dtw_two_element_sequence():
     # A = [[0.0], [0.0]]
     # B = [[0.0], [1.0]]
     # Optimal alignment accumulates one unit difference.
-    A = Tensor([[0.0], [0.0]], dtype=dtypes.float32)
-    B = Tensor([[0.0], [1.0]], dtype=dtypes.float32)
+    A = np.array([[0.0], [0.0]])
+    B = np.array([[0.0], [1.0]])
     distance = dtw(A, B)
     assert np.isclose(distance, 1.0)
 
@@ -123,18 +109,18 @@ def test_dtw_two_element_sequence():
 def test_dtw_different_lengths():
     # Test DTW on sequences with different lengths.
     # A longer sequence and a shorter sequence.
-    A = Tensor([[0.0], [1.0], [2.0]], dtype=dtypes.float32)
-    B = Tensor([[0.0], [1.5]], dtype=dtypes.float32)
+    A = np.array([[0.0], [1.0], [2.0]])
+    B = np.array([[0.0], [1.5]])
     # Expected DTW distance computed manually:
-    # dp[1,1] = 0.0, dp[2,2] = 0.25, dp[3,2] = 0.25 + min(... ) = 0.5
+    # dp[1,1] = 0.0, dp[2,2] = 0.5, dp[3,2] = 0.5 + min(0.5, 3.0, 1.0) = 1.0
     distance = dtw(A, B)
-    assert np.isclose(distance, 0.5)
+    assert np.isclose(distance, 1.0)
 
 
 def test_dtw_negative_values():
     # Test DTW on sequences with negative values.
-    A = Tensor([[-1.0], [-2.0]], dtype=dtypes.float32)
-    B = Tensor([[-1.0], [-3.0]], dtype=dtypes.float32)
+    A = np.array([[-1.0], [-2.0]])
+    B = np.array([[-1.0], [-3.0]])
     # Pairwise squared differences:
     # [(-1)-(-1)]^2 = 0, [(-1)-(-3)]^2 = 4, [(-2)-(-1)]^2 = 1, [(-2)-(-3)]^2 = 1
     # Optimal path leads to a DTW distance of 1.0.
@@ -144,8 +130,8 @@ def test_dtw_negative_values():
 
 def test_dtw_floating_points():
     # Test DTW with non-integer, floating-point values.
-    A = Tensor([[0.0], [2.5], [5.0]], dtype=dtypes.float32)
-    B = Tensor([[1.0], [3.5], [6.0]], dtype=dtypes.float32)
+    A = np.array([[0.0], [2.5], [5.0]])
+    B = np.array([[1.0], [3.5], [6.0]])
     # Pairwise squared differences:
     # [[1,   12.25, 36],
     #  [2.25, 1,    12.25],
@@ -157,7 +143,7 @@ def test_dtw_floating_points():
 
 def test_dtw_zeros():
     # Test DTW on sequences that are all zeros.
-    A = Tensor([[0.0] for _ in range(5)], dtype=dtypes.float32)
-    B = Tensor([[0.0] for _ in range(3)], dtype=dtypes.float32)
+    A = np.array([[0.0] for _ in range(5)])
+    B = np.array([[0.0] for _ in range(3)])
     distance = dtw(A, B)
     assert np.isclose(distance, 0.0)

@@ -1,6 +1,6 @@
 import numpy as np
-
-from edmkit.tensor import Tensor
+from scipy.spatial.distance import cdist
+from tinygrad import Tensor
 
 
 def pad(As: list[np.ndarray]):
@@ -16,12 +16,14 @@ def pad(As: list[np.ndarray]):
 
     Raises
     ------
-    AssertionError
+    ValueError
         - If any array in `As` is not 2D.
         - If the first dimension of all arrays in `As` are not equal.
     """
-    assert all(A.ndim == 2 for A in As), f"All arrays must be 2D, got {[A.ndim for A in As]}"
-    assert all(A.shape[0] == As[0].shape[0] for A in As), f"All arrays must have the same length, got {[A.shape[0] for A in As]}"
+    if not all(A.ndim == 2 for A in As):
+        raise ValueError(f"All arrays must be 2D, got {[A.ndim for A in As]}")
+    if not all(A.shape[0] == As[0].shape[0] for A in As):
+        raise ValueError(f"All arrays must have the same length, got {[A.shape[0] for A in As]}")
 
     B = len(As)
     L = As[0].shape[0]
@@ -57,12 +59,14 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
 
     Raises
     ------
-    AssertionError
+    ValueError
         - If `A` is not a 2D or 3D tensor.
         - If `B` is not `None` and `A` and `B` have different number of dimensions.
     """
-    assert A.ndim == 2 or A.ndim == 3, f"A must be a 2D or 3D tensor, got A.ndim={A.ndim}"
-    assert B is None or (A.ndim == B.ndim), f"A and B must have the same number of dimensions, got A.ndim={A.ndim}, B.ndim={B.ndim}"
+    if A.ndim != 2 and A.ndim != 3:
+        raise ValueError(f"A must be a 2D or 3D tensor, got A.ndim={A.ndim}")
+    if B is not None and A.ndim != B.ndim:
+        raise ValueError(f"A and B must have the same number of dimensions, got A.ndim={A.ndim}, B.ndim={B.ndim}")
 
     if B is None:
         B = A
@@ -70,12 +74,12 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
     A_sq = A.pow(2).sum(-1, keepdim=True)
     B_sq = B.pow(2).sum(-1, keepdim=True).transpose(-1, -2)
 
-    D = A_sq + B_sq - 2 * A.matmul(B.transpose(-1, -2))
+    D: Tensor = A_sq + B_sq - 2 * A.matmul(B.transpose(-1, -2))  # type: ignore
 
     return D.clamp(min_=0)
 
 
-def dtw(A: Tensor, B: Tensor):
+def dtw(A: np.ndarray, B: np.ndarray):
     """
     Computes the Dynamic Time Warping (DTW) distance between two sequences `x` and `y`.
 
@@ -88,10 +92,10 @@ def dtw(A: Tensor, B: Tensor):
     -------
         distance : float
     """
-    N = A.shape[0]
-    M = B.shape[0]
+    N: int = A.shape[0]
+    M: int = B.shape[0]
 
-    D: np.ndarray = pairwise_distance(A, B).numpy()
+    D = cdist(A, B, metric="euclidean")
 
     dp = np.full((N + 1, M + 1), np.inf)
     dp[0, 0] = 0.0  # left-top corner
@@ -114,46 +118,6 @@ def dtw(A: Tensor, B: Tensor):
         dp[i, j] = D[i - 1, j - 1] + min_prev
 
     return dp[N, M]
-
-
-def topk(x: np.ndarray, k: int, largest=True):
-    """Find the `k` largest or smallest elements in `x`.
-
-    Parameters
-    ----------
-    `x` : `np.ndarray` of shape (N,)
-    `k` : `int`
-    `largest` : `bool`
-
-    Returns
-    -------
-    `indices` : `np.ndarray` of shape `(k,)`
-    `values` : `np.ndarray` of shape `(k,)`
-
-    Raises
-    ------
-    AssertionError
-        - If `x` is not a 1D array.
-        - If `k` is not in the range `(0, len(x)]`.
-
-    Notes
-    -----
-    `values` are sorted in ascending order. (i.e. `values[0]` is the smallest value in `values`)
-    """
-    assert x.ndim == 1, f"x must be a 1D array, got x.ndim={x.ndim}"
-    assert k > 0 and k <= len(x), f"k must satisfy 0 < k <= len(x), got k={k}, len(x)={len(x)}"
-
-    if largest:
-        indices = np.argpartition(-x, k - 1)[:k]
-    else:
-        indices = np.argpartition(x, k - 1)[:k]
-
-    argsort = np.argsort(x[indices], kind="stable")
-
-    indices = indices[argsort]
-    values = x[indices]
-
-    return indices, values
 
 
 def autocorrelation(x: np.ndarray, max_lag: int, step: int = 1):

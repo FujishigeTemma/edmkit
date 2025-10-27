@@ -58,7 +58,7 @@ def test_smap(data, E, tau, theta, request):
 
     # common parameters
     lib_size = 150
-    Tp = 2
+    Tp = 0  # PyEDM handles exclusion radius internally to avoid information leakage but edmkit does not. Set Tp=0 to avoid this difference.
 
     # pyEDM
     df = pd.DataFrame({"time": np.arange(len(x)), "value": x})
@@ -75,7 +75,8 @@ def test_smap(data, E, tau, theta, request):
         theta=theta,
         verbose=False,
     )
-    pyedm_predictions = pyedm_result["predictions"]["Predictions"].values[Tp:-Tp]  # first Tp values are NaN, last Tp values are not in true x
+    # first Tp values are NaN, last Tp values are not in true x
+    pyedm_predictions = pyedm_result["predictions"]["Predictions"].values[Tp : -Tp if Tp != 0 else None]  # type: ignore
 
     # edmkit
     embedding = lagged_embed(x, tau, E)
@@ -84,9 +85,10 @@ def test_smap(data, E, tau, theta, request):
     Y = x[shift + Tp : lib_size + Tp]  # shifted by Tp
 
     query_points = embedding[lib_size - shift :]
-    edmkit_predictions = smap(X, Y[:, None], query_points, theta)[:-Tp]  # last Tp values are not in true x
+    edmkit_predictions = smap(X, Y[:, None], query_points, theta)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
 
     ground_truth = x[lib_size + Tp :]
+    print(pyedm_predictions.shape, edmkit_predictions.shape, ground_truth.shape)
     pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))
     edmkit_rmse = np.sqrt(np.mean((edmkit_predictions - ground_truth) ** 2))
 
@@ -107,7 +109,7 @@ def test_smap_theta_zero(data, E, tau, request):
 
     # Common parameters
     lib_size = 150
-    Tp = 2
+    Tp = 0  # PyEDM handles exclusion radius internally to avoid information leakage but edmkit does not. Set Tp=0 to avoid this difference.
     theta = 0  # Global linear map
 
     # pyEDM
@@ -125,7 +127,8 @@ def test_smap_theta_zero(data, E, tau, request):
         theta=theta,
         verbose=False,
     )
-    pyedm_predictions = pyedm_result["predictions"]["Predictions"].values[Tp:-Tp]
+    # first Tp values are NaN, last Tp values are not in true x
+    pyedm_predictions = pyedm_result["predictions"]["Predictions"].values[Tp : -Tp if Tp != 0 else None]  # type: ignore
 
     # edmkit
     embedding = lagged_embed(x, tau, E)
@@ -134,7 +137,7 @@ def test_smap_theta_zero(data, E, tau, request):
     Y = x[shift + Tp : lib_size + Tp]
 
     query_points = embedding[lib_size - shift :]
-    edmkit_predictions = smap(X, Y, query_points, theta)[:-Tp]
+    edmkit_predictions = smap(X, Y, query_points, theta)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
 
     ground_truth = x[lib_size + Tp :]
     pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))

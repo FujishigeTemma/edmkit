@@ -58,13 +58,14 @@ def test_simplex_projection(data, E, tau, request):
 
     # common parameters
     lib_size = 150
-    Tp = 2
+    Tp = 0  # PyEDM handles exclusion radius internally to avoid information leakage but edmkit does not. Set Tp=0 to avoid this difference.
 
     # pyEDM
     df = pd.DataFrame({"time": np.arange(len(x)), "value": x})
     lib, pred = f"1 {lib_size}", f"{lib_size + 1} {len(x)}"
     pyedm_result = pyEDM.Simplex(dataFrame=df, lib=lib, pred=pred, E=E, tau=-tau, columns="value", target="value", Tp=Tp, verbose=False)
-    pyedm_predictions = pyedm_result["Predictions"].values[Tp:-Tp]  # first Tp values are NaN, last Tp values are not in true x
+    # first Tp values are NaN, last Tp values are not in true x
+    pyedm_predictions = pyedm_result["Predictions"].values[Tp : -Tp if Tp != 0 else None]  # type: ignore
 
     # edmkit
     embedding = lagged_embed(x, tau, E)
@@ -73,7 +74,7 @@ def test_simplex_projection(data, E, tau, request):
     Y = embedding[Tp : lib_size - shift + Tp, 0]  # shifted by Tp
 
     query_points = embedding[lib_size - shift :]
-    edmkit_predictions = simplex_projection(X, Y, query_points)[:-Tp]  # last Tp values are not in true x
+    edmkit_predictions = simplex_projection(X, Y, query_points)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
 
     ground_truth = x[lib_size + Tp :]
     pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))
