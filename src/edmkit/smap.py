@@ -7,9 +7,9 @@ def smap(
     Y: np.ndarray,
     query_points: np.ndarray,
     theta: float,
-    rcond: float = 1e-10,
+    alpha: float = 1e-10,
     use_tensor: bool = False,
-):
+) -> np.ndarray:
     """
     Perform S-Map (local linear regression) from `X` to `Y`.
 
@@ -23,9 +23,8 @@ def smap(
         The query points for which to make predictions.
     `theta` : `float`
         Locality parameter. (0: global linear, >0: local linear)
-    `rcond` : `float`, optional
-        Cutoff for small singular values (relative to the largest singular value).
-        Default is 1e-10.
+    `alpha` : `float`, default `1e-10`
+        Regularization parameter to stabilize the inversion.
     `use_tensor` : `bool`, default `False`
         Whether to use `tinygrad.Tensor` for computation.
         **This may be slower than the NumPy implementation in most cases for now.**
@@ -39,8 +38,9 @@ def smap(
     ------
     ValueError
         - If the input arrays `X` and `Y` do not have the same number of points.
+        - If `theta` is negative.
     """
-    return _numpy(X, Y, query_points, theta, rcond) if not use_tensor else _tensor(X, Y, query_points, theta, rcond)
+    return _numpy(X, Y, query_points, theta, alpha) if not use_tensor else _tensor(X, Y, query_points, theta, alpha)
 
 
 def _numpy(
@@ -48,7 +48,7 @@ def _numpy(
     Y: np.ndarray,
     query_points: np.ndarray,
     theta: float,
-    rcond: float = 1e-10,
+    alpha: float = 1e-10,
 ):
     """
     Perform S-Map (local linear regression) from `X` to `Y`.
@@ -63,9 +63,8 @@ def _numpy(
         The query points for which to make predictions.
     `theta` : `float`
         Locality parameter. (0: global linear, >0: local linear)
-    `rcond` : `float`, optional
-        Cutoff for small singular values (relative to the largest singular value).
-        Default is 1e-10.
+    `alpha` : `float`, default `1e-10`
+        Regularization parameter to stabilize the inversion.
 
     Returns
     -------
@@ -76,9 +75,12 @@ def _numpy(
     ------
     ValueError
         - If the input arrays `X` and `Y` do not have the same number of points.
+        - If `theta` is negative.
     """
     if X.shape[0] != Y.shape[0]:
         raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
+    if theta < 0:
+        raise ValueError(f"theta must be non-negative, got theta={theta}")
 
     X = X.reshape(X.shape[0], -1)
     Y = Y.reshape(Y.shape[0], -1)
@@ -106,11 +108,12 @@ def _numpy(
 
     # Tikhonov regularization
     eye = np.eye(XTX.shape[1])
-    reg_term = rcond * np.trace(XTX, axis1=1, axis2=2)[:, np.newaxis, np.newaxis] * eye
-    XTX_reg = XTX + reg_term
+    eye[0, 0] = 0  # Do not regularize intercept term
+    trace = np.maximum(np.trace(XTX, axis1=1, axis2=2), 1e-12)
+    reg_term = (alpha * trace)[:, None, None] * eye
+    XTX = XTX + reg_term
 
-    # Solve linear system in batch
-    C = np.linalg.solve(XTX_reg, XTY)  # (N_pred, E+1, E')
+    C = np.linalg.solve(XTX, XTY)  # (N_pred, E+1, E')
 
     predictions = np.einsum("pi,pij->pj", query_points_aug, C)
 
@@ -125,7 +128,7 @@ def _tensor(
     Y: np.ndarray,
     query_points: np.ndarray,
     theta: float,
-    rcond: float = 1e-10,
+    alpha: float = 1e-10,
 ):
     """
     Perform S-Map (local linear regression) from `X` to `Y`.
@@ -140,9 +143,8 @@ def _tensor(
         The query points for which to make predictions.
     `theta` : `float`
         Locality parameter. (0: global linear, >0: local linear)
-    `rcond` : `float`, optional
-        Cutoff for small singular values (relative to the largest singular value).
-        Default is 1e-10.
+    `alpha` : `float`, default `1e-10`
+        Regularization parameter to stabilize the inversion.
 
     Returns
     -------
@@ -153,8 +155,11 @@ def _tensor(
     ------
     ValueError
         - If the input arrays `X` and `Y` do not have the same number of points.
+        - If `theta` is negative.
     """
     if X.shape[0] != Y.shape[0]:
         raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
+    if theta < 0:
+        raise ValueError(f"theta must be non-negative, got theta={theta}")
 
-    raise NotImplementedError("S-Map with tinygrad.Tensor is not implemented yet.")
+    raise NotImplementedError("Tensor-based S-Map is not implemented yet.")

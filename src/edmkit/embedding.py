@@ -16,7 +16,7 @@ def lagged_embed(x: np.ndarray, tau: int, e: int):
 
     Raises
     ------
-    AssertionError
+    ValueError
         - If `x` is not a 1D array.
         - If `tau` or `e` is not positive.
         - If `e * tau >= len(x)`.
@@ -49,8 +49,11 @@ def lagged_embed(x: np.ndarray, tau: int, e: int):
     # (6, 3)
     ```
     """
-    assert len(x.shape) == 1, f"X must be a 1D array, got x.shape={x.shape}"
-    assert tau > 0 and e > 0, f"tau and e must be positive, got tau={tau}, e={e}"
-    assert (e - 1) * tau <= x.shape[0], f"e and tau must satisfy `(e - 1) * tau < len(X)`, got e={e}, tau={tau}"
+    if not len(x.shape) == 1:
+        raise ValueError(f"X must be a 1D array, got x.shape={x.shape}")
+    if tau <= 0 or e <= 0:
+        raise ValueError(f"tau and e must be positive, got tau={tau}, e={e}")
+    if (e - 1) * tau >= x.shape[0]:
+        raise ValueError(f"e and tau must satisfy `(e - 1) * tau < len(X)`, got e={e}, tau={tau}")
 
     return np.array([x[tau * (e - 1) :]] + [x[tau * i : -tau * ((e - 1) - i)] for i in reversed(range(e - 1))]).transpose()
