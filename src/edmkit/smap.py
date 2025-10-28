@@ -56,11 +56,12 @@ def _numpy(
     Parameters
     ----------
     `X` : `np.ndarray`
-        The input data
+        (N,) or (N, E)
     `Y` : `np.ndarray`
-        The target data
+        (N,) or (N, E')
     `query_points` : `np.ndarray`
         The query points for which to make predictions.
+        (M,) or (M, E)
     `theta` : `float`
         Locality parameter. (0: global linear, >0: local linear)
     `alpha` : `float`, default `1e-10`
@@ -70,6 +71,7 @@ def _numpy(
     -------
     predictions : `np.ndarray`
         The predicted values based on the weighted linear regression.
+        (M, E')
 
     Raises
     ------

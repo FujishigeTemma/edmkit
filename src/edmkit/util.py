@@ -79,6 +79,49 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
     return D.clamp(min_=0)
 
 
+def pairwise_distance_np(A: np.ndarray, B: np.ndarray | None = None) -> np.ndarray:
+    """Compute the pairwise squared Euclidean distance between points in `A` (or between points in `A` and `B`).
+
+    Parameters
+    ----------
+    `A` : `np.ndarray` of shape `(L, D)` or `(B, L, D)`
+        - `B`: batch size
+        - `L`: number of points
+        - `D`: dimension of each point
+    `B` : `np.ndarray` of shape `(L', D)` or `(B, L', D)`
+        - `B`: batch size
+        - `L'`: number of points
+        - `D`: dimension of each point
+
+    Returns
+    -------
+    When `A` is of shape `(L, D)`:
+        `np.ndarray` of shape `(L, L)` [or `(L, L')`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
+    When `A` is of shape `(B, L, D)`:
+        `np.ndarray` of shape `(B, L, L)` [or `(B, L, L')`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
+
+    Raises
+    ------
+    ValueError
+        - If `A` is not a 2D or 3D array.
+        - If `B` is not `None` and `A` and `B` have different number of dimensions.
+    """
+    if A.ndim != 2 and A.ndim != 3:
+        raise ValueError(f"A must be a 2D or 3D array, got A.ndim={A.ndim}")
+    if B is not None and A.ndim != B.ndim:
+        raise ValueError(f"A and B must have the same number of dimensions, got A.ndim={A.ndim}, B.ndim={B.ndim}")
+
+    if B is None:
+        B = A
+
+    A_sq = np.sum(A**2, axis=-1, keepdims=True)
+    B_sq = np.sum(B**2, axis=-1, keepdims=True).swapaxes(-1, -2)
+
+    D: np.ndarray = A_sq + B_sq - 2 * np.matmul(A, B.swapaxes(-1, -2))
+
+    return np.clip(D, a_min=0, a_max=None)
+
+
 def dtw(A: np.ndarray, B: np.ndarray):
     """
     Computes the Dynamic Time Warping (DTW) distance between two sequences `x` and `y`.

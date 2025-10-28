@@ -80,4 +80,49 @@ def test_simplex_projection(data, E, tau, request):
     pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))
     edmkit_rmse = np.sqrt(np.mean((edmkit_predictions - ground_truth) ** 2))
 
-    assert np.abs(pyedm_rmse - edmkit_rmse) < 1e-6, f"RMSE: pyEDM {pyedm_rmse}, edmkit {edmkit_rmse}, diff {np.abs(pyedm_rmse - edmkit_rmse)}"
+    assert np.abs(pyedm_rmse - edmkit_rmse) < 1e-16, f"RMSE: pyEDM {pyedm_rmse}, edmkit {edmkit_rmse}, diff {np.abs(pyedm_rmse - edmkit_rmse)}"
+
+
+@pytest.mark.parametrize(
+    "data,E,tau,B",
+    [
+        ("logistic_map", 3, 2, 3),
+        ("lorenz", 3, 1, 3),
+        ("mackey_glass", 4, 2, 3),
+    ],
+)
+def test_simplex_projection_batch_vs_individual(data, E, tau, B, request):
+    x = request.getfixturevalue(data)
+
+    # common parameters
+    lib_size = 150
+    Tp = 2
+
+    # Prepare embedding
+    embedding = lagged_embed(x, tau, E)
+    shift = tau * (E - 1)  # Start offset for embedding
+
+    # Training (reference) and query intervals
+    X_2d = embedding[: lib_size - shift]  # (N, E)
+    Y_2d = embedding[Tp : lib_size - shift + Tp, 0]  # (N,)
+    query_2d = embedding[lib_size - shift :]  # (M, E)
+
+    # ---- Individual (2D) predictions over B iterations ----
+    indiv_preds = []
+    for _ in range(B):
+        pred = simplex_projection(X_2d, Y_2d, query_2d)  # (M,)
+        indiv_preds.append(pred)
+    indiv_preds = np.stack(indiv_preds, axis=0)  # (B, M)
+
+    # ---- Batch (3D) predictions ----
+    X_3d = np.tile(X_2d[None, ...], (B, 1, 1))  # (B, N, E)
+    Y_3d = np.tile(Y_2d[:, None][None, ...], (B, 1, 1))  # (B, N, 1)
+    query_3d = np.tile(query_2d[None, ...], (B, 1, 1))  # (B, M, E)
+
+    batch_preds = simplex_projection(X_3d, Y_3d, query_3d)  # (B, M, 1)
+
+    batch_preds = batch_preds.squeeze(-1)  # (B, M)
+
+    assert np.allclose(batch_preds, indiv_preds, atol=1e-16), (
+        f"batch vs individual mismatch: max_abs_diff={np.max(np.abs(batch_preds - indiv_preds))}"
+    )

@@ -1,6 +1,5 @@
 """Convergent Cross Mapping (CCM) for causality detection in time series."""
 
-import time
 from collections.abc import Callable
 from functools import partial
 
@@ -26,12 +25,13 @@ def ccm(
     Y: np.ndarray,
     lib_sizes: np.ndarray,
     predict_func: PredictFunc,
-    n_samples: int = 100,
+    n_samples: int = 20,
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
     sampler: Sampler = default_sampler,
     aggregator: Aggregator = np.mean,
+    batch_size: int | None = 10,
 ) -> np.ndarray:
     """
     Perform Convergent Cross Mapping using a custom prediction function.
@@ -62,6 +62,9 @@ def ccm(
         It receives `(pool, size)` and returns an array of indices.
     aggregator : :type: `Aggregator`, default `np.mean`
         Reducer applied to the correlation samples for each library size.
+    batch_size : int | None, default None
+        If not specified, batch_size == n_samples.
+        If specified, predictions are made in batches to limit memory usage.
     Returns
     -------
     correlations : np.ndarray
@@ -143,35 +146,69 @@ def ccm(
     if aggregator is None or not callable(aggregator):
         raise ValueError("aggregator must be a callable")
 
+    if batch_size is None:
+        batch_size = n_samples
+    else:
+        batch_size = min(batch_size, n_samples)
+
     correlations = np.zeros(len(lib_sizes))
 
     for i, lib_size in enumerate(lib_sizes):
         samples = np.zeros(n_samples)
-        times = np.zeros(n_samples)
 
-        for j in range(n_samples):
-            library_indices = sampler(library_pool, lib_size)
+        remaining = n_samples
+        while remaining > 0:
+            batch = min(batch_size, remaining)
+
+            library_indices = np.vstack([sampler(library_pool, lib_size) for _ in range(batch)])  # (batch, lib_size)
+            prediction_indices = np.tile(prediction_pool, (batch, 1))  # (batch, len(prediction_pool))
 
             lib_X = X[library_indices]
+            lib_X = lib_X.reshape(lib_X.shape[0], lib_X.shape[1], -1)  # if (N,) or (N, 1) then (batch, lib_size) not (batch, lib_size, 1), so reshape
             lib_Y = Y[library_indices]
-            query_points = X[prediction_pool]
+            lib_Y = lib_Y.reshape(lib_Y.shape[0], lib_Y.shape[1], -1)  # if (N,) or (N, 1) then (batch, lib_size) not (batch, lib_size, 1), so reshape
+            query_points = X[prediction_indices]
 
-            start = time.perf_counter()
             predictions = predict_func(lib_X, lib_Y, query_points)
-            times[j] = time.perf_counter() - start
-            actual = Y[prediction_pool]
+            actual = Y[prediction_indices]
 
-            corr = np.corrcoef(actual, predictions)[0, 1]
-            if not np.isnan(corr):
-                samples[j] = corr
-            else:
-                raise ValueError("Correlation computation resulted in NaN; check input data and prediction function.")
+            correlations = pearson_correlation(predictions, actual)
+
+            samples[n_samples - remaining : n_samples - remaining + batch] = correlations
+            remaining -= batch
 
         correlations[i] = aggregator(samples)
-        print(f"avg time for lib_size {lib_size}: {np.mean(times):.6f} s")
-        print(f"total time for lib_size {lib_size}: {np.sum(times):.6f} s")
 
     return correlations
+
+
+def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """
+    Compute vectorized Pearson correlation between X and Y.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        1D or 2D array of shape (L,) or (B, L)
+    Y : np.ndarray
+        1D or 2D array of shape (L,) or (B, L)
+
+    Returns
+    -------
+    correlation : np.ndarray
+        Pearson correlation coefficient(s) between X and Y. Shape (B,) if inputs are 2D, else scalar.
+    """
+    X = np.expand_dims(X, axis=-1) if X.ndim == 2 else X
+    Y = np.expand_dims(Y, axis=-1) if Y.ndim == 2 else Y
+
+    mean_X = X.mean(axis=1, keepdims=True)
+    mean_Y = Y.mean(axis=1, keepdims=True)
+    cov = ((X - mean_X) * (Y - mean_Y)).mean(axis=1)
+    std_X = X.std(axis=1, keepdims=True)
+    std_Y = Y.std(axis=1, keepdims=True)
+    correlation = (cov / (std_X * std_Y)).mean(axis=1)
+
+    return correlation.squeeze()
 
 
 def with_simplex_projection(
