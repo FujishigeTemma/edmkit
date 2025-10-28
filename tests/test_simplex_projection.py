@@ -45,14 +45,17 @@ def mackey_glass(n: int = 200):
 
 
 @pytest.mark.parametrize(
-    "data,E,tau",
+    "data,E,tau,use_tensor",
     [
-        ("logistic_map", 3, 2),
-        ("lorenz", 3, 1),
-        ("mackey_glass", 4, 2),
+        ("logistic_map", 3, 2, False),
+        ("logistic_map", 3, 2, True),
+        ("lorenz", 3, 1, False),
+        ("lorenz", 3, 1, True),
+        ("mackey_glass", 4, 2, False),
+        ("mackey_glass", 4, 2, True),
     ],
 )
-def test_simplex_projection(data, E, tau, request):
+def test_simplex_projection(data, E, tau, use_tensor, request):
     """Test simplex projection against pyEDM with various time series data."""
     x = request.getfixturevalue(data)
 
@@ -74,24 +77,29 @@ def test_simplex_projection(data, E, tau, request):
     Y = embedding[Tp : lib_size - shift + Tp, 0]  # shifted by Tp
 
     query_points = embedding[lib_size - shift :]
-    edmkit_predictions = simplex_projection(X, Y, query_points)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
+    edmkit_predictions = simplex_projection(X, Y, query_points, use_tensor=use_tensor)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
 
     ground_truth = x[lib_size + Tp :]
     pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))
     edmkit_rmse = np.sqrt(np.mean((edmkit_predictions - ground_truth) ** 2))
 
-    assert np.abs(pyedm_rmse - edmkit_rmse) < 1e-16, f"RMSE: pyEDM {pyedm_rmse}, edmkit {edmkit_rmse}, diff {np.abs(pyedm_rmse - edmkit_rmse)}"
+    assert np.abs(pyedm_rmse - edmkit_rmse) < 1e-16 if not use_tensor else 1e-6, (
+        f"RMSE: pyEDM {pyedm_rmse}, edmkit {edmkit_rmse}, diff {np.abs(pyedm_rmse - edmkit_rmse)}"
+    )
 
 
 @pytest.mark.parametrize(
-    "data,E,tau,B",
+    "data,E,tau,B,use_tensor",
     [
-        ("logistic_map", 3, 2, 3),
-        ("lorenz", 3, 1, 3),
-        ("mackey_glass", 4, 2, 3),
+        ("logistic_map", 3, 2, 3, False),
+        ("logistic_map", 3, 2, 3, True),
+        ("lorenz", 3, 1, 3, False),
+        ("lorenz", 3, 1, 3, True),
+        ("mackey_glass", 4, 2, 3, False),
+        ("mackey_glass", 4, 2, 3, True),
     ],
 )
-def test_simplex_projection_batch_vs_individual(data, E, tau, B, request):
+def test_simplex_projection_batch_vs_individual(data, E, tau, B, use_tensor, request):
     x = request.getfixturevalue(data)
 
     # common parameters
@@ -110,7 +118,7 @@ def test_simplex_projection_batch_vs_individual(data, E, tau, B, request):
     # ---- Individual (2D) predictions over B iterations ----
     indiv_preds = []
     for _ in range(B):
-        pred = simplex_projection(X_2d, Y_2d, query_2d)  # (M,)
+        pred = simplex_projection(X_2d, Y_2d, query_2d, use_tensor=use_tensor)  # (M,)
         indiv_preds.append(pred)
     indiv_preds = np.stack(indiv_preds, axis=0)  # (B, M)
 
@@ -119,7 +127,7 @@ def test_simplex_projection_batch_vs_individual(data, E, tau, B, request):
     Y_3d = np.tile(Y_2d[:, None][None, ...], (B, 1, 1))  # (B, N, 1)
     query_3d = np.tile(query_2d[None, ...], (B, 1, 1))  # (B, M, E)
 
-    batch_preds = simplex_projection(X_3d, Y_3d, query_3d)  # (B, M, 1)
+    batch_preds = simplex_projection(X_3d, Y_3d, query_3d, use_tensor=use_tensor)  # (B, M, 1)
 
     batch_preds = batch_preds.squeeze(-1)  # (B, M)
 
