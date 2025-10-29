@@ -155,7 +155,6 @@ def ccm(
 
     for i, lib_size in enumerate(lib_sizes):
         samples = np.zeros(n_samples)
-
         remaining = n_samples
         while remaining > 0:
             batch = min(batch_size, remaining)
@@ -172,9 +171,7 @@ def ccm(
             predictions = predict_func(lib_X, lib_Y, query_points)
             actual = Y[prediction_indices]
 
-            correlations = pearson_correlation(predictions, actual)
-
-            samples[n_samples - remaining : n_samples - remaining + batch] = correlations
+            samples[n_samples - remaining : n_samples - remaining + batch] = pearson_correlation(predictions, actual)
             remaining -= batch
 
         correlations[i] = aggregator(samples)
