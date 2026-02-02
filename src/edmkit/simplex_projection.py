@@ -35,6 +35,40 @@ def simplex_projection(
     ------
     ValueError
         - If the input arrays `X` and `Y` do not have the same number of points.
+
+    Examples
+    --------
+    ```python
+    import numpy as np
+
+    from edmkit.embedding import lagged_embed
+    from edmkit.simplex_projection import simplex_projection
+
+    # Generate a simple time series (logistic map)
+    N = 300
+    x = np.zeros(N)
+    x[0] = 0.4
+    for i in range(1, N):
+        x[i] = 3.9 * x[i - 1] * (1 - x[i - 1])
+
+    tau = 2
+    E = 3
+
+    embedding = lagged_embed(x, tau=tau, e=E)
+    shift = tau * (E - 1)
+
+    lib_size = 200
+    Tp = 1
+    X = embedding[:lib_size - shift]
+    Y = x[shift + Tp : lib_size + Tp]
+    query_points = embedding[lib_size - shift : -Tp]
+    actual = x[lib_size + Tp :]
+
+    predictions = simplex_projection(X, Y, query_points)
+
+    correlation = np.corrcoef(predictions, actual)[0, 1]
+    print(f"Correlation: {correlation:.3f}")
+    ```
     """
     return _numpy(X, Y, query_points) if not use_tensor else _tensor(X, Y, query_points)
 

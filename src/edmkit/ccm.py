@@ -96,16 +96,20 @@ def ccm(
     from edmkit.ccm import ccm, simplex_projection, smap
     from edmkit.embedding import lagged_embed
 
-    # Generate coupled data
-    X = np.random.randn(500)
-    Y = np.zeros(500)
-    Y[0] = np.random.randn()
-    for i in range(1, 500):
-        Y[i] = 0.7 * Y[i - 1] + 0.3 * X[i - 1] + 0.1 * np.random.randn()
+    # Generate coupled logistic maps (X drives Y)
+    N = 1000
+    rx, ry, Bxy = 3.8, 3.5, 0.02
+    X = np.zeros(N)
+    Y = np.zeros(N)
+    X[0], Y[0] = 0.4, 0.2
+    for i in range(1, N):
+        X[i] = X[i - 1] * (rx - rx * X[i - 1])
+        Y[i] = Y[i - 1] * (ry - ry * Y[i - 1]) + Bxy * X[i - 1]
 
     tau = 1
-    E = 3
+    E = 2
 
+    # To test X -> Y causality, cross-map from Y's attractor to X
     Y_embedding = lagged_embed(Y, tau=tau, e=E)
     shift = tau * (E - 1)
     X_aligned = X[shift:]
@@ -114,7 +118,7 @@ def ccm(
     prediction_pool = np.arange(Y_embedding.shape[0] // 2, Y_embedding.shape[0])
 
     # logarithmic within range 10 to max library size
-    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=4, dtype=int)
+    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=5, dtype=int)
 
     # Using simplex projection
     correlations = ccm(
@@ -151,6 +155,19 @@ def ccm(
     else:
         batch_size = min(batch_size, n_samples)
 
+    # Ensure X, Y are at least 2D so that indexing with (batch, lib_size)
+    # indices always produces 3D results, eliminating per-iteration reshapes.
+    if X.ndim == 1:
+        X = X[:, None]
+    if Y.ndim == 1:
+        Y = Y[:, None]
+
+    # Precompute loop-invariant quantities for the max batch size.
+    # Smaller remainder batches simply slice into [:batch].
+    prediction_indices = np.tile(prediction_pool, (batch_size, 1))
+    query_points = X[prediction_indices]
+    actual = Y[prediction_indices]
+
     correlations = np.zeros(len(lib_sizes))
 
     for i, lib_size in enumerate(lib_sizes):
@@ -159,19 +176,14 @@ def ccm(
         while remaining > 0:
             batch = min(batch_size, remaining)
 
-            library_indices = np.vstack([sampler(library_pool, lib_size) for _ in range(batch)])  # (batch, lib_size)
-            prediction_indices = np.tile(prediction_pool, (batch, 1))  # (batch, len(prediction_pool))
+            library_indices = np.vstack([sampler(library_pool, lib_size) for _ in range(batch)])
 
             lib_X = X[library_indices]
-            lib_X = lib_X.reshape(lib_X.shape[0], lib_X.shape[1], -1)  # if (N,) or (N, 1) then (batch, lib_size) not (batch, lib_size, 1), so reshape
             lib_Y = Y[library_indices]
-            lib_Y = lib_Y.reshape(lib_Y.shape[0], lib_Y.shape[1], -1)  # if (N,) or (N, 1) then (batch, lib_size) not (batch, lib_size, 1), so reshape
-            query_points = X[prediction_indices]
 
-            predictions = predict_func(lib_X, lib_Y, query_points)
-            actual = Y[prediction_indices]
+            predictions = predict_func(lib_X, lib_Y, query_points[:batch])
 
-            samples[n_samples - remaining : n_samples - remaining + batch] = pearson_correlation(predictions, actual)
+            samples[n_samples - remaining : n_samples - remaining + batch] = pearson_correlation(predictions, actual[:batch])
             remaining -= batch
 
         correlations[i] = aggregator(samples)
@@ -201,9 +213,9 @@ def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
     mean_X = X.mean(axis=1, keepdims=True)
     mean_Y = Y.mean(axis=1, keepdims=True)
     cov = ((X - mean_X) * (Y - mean_Y)).mean(axis=1)
-    std_X = X.std(axis=1, keepdims=True)
-    std_Y = Y.std(axis=1, keepdims=True)
-    correlation = (cov / (std_X * std_Y)).mean(axis=1)
+    std_X = X.std(axis=1)
+    std_Y = Y.std(axis=1)
+    correlation = (cov / (std_X * std_Y)).mean(axis=-1)
 
     return correlation.squeeze()
 
@@ -266,16 +278,20 @@ def with_simplex_projection(
     from edmkit import ccm
     from edmkit.embedding import lagged_embed
 
-    # Generate coupled data
-    X = np.random.randn(500)
-    Y = np.zeros(500)
-    Y[0] = np.random.randn()
-    for i in range(1, 500):
-        Y[i] = 0.7 * Y[i - 1] + 0.3 * X[i - 1] + 0.1 * np.random.randn()
+    # Generate coupled logistic maps (X drives Y)
+    N = 1000
+    rx, ry, Bxy = 3.8, 3.5, 0.02
+    X = np.zeros(N)
+    Y = np.zeros(N)
+    X[0], Y[0] = 0.4, 0.2
+    for i in range(1, N):
+        X[i] = X[i - 1] * (rx - rx * X[i - 1])
+        Y[i] = Y[i - 1] * (ry - ry * Y[i - 1]) + Bxy * X[i - 1]
 
     tau = 1
-    E = 3
+    E = 2
 
+    # To test X -> Y causality, cross-map from Y's attractor to X
     Y_embedding = lagged_embed(Y, tau=tau, e=E)
     shift = tau * (E - 1)
     X_aligned = X[shift:]
@@ -284,11 +300,11 @@ def with_simplex_projection(
     prediction_pool = np.arange(Y_embedding.shape[0] // 2, Y_embedding.shape[0])
 
     # logarithmic within range 10 to max library size
-    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=4, dtype=int)
+    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=5, dtype=int)
 
     correlations = ccm.with_simplex_projection(
-        X,
-        Y,
+        Y_embedding,
+        X_aligned,
         lib_sizes=lib_sizes,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
@@ -374,16 +390,20 @@ def with_smap(
     from edmkit import ccm
     from edmkit.embedding import lagged_embed
 
-    # Generate coupled data
-    X = np.random.randn(500)
-    Y = np.zeros(500)
-    Y[0] = np.random.randn()
-    for i in range(1, 500):
-        Y[i] = 0.7 * Y[i - 1] + 0.3 * X[i - 1] + 0.1 * np.random.randn()
+    # Generate coupled logistic maps (X drives Y)
+    N = 1000
+    rx, ry, Bxy = 3.8, 3.5, 0.02
+    X = np.zeros(N)
+    Y = np.zeros(N)
+    X[0], Y[0] = 0.4, 0.2
+    for i in range(1, N):
+        X[i] = X[i - 1] * (rx - rx * X[i - 1])
+        Y[i] = Y[i - 1] * (ry - ry * Y[i - 1]) + Bxy * X[i - 1]
 
     tau = 1
-    E = 3
+    E = 2
 
+    # To test X -> Y causality, cross-map from Y's attractor to X
     Y_embedding = lagged_embed(Y, tau=tau, e=E)
     shift = tau * (E - 1)
     X_aligned = X[shift:]
@@ -392,13 +412,13 @@ def with_smap(
     prediction_pool = np.arange(Y_embedding.shape[0] // 2, Y_embedding.shape[0])
 
     # logarithmic within range 10 to max library size
-    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=4, dtype=int)
+    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=5, dtype=int)
 
     correlations = ccm.with_smap(
-        X,
-        Y,
+        Y_embedding,
+        X_aligned,
         lib_sizes=lib_sizes,
-        theta=1.0,
+        theta=2.0,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
     )
