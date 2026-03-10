@@ -20,6 +20,92 @@ Sampler = Callable[[np.ndarray, int], np.ndarray]
 Aggregator = Callable[[np.ndarray], float]
 
 
+def bootstrap(
+    X: np.ndarray,
+    Y: np.ndarray,
+    lib_sizes: np.ndarray,
+    predict_func: PredictFunc,
+    n_samples: int = 20,
+    *,
+    library_pool: np.ndarray,
+    prediction_pool: np.ndarray,
+    sampler: Sampler = default_sampler,
+    batch_size: int | None = 10,
+) -> np.ndarray:
+    """
+    Perform Convergent Cross Mapping and return per-sample correlations.
+
+    Same as :func:`ccm` but returns the raw per-sample scores instead of
+    aggregating them.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Library time series (potential response)
+    Y : np.ndarray
+        Target time series (potential driver)
+    lib_sizes : np.ndarray
+        Array of library sizes to test convergence.
+    predict_func : :type: `PredictFunc`
+        Prediction function with signature (lib_X, lib_Y, pred_X) -> predictions.
+    n_samples : int, default 20
+        Number of random samples per library size for bootstrapping.
+    library_pool : np.ndarray
+        1-D array of integer indices from which library members are sampled.
+    prediction_pool : np.ndarray
+        1-D array of integer indices that are predicted.
+    sampler : :type: `Sampler`, default `default_sampler`
+        Function responsible for drawing a library sample of a given size.
+    batch_size : int | None, default 10
+        If specified, predictions are made in batches to limit memory usage.
+
+    Returns
+    -------
+    samples : np.ndarray of shape (n_samples, len(lib_sizes))
+        Per-sample correlation coefficients.
+    """
+    if X.shape[0] != Y.shape[0]:
+        raise ValueError(f"X and Y must have same length, got {X.shape[0]} and {Y.shape[0]}")
+    if not callable(predict_func):
+        raise ValueError(f"predict_func must be callable, got {type(predict_func)}")
+    if n_samples <= 0:
+        raise ValueError(f"n_samples must be positive, got {n_samples}")
+
+    if batch_size is None:
+        batch_size = n_samples
+    else:
+        batch_size = min(batch_size, n_samples)
+
+    if X.ndim == 1:
+        X = X[:, None]
+    if Y.ndim == 1:
+        Y = Y[:, None]
+
+    prediction_indices = np.tile(prediction_pool, (batch_size, 1))
+    query_points = X[prediction_indices]
+    actual = Y[prediction_indices]
+
+    samples = np.zeros((n_samples, len(lib_sizes)))
+
+    for i, lib_size in enumerate(lib_sizes):
+        remaining = n_samples
+        while remaining > 0:
+            batch = min(batch_size, remaining)
+
+            library_indices = np.vstack([sampler(library_pool, lib_size) for _ in range(batch)])
+
+            lib_X = X[library_indices]
+            lib_Y = Y[library_indices]
+
+            predictions = predict_func(lib_X, lib_Y, query_points[:batch])
+
+            offset = n_samples - remaining
+            samples[offset : offset + batch, i] = pearson_correlation(predictions, actual[:batch])
+            remaining -= batch
+
+    return samples
+
+
 def ccm(
     X: np.ndarray,
     Y: np.ndarray,
@@ -141,54 +227,22 @@ def ccm(
     )
     ```
     """
-    if X.shape[0] != Y.shape[0]:
-        raise ValueError(f"X and Y must have same length, got {X.shape[0]} and {Y.shape[0]}")
-    if not callable(predict_func):
-        raise ValueError(f"predict_func must be callable, got {type(predict_func)}")
-    if n_samples <= 0:
-        raise ValueError(f"n_samples must be positive, got {n_samples}")
     if aggregator is None or not callable(aggregator):
         raise ValueError("aggregator must be a callable")
 
-    if batch_size is None:
-        batch_size = n_samples
-    else:
-        batch_size = min(batch_size, n_samples)
+    samples = bootstrap(
+        X,
+        Y,
+        lib_sizes,
+        predict_func,
+        n_samples,
+        library_pool=library_pool,
+        prediction_pool=prediction_pool,
+        sampler=sampler,
+        batch_size=batch_size,
+    )
 
-    # Ensure X, Y are at least 2D so that indexing with (batch, lib_size)
-    # indices always produces 3D results, eliminating per-iteration reshapes.
-    if X.ndim == 1:
-        X = X[:, None]
-    if Y.ndim == 1:
-        Y = Y[:, None]
-
-    # Precompute loop-invariant quantities for the max batch size.
-    # Smaller remainder batches simply slice into [:batch].
-    prediction_indices = np.tile(prediction_pool, (batch_size, 1))
-    query_points = X[prediction_indices]
-    actual = Y[prediction_indices]
-
-    correlations = np.zeros(len(lib_sizes))
-
-    for i, lib_size in enumerate(lib_sizes):
-        samples = np.zeros(n_samples)
-        remaining = n_samples
-        while remaining > 0:
-            batch = min(batch_size, remaining)
-
-            library_indices = np.vstack([sampler(library_pool, lib_size) for _ in range(batch)])
-
-            lib_X = X[library_indices]
-            lib_Y = Y[library_indices]
-
-            predictions = predict_func(lib_X, lib_Y, query_points[:batch])
-
-            samples[n_samples - remaining : n_samples - remaining + batch] = pearson_correlation(predictions, actual[:batch])
-            remaining -= batch
-
-        correlations[i] = aggregator(samples)
-
-    return correlations
+    return np.array([aggregator(samples[:, i]) for i in range(samples.shape[1])])
 
 
 def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:

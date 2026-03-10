@@ -1,8 +1,8 @@
 import numpy as np
-from scipy.spatial.distance import cdist
+from scipy.spatial import KDTree
 from tinygrad import Tensor, dtypes
 
-from edmkit.util import pairwise_distance, pairwise_distance_np
+from edmkit.util import pairwise_distance
 
 
 def simplex_projection(
@@ -115,12 +115,10 @@ def _numpy(
         if X.shape[0] != Y.shape[0]:
             raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
 
-        D = cdist(query_points, X, metric="euclidean")  # (M, N)
-
         k: int = X.shape[1] + 1
 
-        indices = np.argpartition(D, k - 1, axis=1)[:, :k]
-        distances = np.take_along_axis(D, indices, axis=1)
+        tree = KDTree(X)
+        distances, indices = tree.query(query_points, k=k)
 
         Y_neighbors = Y[indices]  # (M, k, E')
 
@@ -142,18 +140,17 @@ def _numpy(
                 f"batch size and dimension of X and query_points must match, got X.shape={X.shape} and query_points.shape={query_points.shape}"
             )
 
-        D = np.sqrt(pairwise_distance_np(query_points, X))  # (B, M, N)
-
         k: int = E + 1
+        M = query_points.shape[1]
 
-        indices = np.argpartition(D, k - 1, axis=2)[:, :, :k]  # (B, M, k)
-        distances = np.take_along_axis(D, indices, axis=2)  # (B, M, k)
+        distances = np.empty((B, M, k))
+        indices = np.empty((B, M, k), dtype=np.intp)
+        for b in range(B):
+            tree = KDTree(X[b])
+            distances[b], indices[b] = tree.query(query_points[b], k=k)
 
-        Y_neighbors = np.take_along_axis(
-            Y[:, None, ...],  # (B, 1, N, E')
-            indices[..., None],  # (B, M, k, 1)
-            axis=2,
-        )  # (B, M, k, E')
+        batch_idx = np.arange(B)[:, None, None]  # (B, 1, 1)
+        Y_neighbors = Y[batch_idx, indices]  # (B, M, k, E')
 
         # clamp to avoid division by zero
         d_min = np.fmax(distances.min(axis=2, keepdims=True), 1e-6)  # (B, M, 1)
