@@ -51,28 +51,42 @@ Layer 3: Smoke Tests（疎通テスト）
   エンドツーエンドのパイプラインが動作することの確認。
 ```
 
+### 2.3 理論的主張と数値保証の区別
+
+EDM の原著論文における理論的主張をテストケースに変換する際、主張の根拠の強さによってテスト設計を明確に区別する。各テスト項目は以下の3カテゴリのいずれかに分類される。
+
+| カテゴリ | 記号 | 定義 | 許容誤差の性質 | 例 |
+|---|---|---|---|---|
+| **代数的保証** | **(A)** | 精確算術で恒等的に成立する性質。許容誤差は浮動小数点丸め誤差のみ | `atol` は `O(k × eps_mach)` | 定数ターゲットの予測、凸結合の値域 |
+| **理論的近似** | **(B)** | 特定の前提条件下で近似的に成立する性質。許容誤差はアルゴリズム的バイアス（正則化等）を含む | `atol` は既知のバイアス + 安全マージン | θ=0 での OLS 近似（α > 0 時） |
+| **統計的期待** | **(C)** | 確率的・漸近的に成立する性質。点推定の許容誤差ではなく、傾向・効果量で判定 | 最小効果量の閾値 | 非線形系での θ > 0 の優位性、CCM 収束 |
+
+**重要な設計原則**: カテゴリ (C) のテストであっても、「傾向が存在すること」のみを検証する bare minimum な判定基準ではなく、理論的に期待される**最小効果量**（minimum effect size）を設定する。テストが理論的に期待される効果を十分に検出できることを保証するためである。
+
 ---
 
 ## 3. モジュール別テスト設計
 
 ### 3.1 `embedding.py` — `lagged_embed()`
 
+> Embedding はインデックス操作のみで算術演算を行わないため、全テストで厳密一致（`assert_array_equal`）を使用する。
+
 #### 3.1.1 解析解テスト
 
-| テスト名 | 内容 | 期待値 |
-|---|---|---|
-| `test_identity_embedding` | `e=1, tau=1` ではリシェイプのみ | `x.reshape(-1, 1)` と一致 |
-| `test_known_values` | 小さな配列で手計算と照合 | 各行が `[x[i+(e-1)*tau], ..., x[i]]` |
-| `test_output_shape` | 任意の `(N, tau, e)` に対して出力形状を検証 | `(N - (e-1)*tau, e)` |
-| `test_linear_sequence` | 等差数列の入力で各行の差分が `tau` 刻み | 各行内の差が均一 |
+| テスト名 | 内容 | 期待値 | 許容誤差 |
+|---|---|---|---|
+| `test_identity_embedding` | `e=1, tau=1` ではリシェイプのみ | `x.reshape(-1, 1)` と一致 | exact (`array_equal`) |
+| `test_known_values` | 小さな配列で手計算と照合 | 各行が `[x[i+(e-1)*tau], ..., x[i]]` | exact |
+| `test_output_shape` | 任意の `(N, tau, e)` に対して出力形状を検証 | `(N - (e-1)*tau, e)` | N/A（形状チェック） |
+| `test_linear_sequence` | 等差数列の入力で各行の差分が `tau` 刻み | 各行内の差が均一 | exact |
 
 #### 3.1.2 数学的性質テスト
 
-| テスト名 | 内容 |
-|---|---|
-| `test_no_information_loss` | 出力の全要素が入力に含まれている |
-| `test_tau1_e1_preserves_values` | `tau=1, e=1` で元の値がそのまま保持される |
-| `test_sliding_window_consistency` | 連続する行が1ステップずつスライドしている |
+| テスト名 | 内容 | 許容誤差 |
+|---|---|---|
+| `test_no_information_loss` | 出力の全要素が入力に含まれている | exact |
+| `test_tau1_e1_preserves_values` | `tau=1, e=1` で元の値がそのまま保持される | exact |
+| `test_sliding_window_consistency` | 連続する行が1ステップずつスライドしている | exact |
 
 #### 3.1.3 エラーハンドリング
 
@@ -91,28 +105,30 @@ Layer 3: Smoke Tests（疎通テスト）
 
 **解析解テスト**
 
-| テスト名 | 内容 |
-|---|---|
-| `test_known_2d_distances` | 手計算可能な2-3点の二乗距離 |
-| `test_identity_distance_zero_diagonal` | `A=B` のとき対角要素が0 |
-| `test_single_point` | 1点同士の距離は差の二乗和 |
+| テスト名 | 内容 | 許容誤差 |
+|---|---|---|
+| `test_known_2d_distances` | 手計算可能な2-3点の二乗距離 | `atol=1e-14` |
+| `test_identity_distance_zero_diagonal` | `A=B` のとき対角要素が0 | `atol=1e-14` |
+| `test_single_point` | 1点同士の距離は差の二乗和 | `atol=1e-14` |
 
 **数学的性質テスト**
 
-| テスト名 | 検証する性質 |
-|---|---|
-| `test_symmetry` | `D(A, B) = D(B, A)^T` |
-| `test_non_negativity` | 全要素 ≥ 0 |
-| `test_self_distance_diagonal_zero` | `D(A, A)` の対角は0 |
-| `test_triangle_inequality` | `sqrt(D[i,k]) ≤ sqrt(D[i,j]) + sqrt(D[j,k])` |
-| `test_translation_invariance` | `D(A+c, B+c) = D(A, B)` |
-| `test_batch_consistency` | バッチ次元の各要素が個別計算と一致 |
+| テスト名 | 検証する性質 | 許容誤差 |
+|---|---|---|
+| `test_symmetry` | `D(A, B) = D(B, A)^T` | `atol=1e-14` |
+| `test_non_negativity` | 全要素 ≥ 0 | exact（`D.clamp(min_=0)` により保証） |
+| `test_self_distance_diagonal_zero` | `D(A, A)` の対角は0 | `atol=1e-14` |
+| `test_triangle_inequality` | `sqrt(D[i,k]) ≤ sqrt(D[i,j]) + sqrt(D[j,k])` | `atol=1e-10` |
+| `test_translation_invariance` | `D(A+c, B+c) = D(A, B)` | `atol=1e-12` |
+| `test_batch_consistency` | バッチ次元の各要素が個別計算と一致 | `atol=1e-14` |
 
 **NumPy / Tensor 一致テスト**
 
-| テスト名 | 内容 |
-|---|---|
-| `test_numpy_tensor_agreement` | 同一入力に対して `pairwise_distance` と `pairwise_distance_np` が同一結果 |
+| テスト名 | 内容 | 許容誤差 |
+|---|---|---|
+| `test_numpy_tensor_agreement` | 同一入力に対して `pairwise_distance` と `pairwise_distance_np` が同一結果 | `atol=1e-4`（float32 vs float64） |
+
+> **実装上の注意**: `A_sq + B_sq - 2*A@B^T` の展開公式は、距離が点の大きさに比して小さい場合に桁落ちが発生する。float32（tinygrad）では `~1e-3` 以下、float64（NumPy）では `~1e-8` 以下の真の距離で影響が出る。`D.clamp(min_=0)` / `np.clip(D, 0, None)` によって負値は防がれるが、小距離の精度は低下する。
 
 #### 3.2.2 `dtw`
 
@@ -157,34 +173,40 @@ Layer 3: Smoke Tests（疎通テスト）
 
 #### 3.3.1 解析解テスト
 
-| テスト名 | 内容 | 根拠 |
-|---|---|---|
-| `test_identity_prediction` | クエリ点がライブラリ点と一致する場合 | 最近傍距離=0 → 重み集中 → 完全予測 |
-| `test_linear_system_exact` | 線形力学系 `x[t+1] = a*x[t]` の予測 | 線形系はE=1で完全に再構成可能 |
-| `test_constant_target` | Y が定数の場合 | 重みによらず予測値 = 定数 |
+| テスト名 | カテゴリ | 内容 | 根拠 | 許容誤差 | 前提条件 |
+|---|---|---|---|---|---|
+| `test_identity_prediction` | **(A)** | クエリ点がライブラリ点と一致する場合、最近傍のY値を予測 | d_min クランプにより最近傍の重みが支配的 → 他の重みが float64 で 0 にアンダーフロー | `atol=1e-15` | ライブラリ点間の最小距離 > 0.01（等間隔点 N≥10 で容易に達成） |
+| `test_linear_system_high_accuracy` | **(B)** | 有界な線形力学系で高精度な予測 | Takens 定理により E=1 で再構成可能。加重平均は線形補間に近似するが、指数重みのバイアスにより厳密一致はしない（Simplex は線形回帰ではなく凸結合） | `rho > 0.999, RMSE < 0.01` | N=500、有界な線形写像（例: `x[t+1] = 0.9*x[t] + 0.05*sin(0.1*t)`）でアトラクタを均一に被覆 |
+| `test_constant_target` | **(A)** | Y が定数 c の場合、予測値 = c | `Σ(w_i * c) / Σ(w_i) = c`（代数的恒等式、重みに依存しない） | `atol=1e-14, rtol=1e-14` | なし |
+
+> **`test_linear_system_exact` からの変更理由**: Simplex projection は `exp(-d_i/d_min)` 重みの凸結合であり、線形関数の厳密な復元には逆距離重み（`w_1/w_2 = (x_2-q)/(q-x_1)`）が必要。指数重みは最近傍に偏るため、クエリ点の真の像ではなく最近傍の Y 値に引きずられる。有界な線形系で N=500 とすれば、ライブラリ間隔 δ ≈ 0.002 となり、バイアスは `~0.27 * |a| * δ` 程度に抑えられる。
 
 #### 3.3.2 数学的性質テスト
 
-| テスト名 | 検証する性質 |
-|---|---|
-| `test_prediction_in_target_range` | 予測値が Y の値域 [min(Y), max(Y)] に収まる（凸結合性） |
-| `test_neighbor_count_equals_e_plus_1` | k = E + 1 近傍を使用（E次元単体の頂点数） |
-| `test_prediction_improves_with_optimal_e` | 最適な埋め込み次元で予測精度が向上する |
-| `test_permutation_invariance_of_library` | ライブラリ点の順序入れ替えで結果不変 |
+| テスト名 | カテゴリ | 検証する性質 | 許容誤差 | 前提条件 |
+|---|---|---|---|---|
+| `test_prediction_in_target_range` | **(A)** | 予測値が E+1 近傍の Y 値の凸結合であるため、`min(Y) ≤ ŷ ≤ max(Y)` が成立 | exact（不等式チェック） | なし（指数重みは常に正） |
+| `test_neighbor_count_equals_e_plus_1` | **(A)** | k = E + 1 近傍を使用（アルゴリズムの定義: `simplex_projection.py:118`） | exact | なし |
+| `test_prediction_improves_with_optimal_e` | **(C)** | カオス系では最適な E が存在し、E=1 より高精度 | `corr(E_best) - corr(E=1) > 0.05` | Logistic map r=3.8, N≥500（E=8 まで探索可能なサンプル数）。過渡状態を除去（先頭50点を破棄） |
+| `test_permutation_invariance_of_library` | **(A)** | ライブラリ点の順序入れ替えで結果不変 | `atol=1e-15` | テストデータに等距離点が存在しないこと（KDTree のタイブレーク回避） |
 
-#### 3.3.3 収束性テスト
+> **`test_prediction_improves_with_optimal_e` の設計**: Sugihara & May (1990) は E-vs-prediction skill 曲線に逆U字型のピークが存在することを示した。テストは「ピークの E が E=1 より有意に良い」ことを検証する。E の単調改善は保証されない。最小効果量 0.05 は Logistic map (dimension ≈ 1) で E=2 への改善が理論的に顕著であることに基づく。
 
-| テスト名 | 内容 |
-|---|---|
-| `test_accuracy_improves_with_library_size` | ライブラリサイズ増加に伴い RMSE が非増加傾向（カオス系で検証） |
-| `test_noise_sensitivity` | ノイズレベル増加に伴い精度が単調劣化 |
+#### 3.3.3 収束性・傾向テスト
+
+| テスト名 | カテゴリ | 内容 | 判定基準 | 前提条件 |
+|---|---|---|---|---|
+| `test_noise_sensitivity` | **(C)** | 加法的ガウスノイズの増加に伴い予測精度が低下 | `corr(σ=0) - corr(σ=0.3) > 0.2`。σ ∈ {0, 0.05, 0.15, 0.3} の Spearman 順位相関 < 0 | Logistic map r=3.8 N=300、信号振幅 [0,1] に対する σ 比率 |
+| `test_simplex_forecast_decay` | **(C)** | 予測ホライズン Tp の増加に伴い精度が低下 | `corr(Tp=1) > corr(Tp=5) + 0.1` | カオス系（Logistic map）。Tp はデータ構成で制御（edmkit は Tp を明示的に扱わない） |
+
+> **`test_accuracy_improves_with_library_size` の削除理由**: Simplex projection 単体でのライブラリサイズに対する精度の単調改善は理論的に保証されていない。この性質は CCM の文脈（Sugihara et al. 2012）での収束性に由来する。CCM セクション（3.5）の `test_convergence_with_known_causality` に統合する。
 
 #### 3.3.4 自己無撞着性テスト
 
-| テスト名 | 内容 |
-|---|---|
-| `test_batch_vs_individual` | 3Dバッチ入力と2D個別入力の結果一致 |
-| `test_numpy_vs_tensor` | `use_tensor=True/False` で同一結果（許容誤差内） |
+| テスト名 | カテゴリ | 内容 | 許容誤差 |
+|---|---|---|---|
+| `test_batch_vs_individual` | **(A)** | 3Dバッチ入力と2D個別入力の結果一致 | `atol=1e-14`（同一 float64 パス、インデックスのみ異なる） |
+| `test_numpy_vs_tensor` | **(A)** | `use_tensor=True/False` で同一結果 | `atol=1e-4`（float32 vs float64 の精度差。累積誤差は `~sqrt(k) × 1e-7`） |
 
 #### 3.3.5 退化ケース
 
@@ -197,43 +219,54 @@ Layer 3: Smoke Tests（疎通テスト）
 
 ### 3.4 `smap.py` — `smap()`
 
+> S-Map のテストでは、正則化パラメータ `alpha` の影響を分離するため、各代数的テストに `alpha=0` 版（純粋な数学的性質のテスト）と `alpha=1e-10` 版（デフォルト設定での近似テスト）の2つを設ける。
+
 #### 3.4.1 解析解テスト
 
-| テスト名 | 内容 | 根拠 |
-|---|---|---|
-| `test_theta_zero_equals_ols` | `theta=0` でOLS（最小二乗法）と一致 | `theta=0` は全点等重み → グローバル線形回帰 |
-| `test_linear_system_recovery` | `Y = a*X + b` で `theta=0` のとき完全復元 | 線形関係はOLSで完全にフィット |
-| `test_identity_prediction` | クエリ点がライブラリ点に一致 | 局所線形でも完全予測可能 |
-| `test_constant_target` | Y が定数の場合 | 切片項のみで予測 |
+| テスト名 | カテゴリ | 内容 | 根拠 | 許容誤差 |
+|---|---|---|---|---|
+| `test_theta_zero_equals_ols` (alpha=0) | **(A)** | `theta=0, alpha=0` で OLS と厳密一致 | θ=0 で W=I（Sugihara 1994 の定義）→ 正規方程式は OLS と同一 | `atol=1e-12, rtol=1e-12`（条件数 κ ≈ O(100) × eps_mach） |
+| `test_theta_zero_approx_ols` (alpha=1e-10) | **(B)** | `theta=0, alpha=1e-10` で OLS に近似 | Tikhonov 正則化による係数バイアス ≈ `1e-10`（N=50, E=1 の場合: `alpha × tr(A) / a_11 × \|β\| ≈ 1.3e-10`） | `atol=1e-9`（10× safety margin） |
+| `test_linear_system_recovery` (alpha=0) | **(A)** | `Y = a*X + b, theta=0, alpha=0` で完全復元 | OLS で真のパラメータを厳密に復元（線形回帰の基本性質） | `atol=1e-12, rtol=1e-12` |
+| `test_linear_system_recovery` (alpha=1e-10) | **(B)** | 同上、`alpha=1e-10` で近似復元 | 傾き係数のバイアス ≈ `alpha × tr(A) / a_11 × \|a\| ≈ 8e-10`（N=50, X∈[0,1], a=2） | `atol=1e-8` |
+| `test_constant_target` | **(A)** | Y が定数 c の場合、予測値 = c | 重み付き回帰で β_1_ols = 0 → Ridge 縮小 β_1_ridge = 0 も厳密。切片は正則化対象外（`eye[0,0]=0`） | `atol=1e-12, rtol=1e-12` |
+
+> **`test_identity_prediction` (smap) の削除理由**: S-Map は全ライブラリ点を使った重み付き線形回帰であり、回帰超平面が特定のデータ点を通過する保証はない。Simplex projection と異なり、identity prediction は S-Map のアルゴリズムの性質ではない。θ が大きい場合に近似的に成立するが、条件が実装依存であり、安定したテストにならない。
 
 #### 3.4.2 数学的性質テスト
 
-| テスト名 | 検証する性質 |
-|---|---|
-| `test_theta_increases_locality` | `theta` 増加に伴い、遠方点の影響が減少 |
-| `test_regularization_effect` | `alpha` が大きいほど係数が縮小（リッジ回帰の性質） |
-| `test_intercept_not_regularized` | 切片項は正則化されない（バイアス不変性） |
-| `test_permutation_invariance_of_library` | ライブラリ順序に依存しない |
+| テスト名 | カテゴリ | 検証する性質 | 許容誤差 | 前提条件 |
+|---|---|---|---|---|
+| `test_theta_increases_locality` | **(A)** | θ 増加に伴い、遠方点の重み `exp(-θd/D_mean)` が減少 | exact（不等式チェック） | 距離 d > 0 の点について検証 |
+| `test_regularization_effect` | **(A)** | alpha 増加に伴い非切片係数のノルムが縮小 | exact（不等式チェック） | リッジ回帰の凸最適化の標準的結果。EDM 固有の理論ではなく実装の正則化の性質 |
+| `test_intercept_not_regularized` | **(A)** | 切片項は正則化されない（`smap.py:157` の `eye[0,0]=0` による） | `atol=1e-14`（well-conditioned data） | テストデータの条件数 κ(X^T X) < 1e8 |
+| `test_permutation_invariance_of_library` | **(A)** | ライブラリ順序に依存しない（X^T W X は行順序不変） | `atol=1e-14` | なし（KDTree 不使用のためタイブレーク問題なし） |
+| `test_smap_coefficients_state_dependent` | **(A)** | θ > 0 で回帰係数がクエリ点ごとに異なる | 異なるクエリ点間で係数の非一致を検証 | Sugihara (1994) の核心的主張。非線形系（Logistic map）を使用 |
+| `test_smap_weight_formula` | **(A)** | 重み `exp(-θd/D_mean)` が実装と一致 | `atol=1e-15` | 原著論文の式と実装の直接照合 |
 
 #### 3.4.3 theta に関する比較テスト
 
-| テスト名 | 内容 |
-|---|---|
-| `test_theta_zero_vs_nonzero_on_linear` | 線形系ではどの `theta` でも同精度（全点が同一超平面上） |
-| `test_theta_nonzero_better_on_nonlinear` | 非線形系では `theta > 0` が `theta = 0` より高精度 |
+| テスト名 | カテゴリ | 内容 | 判定基準 | 前提条件 |
+|---|---|---|---|---|
+| `test_theta_zero_vs_nonzero_on_linear` | **(B)** | 線形系ではθ=0 と θ>0 の精度差が小さい | RMSE 比率 `RMSE(θ>0) / RMSE(θ=0)` ∈ [0.85, 1.15] | `alpha=0`, θ ∈ {0, 0.5, 1.0, 2.0}（θ≥4 は有限サンプルで有効標本サイズが過小になり不安定）。N≥100 の有界線形系。 |
+| `test_theta_nonzero_better_on_nonlinear` | **(C)** | 非線形系では θ>0 が θ=0 より高精度 | `RMSE(θ=0) - RMSE(θ_best) > 0.1 × RMSE(θ=0)`（最低 10% の改善） | Logistic map r=3.8 N=300, E=2。θ ∈ {2, 4}（中程度の値。θ が大きすぎると過学習リスク）。 |
+
+> **θ ≥ 4 を `test_theta_zero_vs_nonzero_on_linear` で除外する理由**: 高 θ では遠方点の重みが指数的に減衰し、有効標本サイズが N_eff ≈ N/5〜N/3 に縮小する。N=100, E=1 で θ=4 の場合、N_eff ≈ 20-33 となり、パラメータ数 E+1=2 に対して余裕が小さく、正則化バイアスと条件数の悪化が支配的になる。理論的にはθに依存しないはずの性質が、数値的に検証不能になる。
 
 #### 3.4.4 自己無撞着性テスト
 
-| テスト名 | 内容 |
-|---|---|
-| `test_batch_vs_individual` | バッチ処理と個別処理の一致 |
+| テスト名 | カテゴリ | 内容 | 許容誤差 |
+|---|---|---|---|
+| `test_batch_vs_individual` | **(A)** | バッチ処理と個別処理の一致 | `atol=1e-12`（2D: `cdist` vs 3D: `pairwise_distance_np` で距離計算アルゴリズムが異なるため、simplex の `1e-14` より緩い） |
 
 #### 3.4.5 数値安定性テスト
 
-| テスト名 | 内容 |
-|---|---|
-| `test_ill_conditioned_library` | ほぼ共線的なライブラリ点でも正則化により安定 |
-| `test_large_theta_stability` | `theta` が大きくても NaN/Inf が発生しない |
+| テスト名 | 内容 | 判定基準 |
+|---|---|---|
+| `test_ill_conditioned_library` | ほぼ共線的なライブラリ点でも正則化により安定 | 予測値が有限（NaN/Inf なし）。alpha 増加で安定性が向上 |
+| `test_large_theta_stability` | θ が大きくても NaN/Inf が発生しない | θ ∈ {10, 20, 50} で予測値が有限 |
+
+> **`test_ill_conditioned_library` の注意**: α=1e-10 では条件数改善が限定的（κ_orig=1e12 → κ_reg ≈ 1e10）。テストは精度ではなく安定性（有限値の出力）を検証する。
 
 ---
 
@@ -243,12 +276,12 @@ Layer 3: Smoke Tests（疎通テスト）
 
 **解析解テスト**
 
-| テスト名 | 内容 | 期待値 |
-|---|---|---|
-| `test_perfect_positive` | `Y = aX + b (a > 0)` | 1.0 |
-| `test_perfect_negative` | `Y = -aX + b` | -1.0 |
-| `test_uncorrelated` | 直交する正弦波 | ≈ 0 |
-| `test_self_correlation` | `X` と `X` | 1.0 |
+| テスト名 | 内容 | 期待値 | 許容誤差 |
+|---|---|---|---|
+| `test_perfect_positive` | `Y = aX + b (a > 0)` | 1.0 | `atol=1e-14` |
+| `test_perfect_negative` | `Y = -aX + b` | -1.0 | `atol=1e-14` |
+| `test_uncorrelated` | 直交する正弦波 | ≈ 0 | `atol=0.01` |
+| `test_self_correlation` | `X` と `X` | 1.0 | `atol=1e-14` |
 
 **数学的性質テスト**
 
@@ -259,14 +292,22 @@ Layer 3: Smoke Tests（疎通テスト）
 | `test_invariance_to_linear_transform` | `corr(aX+b, cY+d) = sign(ac) * corr(X, Y)` |
 | `test_batch_consistency` | バッチ次元の各要素が個別計算と一致 |
 
+> **実装上の注意**: `pearson_correlation`（`ccm.py:272`）は `cov / (std_X * std_Y)` を計算する際、std=0（定数入力）に対するガードがない。小さいライブラリサイズでのブートストラップで定数的な予測が生成された場合、NaN が発生する。テストでは最小ライブラリサイズを `5 × (E+1)` 以上に設定するか、アグリゲータに `np.nanmean` を使用する。
+
 #### 3.5.2 `bootstrap` / `ccm`
 
 **収束性テスト（CCM の本質的な検証）**
 
-| テスト名 | 内容 | 根拠 |
-|---|---|---|
-| `test_convergence_with_known_causality` | X→Y の因果がある系で、ライブラリサイズ増加に伴い相関が収束（増加傾向） | CCM の定義的性質: 因果があれば収束する |
-| `test_no_convergence_without_causality` | 独立な系列では収束しない | 偽陽性がないことの確認 |
+| テスト名 | カテゴリ | 内容 | 判定基準 | 前提条件 |
+|---|---|---|---|---|
+| `test_convergence_with_known_causality` | **(C)** | X→Y の因果がある系で、ライブラリサイズ増加に伴い cross-map 精度が収束 | `mean_corr(max_lib) - mean_corr(min_lib) > 0.1`。Spearman 順位相関（lib_sizes vs mean_correlations）> 0 | 結合 Logistic map（Bxy≥0.02, Byx=0）、N≥500、n_samples≥50、per-test seeded sampler |
+| `test_no_convergence_without_causality` | **(C)** | 独立な系列では cross-map 精度が低く、収束しない | `mean_corr(max_lib) < 0.3` かつ `mean_corr(max_lib) - mean_corr(min_lib) < 0.1` | 独立な2つの Logistic map（r1=3.8, r2=3.7、異なる初期値）。共有外力なし |
+| `test_ccm_asymmetry` | **(C)** | 一方向因果 X→Y で、Y xmap X の精度が X xmap Y より有意に高い | `corr(Y_xmap_X)[max_lib] - corr(X_xmap_Y)[max_lib] > 0.15` | Sugihara et al. (2012) Figure 1。注意: 「X causes Y」のとき「Y xmap X」が高精度（因果の逆方向に cross-map する） |
+| `test_ccm_bidirectional` | **(C)** | 双方向因果の系で両方向の cross-map が収束 | 両方向で `mean_corr(max_lib) > mean_corr(min_lib) + 0.05` | 双方向結合 Logistic map（Bxy>0, Byx>0）。Sugihara et al. (2012) Figure 3B |
+
+> **CCM の方向規約**: CCM は「効果変数のアトラクタに原因変数の情報が埋め込まれている」ことを検出する。したがって、X→Y の因果を検出するには、Y の埋め込みから X を cross-map する（Y xmap X）。テストではこの方向規約を明示的に検証する。
+
+> **収束の定義**: CCM における「収束」はブートストラップサンプルの**期待値**に対する性質であり、個別サンプルでは非単調な振る舞いが生じうる。n_samples=20（edmkit デフォルト）では標準誤差が 0.05-0.10 と大きく、テストが不安定になる。n_samples≥50 で標準誤差を 0.03-0.06 に低減する。
 
 **構成要素のテスト**
 
@@ -278,11 +319,11 @@ Layer 3: Smoke Tests（疎通テスト）
 
 **自己無撞着性テスト**
 
-| テスト名 | 内容 |
-|---|---|
-| `test_ccm_equals_aggregated_bootstrap` | `ccm()` の出力が `bootstrap()` + aggregator と一致 |
-| `test_with_simplex_convenience` | `ccm.with_simplex_projection()` が手動構築と同一結果 |
-| `test_with_smap_convenience` | `ccm.with_smap()` が手動構築と同一結果 |
+| テスト名 | カテゴリ | 内容 | 許容誤差 |
+|---|---|---|---|
+| `test_ccm_equals_aggregated_bootstrap` | **(A)** | `ccm()` の出力が `bootstrap()` + aggregator と一致 | exact（実装の定義から保証） |
+| `test_with_simplex_convenience` | **(A)** | `ccm.with_simplex_projection()` が手動構築と同一結果 | exact |
+| `test_with_smap_convenience` | **(A)** | `ccm.with_smap()` が手動構築と同一結果 | exact |
 
 ---
 
@@ -329,7 +370,7 @@ Layer 3: Smoke Tests（疎通テスト）
 ```
 Deterministic (解析解が存在)
 ├── 定数系列:       x[t] = c
-├── 線形系:         x[t+1] = a*x[t] + b
+├── 有界線形系:     x[t+1] = a*x[t] + forcing (収縮しない)
 ├── 正弦波:         x[t] = sin(ωt)
 └── 等差数列:       x[t] = t * d
 
@@ -349,18 +390,25 @@ Stochastic (統計的性質で検証)
 
 テストフィクスチャは以下の原則で設計する。
 
-1. **最小サイズの原則**: テストの意図を検証できる最小のデータサイズを使用する。単体テストでは N ≤ 50 を目安とする
+1. **最小サイズの原則**: 単体テスト（代数的テスト）では N ≤ 50。統計的テストではテストの検出力に応じてサイズを決定。
 2. **決定論的生成**: 乱数を使用する場合は固定シードを使い、再現性を保証する
-3. **独立性**: 各テスト関数は他のテストに依存しない
+3. **独立性**: 各テスト関数は他のテストに依存しない。特に CCM テストでは per-test の RNG を使用する
 4. **conftest.py での共有**: 複数テストファイルで使うフィクスチャは `conftest.py` に集約する
+5. **アトラクタ被覆**: カオス系フィクスチャでは過渡状態を除去（先頭50点を破棄）し、アトラクタ上の軌道のみを使用する
 
 ```python
-# tests/conftest.py の設計イメージ
+# tests/conftest.py の設計
 
 @pytest.fixture
-def linear_series():
-    """x[t+1] = 0.5 * x[t], x[0] = 1.0, N=50"""
-    ...
+def bounded_linear_series():
+    """有界な線形系: x[t+1] = 0.9*x[t] + 0.05*sin(0.1*t), N=500
+    アトラクタを均一に被覆するための非収縮線形写像。"""
+    N = 500
+    x = np.zeros(N)
+    x[0] = 0.5
+    for i in range(1, N):
+        x[i] = 0.9 * x[i - 1] + 0.05 * np.sin(0.1 * i)
+    return x
 
 @pytest.fixture
 def sine_wave():
@@ -369,19 +417,53 @@ def sine_wave():
 
 @pytest.fixture
 def logistic_map():
-    """x[t+1] = 3.8 * x[t] * (1 - x[t]), x[0] = 0.4, N=200"""
+    """x[t+1] = 3.8 * x[t] * (1 - x[t]), x[0] = 0.4, N=500
+    先頭50点を過渡状態として破棄し、N=500の定常軌道を返す。"""
+    N_total = 550
+    x = np.zeros(N_total)
+    x[0] = 0.4
+    for i in range(1, N_total):
+        x[i] = 3.8 * x[i - 1] * (1 - x[i - 1])
+    return x[50:]  # 過渡除去
+
+@pytest.fixture
+def lorenz_series():
+    """Lorenz system σ=10, ρ=28, β=8/3, dt=0.05, N=500
+    total_time = 25.0 (≈ 23 Lyapunov times, 十分なアトラクタ被覆)
+    先頭 20 time units を破棄。"""
     ...
 
 @pytest.fixture
 def causal_pair():
-    """X→Y の因果がある2変量系列, N=500"""
+    """X→Y の一方向因果がある結合 Logistic map, N=1000
+    rx=3.8, ry=3.5, Bxy=0.02, Byx=0
+    先頭50点を過渡状態として破棄。"""
     ...
 
 @pytest.fixture
 def independent_pair():
-    """独立な2変量系列, N=500"""
+    """独立な2つの Logistic map (r1=3.8, r2=3.7), N=1000
+    異なる初期値、共有外力なし。"""
     ...
+
+def make_seeded_sampler(seed: int):
+    """テスト独立な RNG を持つサンプラーを生成。
+    ccm.py のグローバル RNG (ccm.py:11) に依存しないことでテスト順序非依存を保証。"""
+    rng = np.random.default_rng(seed)
+    def sampler(pool, size):
+        return rng.choice(pool, size=size, replace=True)
+    return sampler
 ```
+
+### 4.3 フィクスチャの理論的前提条件の検証
+
+| フィクスチャ | 用途 | サイズ | 理論的前提条件 | 充足状況 |
+|---|---|---|---|---|
+| `bounded_linear_series` | simplex/smap 線形系テスト | N=500 | 線形写像、アトラクタの均一被覆 | ✓ 非収縮 + forcing で [0, 1] 近傍を均一に被覆 |
+| `logistic_map` | simplex/smap カオス系テスト | N=500 | カオス (r=3.8 > 3.57)、定常軌道 | ✓ 過渡除去済、E≤8 の探索に十分 |
+| `lorenz_series` | 多変量カオステスト | N=500, dt=0.05 | アトラクタ被覆 (≥ 10 Lyapunov times) | ✓ total=25.0 time units ≈ 23 Lyapunov times |
+| `causal_pair` | CCM 収束テスト | N=1000 | 一方向因果、十分な結合強度 | ✓ Bxy=0.02, N=1000 で収束が検出可能 |
+| `independent_pair` | CCM 非収束テスト | N=1000 | 真の独立性、共有外力なし | ✓ 異なる r 値、独立初期値 |
 
 ---
 
@@ -389,35 +471,94 @@ def independent_pair():
 
 ### 5.1 基本方針
 
-数値計算のテストでは、浮動小数点演算の性質を考慮して適切な許容誤差を設定する。
+数値計算のテストでは、浮動小数点演算の性質を考慮して適切な許容誤差を設定する。許容誤差はテストカテゴリ（A/B/C）に応じて以下の原則で決定する。
 
-| カテゴリ | 許容誤差 | 使用場面 |
+| カテゴリ | 許容誤差の決定方法 | 根拠 |
 |---|---|---|
-| **厳密一致** | `atol=1e-15` | 解析解が存在し、数値誤差が丸め誤差のみの場合 |
-| **高精度** | `atol=1e-10` | 逆行列計算など条件数に依存する計算 |
-| **統計的** | 傾向の検証（単調性、符号） | 収束性テスト、カオス系での予測精度 |
+| **(A) 代数的保証** | `atol = safety_margin × κ × eps_mach` | 誤差源は浮動小数点丸めのみ |
+| **(B) 理論的近似** | `atol = safety_margin × (bias + κ × eps_mach)` | 既知のアルゴリズム的バイアスを加算 |
+| **(C) 統計的期待** | 最小効果量の閾値 | 理論的に期待される効果の下限 |
 
-### 5.2 比較関数の使い分け
+### 5.2 許容誤差の一覧
+
+#### 代数的保証テスト (A)
+
+| テスト名 | モジュール | atol | rtol | 根拠 |
+|---|---|---|---|---|
+| `test_identity_embedding` 他 | embedding | exact (`array_equal`) | N/A | 純粋なインデックス操作。算術演算なし |
+| `test_constant_target` | simplex | `1e-14` | `1e-14` | 重みの積和除算のみ: `~k × eps_mach ≈ 4 × 2.2e-16 ≈ 1e-15` |
+| `test_identity_prediction` | simplex | `1e-15` | 0 | well-separated library (間隔>0.01) で `exp(-d/1e-6)` が 0 にアンダーフロー |
+| `test_prediction_in_target_range` | simplex | 0 (不等式) | N/A | 正の重みの凸結合の代数的性質 |
+| `test_theta_zero_equals_ols` (α=0) | smap | `1e-12` | `1e-12` | 条件数 κ ≈ O(100) × eps_mach |
+| `test_linear_system_recovery` (α=0) | smap | `1e-12` | `1e-12` | OLS で真のパラメータを復元 |
+| `test_constant_target` | smap | `1e-12` | `1e-12` | Ridge 縮小で β_1=0 は不動点。条件数改善の間接効果あり |
+| `test_intercept_not_regularized` | smap | `1e-14` | `1e-14` | `eye[0,0]=0` による設計。条件数 κ < 1e8 の前提 |
+| `test_batch_vs_individual` | simplex | `1e-14` | `1e-14` | 同一 float64 パス |
+| `test_batch_vs_individual` | smap | `1e-12` | `1e-12` | `cdist` vs `pairwise_distance_np` のアルゴリズム差 |
+| `test_numpy_vs_tensor` | simplex | `1e-4` | `1e-4` | float32 vs float64: `~sqrt(k) × 1e-7` の累積 |
+| `test_numpy_tensor_agreement` | util | `1e-4` | `1e-4` | float32 二乗距離の桁落ち |
+| `test_ccm_equals_aggregated_bootstrap` | ccm | exact | N/A | 実装の定義から保証 |
+
+#### 理論的近似テスト (B)
+
+| テスト名 | モジュール | atol / 判定基準 | 根拠 |
+|---|---|---|---|
+| `test_theta_zero_approx_ols` (α=1e-10) | smap | `atol=1e-9` | 係数バイアス ≈ 1e-10 + 10× safety margin |
+| `test_linear_system_recovery` (α=1e-10) | smap | `atol=1e-8` | 傾きバイアス ≈ 8e-10 + safety margin |
+| `test_linear_system_high_accuracy` | simplex | `rho > 0.999, RMSE < 0.01` | 有界線形系 N=500 でのバイアス ≈ 0.27\|a\|δ ≈ 0.0005 |
+| `test_theta_zero_vs_nonzero_on_linear` | smap | RMSE 比率 ∈ [0.85, 1.15] | 有限標本 + 局所化で有効 N 減少 |
+
+#### 統計的期待テスト (C) — 最小効果量
+
+| テスト名 | モジュール | 最小効果量 | 根拠 |
+|---|---|---|---|
+| `test_prediction_improves_with_optimal_e` | simplex | `corr(E_best) - corr(E=1) > 0.05` | Logistic map dim≈1 で E=2 への改善は顕著 |
+| `test_theta_nonzero_better_on_nonlinear` | smap | RMSE 改善 > 10% | Sugihara (1994): 非線形系で θ>0 の改善は 20-50% |
+| `test_noise_sensitivity` | simplex | `corr(σ=0) - corr(σ=0.3) > 0.2` | ノイズ 30% で顕著な劣化が期待される |
+| `test_simplex_forecast_decay` | simplex | `corr(Tp=1) - corr(Tp=5) > 0.1` | カオス系の予測ホライズン劣化 |
+| `test_convergence_with_known_causality` | ccm | `Δcorr(max-min lib) > 0.1` | Bxy≥0.02 で十分な収束信号 |
+| `test_no_convergence_without_causality` | ccm | `corr(max_lib) < 0.3` | 独立系列で高相関は生じない |
+| `test_ccm_asymmetry` | ccm | `Δcorr(causal - noncausal) > 0.15` | ブートストラップ SE ≈ 0.07 の約 2σ |
+| `test_ccm_bidirectional` | ccm | 両方向で `Δcorr > 0.05` | 双方向因果で両方が収束 |
+
+### 5.3 比較関数の使い分け
 
 ```python
-# 厳密一致（丸め誤差のみ）
-np.testing.assert_allclose(actual, expected, atol=1e-15, rtol=0)
+# 厳密一致（インデックス操作のみ）
+np.testing.assert_array_equal(actual, expected)
 
-# 条件数依存の計算
-np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+# 代数的保証（丸め誤差のみ）
+np.testing.assert_allclose(actual, expected, atol=1e-14, rtol=1e-14)
 
-# 統計的傾向
-assert np.corrcoef(lib_sizes, correlations)[0, 1] > 0.5  # 正の相関
+# 理論的近似（既知のバイアスを含む）
+np.testing.assert_allclose(actual, expected, atol=1e-9)
 
-# 単調性
-assert all(a <= b for a, b in zip(values[:-1], values[1:]))
+# 統計的期待（傾向検証）
+assert mean_corr_max_lib - mean_corr_min_lib > 0.1  # 最小効果量
 ```
 
 ---
 
-## 6. テスト実行戦略
+## 6. 実装固有の注意点
 
-### 6.1 pytest マーカー
+edmkit の実装には原著論文にはない以下の設計判断があり、テスト設計に影響する。
+
+| # | 場所 | 処理 | テストへの影響 |
+|---|---|---|---|
+| 1 | `simplex_projection.py:126` | `d_min` を `1e-6` にクランプ | identity prediction で他の重みが 0 にアンダーフロー → `atol=1e-15` が可能。ただしこれは実装のアーティファクトであり、クランプ値が変更されればテストも変更が必要 |
+| 2 | `smap.py:157-159` | 正則化項を `alpha × trace(X^T W X) × I'` でスケーリング | データ依存の正則化強度。Cenci et al. (2019) に近いが原著にはない |
+| 3 | `smap.py:143` | `d_mean` を `1e-6` にクランプ | 全距離=0 の退化ケースで均一重み（θ=0 と等価）にフォールバック |
+| 4 | `ccm.py:11` | グローバル RNG `np.random.default_rng(42)` | テスト実行順序で結果が変わる。テストでは per-test seeded sampler を使用 |
+| 5 | `util.py:79,122` | `D.clamp(min_=0)` / `np.clip(D, 0, None)` | 二乗距離の桁落ちで負値が発生 → 0 にクリップ。float32 では `~1e-3` 以下の真の距離で精度低下 |
+| 6 | `ccm.py:272` | `cov / (std_X * std_Y)` に std=0 ガードなし | 定数入力で NaN。最小 lib_size ≥ 5×(E+1) で回避 |
+| 7 | `smap.py:162` | `np.linalg.solve` に条件数チェックなし | 高 θ + 小 α で ill-conditioned 化の可能性 |
+| 8 | `simplex_projection.py:221` | Tensor パスの d_min は float32 の `.clip(min_=1e-6)` | float32 の距離クリップ（#5）と組み合わせで、クラスタ化されたデータで重み集中が強化される |
+
+---
+
+## 7. テスト実行戦略
+
+### 7.1 pytest マーカー
 
 ```python
 # 高速テスト（< 1秒）: デフォルトで実行
@@ -432,7 +573,7 @@ def test_convergence_large_dataset(): ...
 def test_tensor_computation(): ...
 ```
 
-### 6.2 実行コマンド
+### 7.2 実行コマンド
 
 ```bash
 # 通常の開発サイクル（高速テストのみ）
@@ -445,7 +586,7 @@ uv run pytest tests/
 uv run pytest tests/test_simplex_projection.py -v
 ```
 
-### 6.3 パラメタライズの活用
+### 7.3 パラメタライズの活用
 
 同一ロジックを複数データソースで検証する場合は `@pytest.mark.parametrize` を使う。
 
@@ -459,13 +600,13 @@ def test_embedding_output_shape(sine_wave, e, tau):
 
 ---
 
-## 7. テストファイル構成
+## 8. テストファイル構成
 
 移行後のテストファイル構成:
 
 ```
 tests/
-├── conftest.py                    # 共有フィクスチャ
+├── conftest.py                    # 共有フィクスチャ（make_seeded_sampler 含む）
 ├── test_embedding.py              # lagged_embed のテスト
 ├── test_util.py                   # ユーティリティ関数のテスト
 │   ├── pairwise_distance
@@ -481,7 +622,7 @@ tests/
 
 ---
 
-## 8. 移行計画
+## 9. 移行計画
 
 ### Phase 1: 基盤整備
 
@@ -507,7 +648,7 @@ tests/
 
 ---
 
-## 9. pyEDM 比較テストの保持について
+## 10. pyEDM 比較テストの保持について
 
 pyEDM との比較テストは、独立したテストファイル（例: `tests/reference/test_pyedm_comparison.py`）として保持することを推奨する。ただし以下の条件を設ける:
 
@@ -526,18 +667,7 @@ def test_simplex_matches_pyedm():
 
 ---
 
-## Appendix A. テスト項目の理論的妥当性の検証
-
-本節では、セクション3で設計した各テスト項目が EDM の原著論文の理論から正当化できるかを検証する。
-各項目について、理論的根拠の強さを以下の3段階で評価する。
-
-- **Strong**: 原著論文または数学的定義から直接導かれる性質。テストとして強く推奨。
-- **Moderate**: 理論的に妥当だが、条件付きでのみ成立する、または実装依存の要素がある。条件の明示が必要。
-- **Weak**: 直感的には正しそうだが、理論的保証がないか、反例が存在する。テスト設計の見直しが必要。
-
-### 参考文献
-
-以下の原著論文およびリソースを参照した。
+## 参考文献
 
 1. Sugihara, G. & May, R.M. (1990). "Nonlinear forecasting as a way of distinguishing chaos from measurement error in time series." *Nature*, 344, 734–741. — Simplex projection の原論文
 2. Sugihara, G. (1994). "Nonlinear forecasting for the classification of natural time series." *Phil. Trans. R. Soc. Lond. A*, 348, 477–495. — S-Map の原論文
@@ -546,243 +676,3 @@ def test_simplex_matches_pyedm():
 5. [EDM Algorithms in Depth - Sugihara Lab](https://sugiharalab.github.io/EDM_Documentation/algorithms_in_depth/) — pyEDM/rEDM 公式ドキュメント
 6. [Explaining empirical dynamic modelling using verbal, graphical and mathematical approaches](https://pmc.ncbi.nlm.nih.gov/articles/PMC11094587/) — EDM の解説論文 (2024)
 7. Cenci, S., Sugihara, G., & Saavedra, S. (2019). "Regularized S-map for inference and forecasting with noisy ecological time series." *Methods in Ecology and Evolution*, 10, 650–660. — 正則化 S-Map
-
----
-
-### A.1 `simplex_projection` のテスト項目の検証
-
-#### A.1.1 `test_identity_prediction` — **Strong**
-
-> クエリ点がライブラリ点と一致する場合、完全予測が可能
-
-**理論的根拠**: Sugihara & May (1990) の重み付けスキームは `w_i = exp(-d_i / d_min)` である。クエリ点がライブラリ点の1つに正確に一致する場合、`d_min = 0` となる。edmkit の実装（`simplex_projection.py:126`）では `d_min` を `1e-6` にクランプしているため、最近傍の重みは `exp(-0/1e-6) = exp(0) = 1` となり、他の近傍の重みは `exp(-d_i/1e-6) ≈ 0`（`d_i > 0` の場合）となる。したがって予測値は最近傍の Y 値とほぼ一致する。
-
-**注意**: 厳密な一致ではなく、クランプによる近似値となる。許容誤差 `atol=1e-10` 程度が妥当。
-
-#### A.1.2 `test_linear_system_exact` — **Moderate**
-
-> 線形力学系 `x[t+1] = a*x[t]` の予測
-
-**理論的根拠**: Takens の埋め込み定理 [4] により、決定論的力学系は十分な埋め込み次元で状態空間を再構成できる。線形系は1次元（E=1）で完全に再構成可能であり、simplex projection は E+1=2 近傍の重み付き平均で予測する。
-
-**しかし**: Simplex projection は加重平均（凸結合に近い操作）であり、線形回帰ではない。線形系であっても、近傍点の Y 値の加重平均が真の値と一致する保証は、近傍の配置に依存する。例えば、クエリ点が2つの近傍のちょうど中間にあれば線形補間に近づくが、一般にはそうならない。
-
-**修正案**: テストの期待値を「完全予測」ではなく「高精度な予測（RMSE が小さい）」に緩和する。または、ライブラリが十分に密であることを前提条件として明示する。
-
-#### A.1.3 `test_constant_target` — **Strong**
-
-> Y が定数の場合、重みによらず予測値 = 定数
-
-**理論的根拠**: 予測式 `ŷ = Σ(w_i * Y_i) / Σ(w_i)` で `Y_i = c` (定数) のとき、`ŷ = c * Σ(w_i) / Σ(w_i) = c`。これは重みの値に依存せず、純粋に代数的に成立する。
-
-#### A.1.4 `test_prediction_in_target_range` — **Strong（条件付き）**
-
-> 予測値が Y の値域 [min(Y), max(Y)] に収まる
-
-**理論的根拠**: Simplex projection の予測は `ŷ = Σ(w_i * Y_{N_i}) / Σ(w_i)` で、重み `w_i = exp(-d_i/d_min)` は常に正（指数関数の性質）であり、正規化後は和が1になる。これは Y の **E+1 個の近傍の値** の凸結合であるため、予測値はこれら近傍の値の範囲内に収まる。
-
-**重要な注意**: この性質は「全ての Y の値域」ではなく「**選ばれた E+1 個の近傍の Y 値の範囲**」内に収まるという主張が正確である。一般には `min(Y_neighbors) ≤ ŷ ≤ max(Y_neighbors)` であり、`min(Y) ≤ ŷ ≤ max(Y)` はその帰結として成立する。
-
-**修正案**: テスト名と説明を「凸結合であるため、近傍の Y 値の範囲内に予測が収まる」に修正する。
-
-#### A.1.5 `test_neighbor_count_equals_e_plus_1` — **Strong**
-
-> k = E + 1 近傍を使用
-
-**理論的根拠**: Sugihara & May (1990) [1] において、E 次元空間における最小の単体（simplex）を構成するために E+1 個の頂点が必要であることが述べられている。実装でも `k = X.shape[1] + 1`（`simplex_projection.py:118`）で確認できる。これはアルゴリズムの定義そのものである。
-
-#### A.1.6 `test_prediction_improves_with_optimal_e` — **Moderate**
-
-> 最適な埋め込み次元で予測精度が向上する
-
-**理論的根拠**: Sugihara & May (1990) [1] の主要な結果の一つは、埋め込み次元 E を変化させたときの予測精度の変化がカオスとノイズの識別に使えるというものである。カオス系では最適な E が存在し、それを超えると「次元の呪い」により精度が低下する。
-
-**ただし**: 「最適な E」の値はデータと系に依存し、精度が E に対して単調に改善する保証はない。E が小さすぎれば状態空間の再構成が不十分、E が大きすぎれば近傍の距離が増大して予測が劣化する。テストとしては「ある E で精度がピークに達する」ことの確認が適切であり、「E を増やせば常に改善」ではない。
-
-**修正案**: テストを「E の増加に伴い精度が一度改善してから悪化する（逆U字型）」に修正するか、データとパラメータを固定して既知の最適 E で精度改善を確認する。
-
-#### A.1.7 `test_permutation_invariance_of_library` — **Moderate**
-
-> ライブラリ点の順序入れ替えで結果不変
-
-**理論的根拠**: Simplex projection のアルゴリズムは距離に基づく近傍探索であり、数学的には点集合の順序に依存しない。
-
-**ただし**: KDTree の実装では、等距離の近傍が存在する場合にタイブレークが挿入順序に依存する可能性がある。edmkit の実装は `scipy.spatial.KDTree` を使用しており、タイの処理は実装依存である。
-
-**修正案**: テストデータとして等距離点が存在しないケースを選ぶか、タイが発生しないことを前提条件として明記する。
-
-#### A.1.8 `test_accuracy_improves_with_library_size` — **Weak**
-
-> ライブラリサイズ増加に伴い RMSE が非増加傾向
-
-**理論的根拠**: 直感的には、ライブラリが大きいほどアトラクタの被覆が密になり、近傍がより近くなるため予測精度が向上する。EDM の文献 [1,5] でもこの傾向は示唆されている。
-
-**しかし**: Simplex projection 単体では、ライブラリサイズに対する予測精度の単調改善は**理論的に保証されていない**。理由:
-- ランダムサンプリングの場合、特定のサンプルでは近傍の構成が悪化する可能性がある
-- ライブラリが大きくても、ノイズの多いデータが追加されれば精度は悪化しうる
-- 単調性の保証があるのは CCM における収束性の文脈であり、それも期待値（多数のサンプル平均）の話である
-
-**修正案**: 「厳密な単調非増加」ではなく「全体的な傾向として改善」をテストする。具体的には相関係数が正であることを検証するか、最小ライブラリと最大ライブラリの比較に留める。または、このテストを CCM の収束性テストに統合する。
-
-#### A.1.9 `test_noise_sensitivity` — **Moderate**
-
-> ノイズレベル増加に伴い精度が単調劣化
-
-**理論的根拠**: Sugihara & May (1990) [1] の主要な結果の一つは、カオス系ではノイズの増加とともに予測精度が低下するというものである。ノイズが埋め込み空間の近傍関係を乱すため、これは直感的にも理論的にも妥当。
-
-**ただし**: 厳密な単調性は保証されない。特に小さなノイズの違いでは、ランダム性により逆転が起こりうる。テストとしては「十分に異なるノイズレベル間の比較」が適切。
-
----
-
-### A.2 `smap` のテスト項目の検証
-
-#### A.2.1 `test_theta_zero_equals_ols` — **Strong**
-
-> `theta=0` で OLS と一致
-
-**理論的根拠**: Sugihara (1994) [2] において、S-Map の重み付けは `w = exp(-θ * d / D)` と定義されている。`θ = 0` のとき `w = exp(0) = 1`（全点等重み）となり、これは切片付きの通常最小二乗法（OLS）に帰着する。これは S-Map の定義から直接導かれる性質であり、rEDM のドキュメント [5] でも "the S-map reduces to a type of autoregressive model" と明記されている。
-
-edmkit の実装（`smap.py:140-141`）でも `theta == 0` のとき `weights = np.ones_like(D)` としており、定義と一致する。
-
-#### A.2.2 `test_linear_system_recovery` — **Strong**
-
-> `Y = a*X + b` で `theta=0` のとき完全復元
-
-**理論的根拠**: `theta=0` が OLS と等価であること（A.2.1）から、真のデータ生成過程が `Y = a*X + b`（ノイズなし）の場合、OLS は真のパラメータ `(b, a)` を完全に復元する。これは線形回帰の基本的な性質であり、数値誤差のみ。
-
-**注意**: edmkit の実装では Tikhonov 正則化（`alpha=1e-10`）が適用されるため、係数に微小なバイアスが生じる。テストでは `alpha` の影響を考慮した許容誤差（`atol=1e-8` 程度）が必要。あるいは `alpha=0` を明示的に指定する。
-
-#### A.2.3 `test_identity_prediction` — **Moderate**
-
-> クエリ点がライブラリ点に一致する場合、完全予測
-
-**理論的根拠**: クエリ点がライブラリに含まれている場合でも、S-Map は全ライブラリ点を使った重み付き線形回帰であるため、回帰直線（超平面）がそのデータ点を正確に通る保証はない。これは simplex projection とは異なる。
-
-**ただし**: `theta` が十分大きい場合、クエリ点に近いライブラリ点の重みが支配的になり、局所的にはほぼ完全にフィットする可能性がある。また、`theta=0`（OLS）で E+1 個以下のデータ点の場合（自由度がパラメータ数以上）、完全フィットとなる。
-
-**修正案**: このテストの条件を明確化する。「`theta` が大きく、かつクエリ点がライブラリ点の一つである」または「ライブラリサイズが E+1 以下」のケースに限定する。一般的には S-Map で identity prediction は保証されないことを注記する。
-
-#### A.2.4 `test_constant_target` — **Strong**
-
-> Y が定数の場合、切片項のみで予測
-
-**理論的根拠**: Y が定数 c の場合、重み付き線形回帰の解は切片 = c、他の係数 = 0 となる（正則化の影響が十分小さい場合）。予測値は `[1, q] @ [c, 0, ..., 0]^T = c` となる。
-
-#### A.2.5 `test_theta_increases_locality` — **Strong**
-
-> `theta` 増加に伴い、遠方点の影響が減少
-
-**理論的根拠**: S-Map の重み `w = exp(-θ * d / D)` は `θ` の増加に対して、`d > 0` の点の重みが指数関数的に減衰する。Sugihara (1994) [2] でこれが S-Map の核心的な設計意図であり、EDM の解説論文 [6] でも「as theta increases, predictions become more sensitive to the nonlinear behavior of a system by drawing more heavily on nearby observations」と記述されている。
-
-テストとしては、特定のクエリ点に対して、異なる `theta` で重みを計算し、遠方点の重みが `theta` の増加に伴い減少することを確認する。これはアルゴリズムの定義から直接検証可能。
-
-#### A.2.6 `test_regularization_effect` — **Moderate**
-
-> `alpha` が大きいほど係数が縮小
-
-**理論的根拠**: edmkit の実装は Tikhonov 正則化（リッジ回帰）を使用している。リッジ回帰では正則化パラメータ λ の増加に伴い係数のノルムが縮小することは、凸最適化の標準的な結果として知られている。
-
-**ただし**: Cenci et al. (2019) [7] による正則化 S-Map はより一般的な正則化を提案しており、edmkit の Tikhonov 正則化は Sugihara (1994) の原著にはない拡張である。テストとしては妥当だが、「EDM の理論的性質」ではなく「実装の正則化の性質」のテストであることを区別すべき。
-
-#### A.2.7 `test_intercept_not_regularized` — **Moderate**
-
-> 切片項は正則化されない
-
-**理論的根拠**: これはリッジ回帰のベストプラクティスとして一般的に採用される設計判断であり、EDM 固有の理論ではない。切片を正則化しないことで、予測のバイアスを防ぐ。edmkit の実装（`smap.py:157`、`eye[0, 0] = 0`）でこの設計判断が確認できる。
-
-テストとしては実装の正しさの検証として妥当だが、理論的根拠は「リッジ回帰の標準的慣行」である。
-
-#### A.2.8 `test_theta_zero_vs_nonzero_on_linear` — **Strong**
-
-> 線形系ではどの `theta` でも同精度
-
-**理論的根拠**: Sugihara (1994) [2] および rEDM チュートリアル [5] で明確に述べられている。線形系では状態空間の全ての点が同一の線形写像に従うため、局所化（`theta > 0`）の効果はなく、グローバル線形回帰と等価になるべきである。
-
-**ただし**: 正則化の影響により、`theta > 0` でデータ点の有効数が減少する（局所化により事実上のサンプルサイズが小さくなる）ため、`theta` が極端に大きい場合は正則化の影響が相対的に大きくなり、精度が若干低下する可能性がある。テストでは中程度の `theta` 値で検証するのが安全。
-
-**修正案**: 「厳密に同精度」ではなく「精度の差が小さい」とする。または正則化による微小な差を許容する `atol` を設定する。
-
-#### A.2.9 `test_theta_nonzero_better_on_nonlinear` — **Strong**
-
-> 非線形系では `theta > 0` が `theta = 0` より高精度
-
-**理論的根拠**: これは S-Map の存在意義そのものであり、Sugihara (1994) [2] の主要な主張である。非線形（状態依存的）力学系では、状態空間の各位置で異なる局所線形写像が必要であり、`theta > 0` による局所化がこれを実現する。rEDM チュートリアル [5] でも「if forecast skill increases for θ > 0, then the results are suggestive of nonlinear dynamics」と述べている。
-
-**ただし**: 最適な `theta` の値はデータに依存する。`theta` が大きすぎると過学習に近い挙動を示す可能性がある。テストでは、Logistic map や Lorenz のような既知の非線形系で、`theta=0` と中程度の `theta`（例: 2-4）を比較するのが適切。
-
-#### A.2.10 `test_permutation_invariance_of_library` — **Strong**
-
-> ライブラリ順序に依存しない
-
-**理論的根拠**: S-Map は全ライブラリ点を使った重み付き線形回帰であり、数学的に点の順序に不変である（行列演算 `X^T W X` は行の並び順に依存しない）。simplex projection とは異なり、KDTree を使用しないため、タイブレークの問題も発生しない。
-
----
-
-### A.3 `ccm` のテスト項目の検証
-
-#### A.3.1 `test_convergence_with_known_causality` — **Strong**
-
-> X→Y の因果がある系で、ライブラリサイズ増加に伴い相関が収束（増加傾向）
-
-**理論的根拠**: これは CCM の定義的性質そのものである。Sugihara et al. (2012) [3] において、"convergent cross mapping" の名称自体がこの収束性に由来する。原論文では、X が Y に因果的影響を与える場合、Y のアトラクタから X を cross-map で復元する精度がライブラリサイズの増加に伴い向上（収束）することが示されている。
-
-メカニズムとしては、ライブラリが大きいほど再構成されたアトラクタの被覆が密になり、近傍推定の精度が向上するため、cross-map の精度が向上する。
-
-**注意**: 収束は**期待値**に対する性質であり、個々のブートストラップサンプルでは非単調な振る舞いが生じうる。テストでは `n_samples` を十分に取った上で平均相関を検証すべき。また、収束は「厳密な単調増加」ではなく「漸近的な改善傾向」であることに注意。
-
-**テスト設計の推奨**: ライブラリサイズの最小値と最大値での相関を比較し、最大値の方が有意に高いことを検証する形式が安定的。
-
-#### A.3.2 `test_no_convergence_without_causality` — **Moderate**
-
-> 独立な系列では収束しない
-
-**理論的根拠**: Sugihara et al. (2012) [3] では、因果関係がない場合に cross-map の精度がライブラリサイズに対して収束しないことが示されている。独立な系列間では、Y のアトラクタに X の情報が含まれないため、cross-map は系統的に改善しない。
-
-**ただし、重要な制約がある**:
-1. **季節性・共有外力**: 2つの独立な系列が共通の外力（季節性など）に駆動されている場合、偽の収束が生じうることが Sugihara et al. (2012) 自身で認められている。テストでは「共有外力がない、純粋に独立な系列」を使用する必要がある。
-2. **有限サンプル効果**: 短い時系列では、偶然の相関により偽の収束パターンが出現する可能性がある。
-
-**修正案**: テストデータとして、異なる乱数シードで独立に生成した2つの系列を使用する。相関値が系統的に増加しないこと（Spearman 相関が有意でない、または最大ライブラリでの相関が低い）を検証する。「収束しない」の判定基準を明確にする。
-
-#### A.3.3 `test_ccm_equals_aggregated_bootstrap` — **Strong**
-
-> `ccm()` の出力が `bootstrap()` + aggregator と一致
-
-**理論的根拠**: これはアルゴリズムのテストではなく、実装の自己無撞着性のテストである。`ccm.py:233-245` のコードを見ると、`ccm()` は内部で `bootstrap()` を呼び出し、その結果に `aggregator` を適用している。したがってこの一致は実装の定義から保証される。
-
----
-
-### A.4 テスト項目の修正・追加推奨
-
-上記の検証に基づき、以下の修正と追加を推奨する。
-
-#### A.4.1 修正が必要な項目
-
-| テスト | 現在の記述 | 問題 | 推奨修正 |
-|---|---|---|---|
-| `test_linear_system_exact` (simplex) | 線形系で完全予測 | Simplex は線形回帰ではなく加重平均であり、完全予測は保証されない | 「高精度な予測」に緩和。RMSE < ε のように閾値ベースにする |
-| `test_prediction_in_target_range` (simplex) | Y の値域に収まる | 正確には E+1 近傍の Y 値の凸結合 | 正しいが、テスト記述を「近傍 Y 値の凸結合」と明記する |
-| `test_prediction_improves_with_optimal_e` (simplex) | 最適 E で精度向上 | 単調改善ではなく逆U字型 | 「複数の E で最良のものが E=1 より優れる」に修正 |
-| `test_accuracy_improves_with_library_size` (simplex) | 非増加傾向 | simplex 単体では単調改善の理論的保証なし | CCM の収束性テストに統合するか、傾向の統計検定に変更 |
-| `test_identity_prediction` (smap) | 完全予測 | S-Map は全点回帰であり、通過保証なし | 条件を限定（theta が大きい場合、またはライブラリ ≤ E+1）するか削除 |
-| `test_theta_zero_vs_nonzero_on_linear` (smap) | 同精度 | 正則化の影響で微差が出る | 許容誤差を設けるか、正則化なし (`alpha=0`) で検証 |
-| `test_no_convergence_without_causality` (ccm) | 収束しない | 偽陽性のリスクはゼロではない | 「最大ライブラリでの相関が低い」に緩和 |
-
-#### A.4.2 追加を推奨する項目
-
-| テスト | 内容 | 根拠 |
-|---|---|---|
-| `test_simplex_forecast_decay` (simplex) | 予測ステップ Tp の増加に伴い精度が低下 | Sugihara & May (1990) の主要結果: カオス系では予測ホライズンの増加に伴い精度が指数関数的に低下する。ただし edmkit は Tp を明示的に扱っていないため、ユーザー側のデータ構成で検証する |
-| `test_smap_coefficients_state_dependent` (smap) | `theta > 0` で回帰係数がクエリ点ごとに異なる | Sugihara (1994) の核心的な主張: S-Map の係数は状態空間の位置に依存する |
-| `test_smap_weight_formula` (smap) | 重み `exp(-θd/D)` が正しく計算される | 原著論文の式と実装の直接的な照合 |
-| `test_ccm_asymmetry` (ccm) | 一方向因果 X→Y で、Y→X の cross-map 精度が X→Y より高い | Sugihara et al. (2012) の Figure 1: 「X causes Y」のとき「Y xmap X」が高精度になる（**方向に注意: 因果の逆方向に cross-map する**）|
-| `test_ccm_bidirectional` (ccm) | 双方向因果の系で両方向の cross-map が収束する | Sugihara et al. (2012) の Figure 3B に相当 |
-
-#### A.4.3 edmkit 実装固有の注意点
-
-原著論文の理論とは別に、edmkit の実装には以下の固有の設計判断があり、テストで考慮すべきである。
-
-1. **d_min のクランプ** (`simplex_projection.py:126`): `d_min = np.fmax(distances.min(...), 1e-6)` — 距離が 0 の場合の数値安定性のため。原著にはない実装上の処理。
-2. **正則化のスケーリング** (`smap.py:158-159`): 正則化項が `alpha * trace(X^T W X)` でスケールされている。これは Cenci et al. (2019) [7] の手法に近いが、原著 Sugihara (1994) にはない。
-3. **S-Map の d_mean のクランプ** (`smap.py:143`): `d_mean = np.maximum(D.mean(...), 1e-6)` — 全距離が 0 の退化ケースへの対応。
-4. **CCM のグローバル RNG** (`ccm.py:11`): `rng = np.random.default_rng(42)` — モジュールレベルの固定シードにより再現性を確保しているが、テスト間の独立性に影響する可能性がある。
