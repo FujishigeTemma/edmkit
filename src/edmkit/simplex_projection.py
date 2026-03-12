@@ -219,10 +219,10 @@ def _tensor(
         Y_neighbors = Y_tensor[indices]  # (M, k, E')
 
         d_min = distances[:, :1].clip(min_=1e-6)  # (M, 1)
-        weights: Tensor = (-distances / d_min).exp()  # (M, k) # type: ignore
+        weights: Tensor = (-distances / d_min).exp()  # (M, k)
 
-        weighted_sum: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=1)  # (M, E') # type: ignore
-        predictions: Tensor = weighted_sum / weights.sum(axis=1, keepdim=True)  # (M, E') # type: ignore
+        weighted_sum: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=1)  # (M, E')
+        predictions: Tensor = weighted_sum / weights.sum(axis=1, keepdim=True)  # (M, E')
 
         return predictions.numpy().squeeze()
     # X (B, N, E), Y (B, N, E'), query_points (B, M, E)
@@ -268,10 +268,10 @@ def _tensor(
         # ---------------------------------------------------------------------------
 
         d_min = distances[:, :, :1].clip(min_=1e-6)  # (B, M, 1)
-        weights: Tensor = (-distances / d_min).exp()  # (B, M, k) # type: ignore
+        weights: Tensor = (-distances / d_min).exp()  # (B, M, k)
 
-        weighted_sum: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=2)  # (B, M, E') # type: ignore
-        predictions: Tensor = weighted_sum / weights.sum(axis=2, keepdim=True)  # (B, M, E') # type: ignore
+        weighted_sum: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=2)  # (B, M, E')
+        predictions: Tensor = weighted_sum / weights.sum(axis=2, keepdim=True)  # (B, M, E')
 
         return predictions.numpy()
     else:

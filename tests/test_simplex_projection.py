@@ -303,12 +303,14 @@ class TestDegenerateCases:
         # Place all N library points equidistant from the query point.
         # When N == k and all distances are equal, prediction = unweighted mean of all Y.
         # Use vertices of a regular simplex in E=3 dimensions, centered at origin.
-        X = np.array([
-            [1.0, 1.0, 1.0],
-            [1.0, -1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-        ])
+        X = np.array(
+            [
+                [1.0, 1.0, 1.0],
+                [1.0, -1.0, -1.0],
+                [-1.0, 1.0, -1.0],
+                [-1.0, -1.0, 1.0],
+            ]
+        )
         # Verify all points are equidistant from origin
         dists = np.linalg.norm(X, axis=1)
         assert np.allclose(dists, dists[0]), "Library points must be equidistant from query"

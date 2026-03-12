@@ -27,7 +27,7 @@ def pad(As: list[np.ndarray]):
 
     B = len(As)
     L = As[0].shape[0]
-    max_D = max(t.shape[-1] for t in As)  # type: ignore
+    max_D = max(t.shape[-1] for t in As)
 
     A = np.zeros((B, L, max_D), dtype=As[0].dtype)
     for i, x in enumerate(As):
@@ -74,7 +74,7 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
     A_sq = A.pow(2).sum(-1, keepdim=True)
     B_sq = B.pow(2).sum(-1, keepdim=True).transpose(-1, -2)
 
-    D: Tensor = A_sq + B_sq - 2 * A.matmul(B.transpose(-1, -2))  # type: ignore
+    D: Tensor = A_sq + B_sq - 2 * A.matmul(B.transpose(-1, -2))
 
     return D.clamp(min_=0)
 
