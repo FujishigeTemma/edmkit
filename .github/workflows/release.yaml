@@ -2,21 +2,49 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
 
 jobs:
+  check-version:
+    name: Check if version is new
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.check.outputs.should-release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Check PyPI for existing version
+        id: check
+        run: |
+          VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/edmkit/$VERSION/json")
+          if [ "$STATUS" = "404" ]; then
+            echo "should-release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should-release=false" >> "$GITHUB_OUTPUT"
+          fi
+
   pypi:
     name: Publish to PyPI
+    needs: check-version
+    if: needs.check-version.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
     permissions:
       id-token: write
       contents: read
+      attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
       - name: Install Python 3.13
         run: uv python install 3.13
       - name: Build
@@ -25,5 +53,9 @@ jobs:
         run: uv run --isolated --no-project --with dist/*.whl tests/smoke_test.py
       - name: Smoke test (source distribution)
         run: uv run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
+      - name: Generate attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: "dist/*"
       - name: Publish
-        run: uv publish
+        run: uv publish --check-url https://pypi.org/simple/
