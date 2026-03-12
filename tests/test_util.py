@@ -97,7 +97,7 @@ class TestPairwiseDistanceProperties:
         D = pairwise_distance_np(A, A)
         np.testing.assert_allclose(np.diag(D), 0, atol=1e-10)
 
-    @given(pair=paired_point_clouds())
+    @given(pair=paired_point_clouds())  # ty: ignore[missing-argument]
     def test_symmetry_property(self, pair):
         """D(A, B) = D(B, A)^T"""
         A, B = pair
@@ -105,7 +105,7 @@ class TestPairwiseDistanceProperties:
         D_ba = pairwise_distance_np(B, A)
         np.testing.assert_allclose(D_ab, D_ba.T, atol=1e-10, rtol=1e-6)
 
-    @given(data=cloud_with_translation())
+    @given(data=cloud_with_translation())  # ty: ignore[missing-argument]
     def test_translation_invariance_property(self, data):
         """D(A+c, A+c) = D(A, A)"""
         A, c = data
@@ -125,7 +125,7 @@ class TestPairwiseDistanceProperties:
                     assert dist[i, k] <= dist[i, j] + dist[j, k] + 1e-10
 
     @pytest.mark.gpu
-    @given(pair=paired_point_clouds(max_n=10, max_d=5))
+    @given(pair=paired_point_clouds(max_n=10, max_d=5))  # ty: ignore[missing-argument]
     @settings(deadline=None)
     def test_numpy_tensor_agreement_property(self, pair):
         """NumPy と Tensor パスが一致（float32 精度内）"""
@@ -162,7 +162,7 @@ class TestDTWExamples:
 
 
 class TestDTWProperties:
-    @given(pair=paired_point_clouds(max_n=20, max_d=5))
+    @given(pair=paired_point_clouds(max_n=20, max_d=5))  # ty: ignore[missing-argument]
     def test_dtw_non_negativity_property(self, pair):
         """DTW 距離は非負"""
         A, B = pair
@@ -173,7 +173,7 @@ class TestDTWProperties:
         """自己距離は 0"""
         np.testing.assert_allclose(dtw(A, A), 0.0, atol=1e-14)
 
-    @given(pair=paired_point_clouds(max_n=20, max_d=5))
+    @given(pair=paired_point_clouds(max_n=20, max_d=5))  # ty: ignore[missing-argument]
     def test_dtw_symmetry_property(self, pair):
         """DTW(A, B) = DTW(B, A)"""
         A, B = pair

@@ -23,10 +23,6 @@ markers = [
     "gpu: marks tests requiring tinygrad tensor backend (deselect with '-m \"not gpu\"')",
 ]
 
-[[tool.ty.overrides]]
-include = ["tests/"]
-[tool.ty.overrides.rules]
-missing-argument = "ignore"
 
 [build-system]
 requires = ["hatchling"]

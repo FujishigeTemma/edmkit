@@ -141,7 +141,7 @@ class TestMathematicalProperties:
 # 3.3.3 Property-Based Tests (hypothesis)
 # ===========================================================================
 class TestSimplexProperties:
-    @given(inputs=simplex_inputs())
+    @given(inputs=simplex_inputs())  # ty: ignore[missing-argument]
     def test_prediction_in_target_range_property(self, inputs):
         """(A) 予測値は Y の値域に収まる（凸結合性）"""
         X, Y, query = inputs
@@ -149,7 +149,7 @@ class TestSimplexProperties:
         assert np.all(predictions >= Y.min() - 1e-14)
         assert np.all(predictions <= Y.max() + 1e-14)
 
-    @given(inputs=simplex_inputs())
+    @given(inputs=simplex_inputs())  # ty: ignore[missing-argument]
     def test_constant_target_property(self, inputs):
         """(A) 任意の定数 Y に対して予測値 = その定数"""
         X, _, query = inputs
@@ -158,7 +158,7 @@ class TestSimplexProperties:
         predictions = simplex_projection(X, Y_const, query)
         np.testing.assert_allclose(predictions, c, atol=1e-14, rtol=1e-14)
 
-    @given(inputs=simplex_inputs(), noise_seed=st.integers(0, 2**32 - 1), perm_seed=st.integers(0, 2**32 - 1))
+    @given(inputs=simplex_inputs(), noise_seed=st.integers(0, 2**32 - 1), perm_seed=st.integers(0, 2**32 - 1))  # ty: ignore[missing-argument]
     def test_permutation_invariance_property(self, inputs, noise_seed, perm_seed):
         """(A) ライブラリ点の順序入れ替えで結果不変"""
         X, Y, query = inputs

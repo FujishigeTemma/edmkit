@@ -31,8 +31,8 @@ def paired_nonconst_arrays(draw, min_len=5, max_len=50):
     """Generate paired arrays with matching shape and std > 0 for every row."""
     B = draw(st.integers(1, 5))
     L = draw(st.integers(min_len, max_len))
-    X = draw(nonconst_array(B, L))
-    Y = draw(nonconst_array(B, L))
+    X = draw(nonconst_array(B, L))  # ty: ignore[missing-argument]
+    Y = draw(nonconst_array(B, L))  # ty: ignore[missing-argument]
     return X, Y
 
 
@@ -41,7 +41,7 @@ def float_arrays(draw, min_len=5, max_len=50):
     """Generate float arrays (non-constant rows guaranteed)."""
     B = draw(st.integers(1, 5))
     L = draw(st.integers(min_len, max_len))
-    return draw(nonconst_array(B, L))
+    return draw(nonconst_array(B, L))  # ty: ignore[missing-argument]
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ class TestPearsonCorrelationExamples:
 
 
 class TestPearsonCorrelationProperties:
-    @given(pair=paired_nonconst_arrays())
+    @given(pair=paired_nonconst_arrays())  # ty: ignore[missing-argument]
     def test_pearson_range_property(self, pair):
         """-1 <= corr(X, Y) <= 1"""
         X, Y = pair
@@ -114,19 +114,19 @@ class TestPearsonCorrelationProperties:
         assert np.all(corr >= -1 - 1e-14)
         assert np.all(corr <= 1 + 1e-14)
 
-    @given(pair=paired_nonconst_arrays())
+    @given(pair=paired_nonconst_arrays())  # ty: ignore[missing-argument]
     def test_pearson_symmetry_property(self, pair):
         """corr(X, Y) = corr(Y, X)"""
         X, Y = pair
         np.testing.assert_allclose(pearson_correlation(X, Y), pearson_correlation(Y, X), atol=1e-14)
 
-    @given(X=float_arrays())
+    @given(X=float_arrays())  # ty: ignore[missing-argument]
     def test_pearson_self_correlation_property(self, X):
         """corr(X, X) = 1"""
         corr = pearson_correlation(X, X)
         np.testing.assert_allclose(corr, 1.0, atol=1e-14)
 
-    @given(X=float_arrays(), a=st.floats(0.1, 10), b=st.floats(-100, 100))
+    @given(X=float_arrays(), a=st.floats(0.1, 10), b=st.floats(-100, 100))  # ty: ignore[missing-argument]
     def test_pearson_linear_invariance_property(self, X, a, b):
         """corr(X, a*X + b) = 1 for a > 0"""
         Y = a * X + b

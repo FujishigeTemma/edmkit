@@ -220,7 +220,7 @@ class TestMathematicalProperties:
 # ===========================================================================
 class TestSmapProperties:
     @settings(deadline=None)
-    @given(inputs=smap_inputs())
+    @given(inputs=smap_inputs())  # ty: ignore[missing-argument]
     def test_constant_target_property(self, inputs):
         """(A) 任意の有効入力で、定数 Y に対して予測値 = その定数"""
         X, _, query, theta, alpha = inputs
@@ -232,7 +232,7 @@ class TestSmapProperties:
         np.testing.assert_allclose(predictions, c, atol=1e-6)
 
     @settings(deadline=None)
-    @given(inputs=smap_inputs(), seed=st.integers(0, 2**32 - 1))
+    @given(inputs=smap_inputs(), seed=st.integers(0, 2**32 - 1))  # ty: ignore[missing-argument]
     def test_permutation_invariance_property(self, inputs, seed):
         """(A) ライブラリ行の並び替えで結果不変"""
         X, Y, query, theta, alpha = inputs

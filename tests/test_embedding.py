@@ -67,14 +67,14 @@ class TestAnalyticalSolutions:
 # 3.1.3 Property-Based Tests (hypothesis)
 # ===========================================================================
 class TestProperties:
-    @given(data=valid_embed_inputs())
+    @given(data=valid_embed_inputs())  # ty: ignore[missing-argument]
     def test_output_shape_property(self, data):
         """任意の有効な (x, tau, e) に対して出力形状が正しい"""
         x, tau, e = data
         result = lagged_embed(x, tau=tau, e=e)
         assert result.shape == (len(x) - (e - 1) * tau, e)
 
-    @given(data=valid_embed_inputs())
+    @given(data=valid_embed_inputs())  # ty: ignore[missing-argument]
     def test_sliding_window_property(self, data):
         """連続する行が1ステップずつスライドし、全要素が正しい位置の入力値"""
         x, tau, e = data
