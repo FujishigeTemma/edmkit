@@ -1,146 +1,433 @@
 import numpy as np
-import pandas as pd
-import pyEDM
 import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra import numpy as stn
+from scipy.stats import spearmanr
 
-from edmkit import generate
 from edmkit.embedding import lagged_embed
 from edmkit.smap import smap
 
 
-@pytest.fixture
-def logistic_map(n: int = 200):
-    """Generate logistic map time series x."""
-    x = np.zeros(n)
-    x[0] = 0.1
-    # Logistic map
-    for i in range(1, n):
-        x[i] = 3.8 * x[i - 1] * (1 - x[i - 1])
-    return x
+# ---------------------------------------------------------------------------
+# hypothesis strategies
+# ---------------------------------------------------------------------------
+@st.composite
+def smap_inputs(draw, min_n=8, max_n=30, min_e=1, max_e=3, min_m=1, max_m=5):
+    """有効な smap 入力を生成（well-conditioned に限定）"""
+    E = draw(st.integers(min_e, max_e))
+    N = draw(st.integers(max(E + 3, min_n), max_n))
+    M = draw(st.integers(min_m, max_m))
+    X = draw(stn.arrays(np.float64, (N, E), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
+    Y = draw(stn.arrays(np.float64, (N,), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
+    query = draw(stn.arrays(np.float64, (M, E), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
+    theta = draw(st.floats(0, 5))
+    alpha = draw(st.floats(1e-8, 1e-2))
+    return X, Y, query, theta, alpha
 
 
-@pytest.fixture
-def lorenz(n: int = 200):
-    """Generate Lorenz attractor time series x."""
-    sigma, rho, beta = 10, 28, 8 / 3
-    X0 = np.array([1.0, 1.0, 1.0])
-    t_max = 30
-    dt = t_max / (n * 10)  # Generate enough points before subsampling
-
-    t, X = generate.lorenz(sigma, rho, beta, X0, dt, t_max)
-    return X[::10, 0][:n]  # Ensure we get exactly n points
-
-
-@pytest.fixture
-def mackey_glass(n: int = 200):
-    """Generate Mackey-Glass time series x."""
-    tau, n_exponent = 17, 10
-    beta, gamma = 0.2, 0.1
-    x0 = 0.9
-    t_max = 200
-    dt = t_max / n
-
-    t, x = generate.mackey_glass(tau, n_exponent, beta, gamma, x0, dt, t_max)
-    return x
+# ---------------------------------------------------------------------------
+# Helper: 手動 OLS 予測
+# ---------------------------------------------------------------------------
+def ols_predictions(X, Y, query_points):
+    """Pure OLS predictions (theta=0, alpha=0)"""
+    X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
+    query_aug = np.hstack([np.ones((query_points.shape[0], 1)), query_points])
+    Y_col = Y[:, None] if Y.ndim == 1 else Y
+    XTX = X_aug.T @ X_aug
+    XTY = X_aug.T @ Y_col
+    C = np.linalg.solve(XTX, XTY)
+    return (query_aug @ C).squeeze()
 
 
-@pytest.mark.parametrize(
-    "data,E,tau,theta",
-    [
-        ("logistic_map", 3, 2, 2.0),
-        ("lorenz", 3, 1, 3.0),
-        ("mackey_glass", 4, 2, 1.0),
-    ],
-)
-def test_smap(data, E, tau, theta, request):
-    """Test S-Map against pyEDM with various time series data."""
-    x = request.getfixturevalue(data)
+# ===========================================================================
+# 3.4.1 解析解テスト
+# ===========================================================================
+class TestAnalyticalSolutions:
+    def test_theta_zero_equals_ols_alpha_zero(self):
+        """(A) theta=0, alpha=0 で OLS と厳密一致"""
+        rng = np.random.default_rng(42)
+        N, E = 50, 2
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((10, E))
 
-    # common parameters
-    lib_size = 150
-    Tp = 0  # PyEDM handles exclusion radius internally to avoid information leakage but edmkit does not. Set Tp=0 to avoid this difference.
+        expected = ols_predictions(X, Y, query)
+        actual = smap(X, Y, query, theta=0.0, alpha=0.0)
+        np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
-    # pyEDM
-    df = pd.DataFrame({"time": np.arange(len(x)), "value": x})
-    lib, pred = f"1 {lib_size}", f"{lib_size + 1} {len(x)}"
-    pyedm_result = pyEDM.SMap(
-        dataFrame=df,
-        lib=lib,
-        pred=pred,
-        E=E,
-        tau=-tau,
-        columns="value",
-        target="value",
-        Tp=Tp,
-        theta=theta,
-        verbose=False,
-    )
-    # first Tp values are NaN, last Tp values are not in true x
-    pyedm_predictions = pyedm_result["predictions"]["Predictions"].values[Tp : -Tp if Tp != 0 else None]  # type: ignore
+    def test_theta_zero_approx_ols_alpha_default(self):
+        """(B) theta=0, alpha=1e-10 で OLS に近似"""
+        rng = np.random.default_rng(42)
+        N, E = 50, 1
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((10, E))
 
-    # edmkit
-    embedding = lagged_embed(x, tau, E)
-    shift = tau * (E - 1)  # embedding starts at this index (i.e. embedding[0][0] == x[shift])
-    X = embedding[: lib_size - shift]
-    Y = x[shift + Tp : lib_size + Tp]  # shifted by Tp
+        ols_pred = ols_predictions(X, Y, query)
+        smap_pred = smap(X, Y, query, theta=0.0, alpha=1e-10)
+        np.testing.assert_allclose(smap_pred, ols_pred, atol=1e-9)
 
-    query_points = embedding[lib_size - shift :]
-    edmkit_predictions = smap(X, Y[:, None], query_points, theta)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
+    def test_linear_system_recovery_alpha_zero(self):
+        """(A) Y = a*X + b, theta=0, alpha=0 で完全復元"""
+        rng = np.random.default_rng(42)
+        N, E = 50, 1
+        X = rng.uniform(0, 1, (N, E))
+        a, b = 2.0, 3.0
+        Y = (a * X + b).squeeze()
+        query = rng.uniform(0, 1, (10, E))
+        expected = (a * query + b).squeeze()
 
-    ground_truth = x[lib_size + Tp :]
-    print(pyedm_predictions.shape, edmkit_predictions.shape, ground_truth.shape)
-    pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))
-    edmkit_rmse = np.sqrt(np.mean((edmkit_predictions - ground_truth) ** 2))
+        actual = smap(X, Y, query, theta=0.0, alpha=0.0)
+        np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
-    assert np.abs(pyedm_rmse - edmkit_rmse) < 1e-6, f"RMSE: pyEDM {pyedm_rmse}, edmkit {edmkit_rmse}, diff {np.abs(pyedm_rmse - edmkit_rmse)}"
+    def test_linear_system_recovery_alpha_default(self):
+        """(B) 同上、alpha=1e-10 で近似復元"""
+        rng = np.random.default_rng(42)
+        N, E = 50, 1
+        X = rng.uniform(0, 1, (N, E))
+        a, b = 2.0, 3.0
+        Y = (a * X + b).squeeze()
+        query = rng.uniform(0, 1, (10, E))
+        expected = (a * query + b).squeeze()
+
+        actual = smap(X, Y, query, theta=0.0, alpha=1e-10)
+        np.testing.assert_allclose(actual, expected, atol=1e-8)
+
+    def test_constant_target(self):
+        """(A) Y が定数 c → 予測値 = c"""
+        rng = np.random.default_rng(0)
+        N, E = 30, 2
+        X = rng.standard_normal((N, E))
+        c = 7.0
+        Y = np.full(N, c)
+        query = rng.standard_normal((5, E))
+
+        pred = smap(X, Y, query, theta=2.0, alpha=0.0)
+        np.testing.assert_allclose(pred, c, atol=1e-12, rtol=1e-12)
 
 
-@pytest.mark.parametrize(
-    "data,E,tau",
-    [
-        ("logistic_map", 3, 2),
-        ("lorenz", 3, 1),
-        ("mackey_glass", 4, 2),
-    ],
-)
-def test_smap_theta_zero(data, E, tau, request):
-    """Test S-Map with theta=0 (global linear map) against pyEDM."""
-    x = request.getfixturevalue(data)
+# ===========================================================================
+# 3.4.2 数学的性質テスト
+# ===========================================================================
+class TestMathematicalProperties:
+    def test_theta_increases_locality(self):
+        """(A) theta 増加に伴い遠方点の影響が減少"""
+        rng = np.random.default_rng(42)
+        E = 1
+        # 近傍に Y=0、遠方に Y=100 を配置
+        X = np.vstack([rng.uniform(-0.1, 0.1, (15, E)), rng.uniform(5, 6, (15, E))])
+        Y = np.concatenate([np.zeros(15), np.full(15, 100.0)])
+        query = np.array([[0.0]])
 
-    # Common parameters
-    lib_size = 150
-    Tp = 0  # PyEDM handles exclusion radius internally to avoid information leakage but edmkit does not. Set Tp=0 to avoid this difference.
-    theta = 0  # Global linear map
+        pred_theta_0 = smap(X, Y, query, theta=0.0, alpha=0.0)
+        pred_theta_4 = smap(X, Y, query, theta=4.0, alpha=0.0)
 
-    # pyEDM
-    df = pd.DataFrame({"time": np.arange(len(x)), "value": x})
-    lib, pred = f"1 {lib_size}", f"{lib_size + 1} {len(x)}"
-    pyedm_result = pyEDM.SMap(
-        dataFrame=df,
-        lib=lib,
-        pred=pred,
-        E=E,
-        tau=-tau,
-        columns="value",
-        target="value",
-        Tp=Tp,
-        theta=theta,
-        verbose=False,
-    )
-    # first Tp values are NaN, last Tp values are not in true x
-    pyedm_predictions = pyedm_result["predictions"]["Predictions"].values[Tp : -Tp if Tp != 0 else None]  # type: ignore
+        # theta=4 では近傍（Y≈0）に偏るので予測値は theta=0 より小さい
+        assert pred_theta_4 < pred_theta_0
 
-    # edmkit
-    embedding = lagged_embed(x, tau, E)
-    shift = tau * (E - 1)
-    X = embedding[: lib_size - shift]
-    Y = x[shift + Tp : lib_size + Tp]
+    def test_regularization_effect(self):
+        """(A) alpha 増加に伴い非切片係数のノルムが縮小"""
+        rng = np.random.default_rng(42)
+        N, E = 30, 2
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((5, E))
 
-    query_points = embedding[lib_size - shift :]
-    edmkit_predictions = smap(X, Y, query_points, theta)[: -Tp if Tp != 0 else None]  # last Tp values are not in true x
+        # alpha 増加で予測値のばらつき（係数のノルム効果）が縮小
+        pred_small_alpha = smap(X, Y, query, theta=0.0, alpha=1e-10)
+        pred_large_alpha = smap(X, Y, query, theta=0.0, alpha=1.0)
 
-    ground_truth = x[lib_size + Tp :]
-    pyedm_rmse = np.sqrt(np.mean((pyedm_predictions - ground_truth) ** 2))
-    edmkit_rmse = np.sqrt(np.mean((edmkit_predictions - ground_truth) ** 2))
+        # 大きい alpha → 係数が縮小 → 予測値が平均に近づく → 分散が小さい
+        assert np.var(pred_large_alpha) < np.var(pred_small_alpha)
 
-    assert np.abs(pyedm_rmse - edmkit_rmse) < 1e-6, f"RMSE: pyEDM {pyedm_rmse}, edmkit {edmkit_rmse}, diff {np.abs(pyedm_rmse - edmkit_rmse)}"
+    def test_intercept_not_regularized(self):
+        """(A) 切片項は正則化されない"""
+        rng = np.random.default_rng(42)
+        N, E = 50, 1
+        X = rng.uniform(0, 1, (N, E))
+        c = 10.0
+        Y = np.full(N, c)  # 定数: 切片 = c, 傾き = 0
+        query = np.array([[0.5]])
+
+        # 非常に大きい alpha でも定数ターゲットなら予測は正確
+        pred = smap(X, Y, query, theta=0.0, alpha=100.0)
+        np.testing.assert_allclose(pred, c, atol=1e-14, rtol=1e-14)
+
+    def test_permutation_invariance_of_library(self):
+        """(A) ライブラリ順序に依存しない"""
+        rng = np.random.default_rng(42)
+        N, E = 20, 2
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((5, E))
+
+        pred_orig = smap(X, Y, query, theta=2.0, alpha=1e-10)
+        perm = rng.permutation(N)
+        pred_perm = smap(X[perm], Y[perm], query, theta=2.0, alpha=1e-10)
+        np.testing.assert_allclose(pred_orig, pred_perm, atol=1e-14)
+
+    def test_coefficients_state_dependent(self, logistic_map):
+        """(A) theta > 0 で回帰係数がクエリ点ごとに異なる"""
+        x = logistic_map
+        E = 2
+        embedded = lagged_embed(x, tau=1, e=E)
+        shift = E - 1
+        X = embedded[:300]
+        Y = x[shift + 1 : shift + 1 + 300]
+
+        theta = 4.0
+        # 2つの異なるクエリ点で数値微分による局所傾き推定
+        q1, q2 = X[10:11], X[100:101]
+        delta = 1e-5
+        q1p = q1.copy()
+        q1p[0, 0] += delta
+        q2p = q2.copy()
+        q2p[0, 0] += delta
+
+        slope1 = (smap(X, Y, q1p, theta=theta, alpha=1e-10) - smap(X, Y, q1, theta=theta, alpha=1e-10)) / delta
+        slope2 = (smap(X, Y, q2p, theta=theta, alpha=1e-10) - smap(X, Y, q2, theta=theta, alpha=1e-10)) / delta
+
+        assert abs(slope1 - slope2) > 0.01, f"Slopes should differ: {slope1:.4f} vs {slope2:.4f}"
+
+    def test_weight_formula_hand_computed(self):
+        """(A) Hand-computed WLS for a small N=3, E=1 example with known theta"""
+        # Small example where we can verify the weighted least squares by hand
+        X = np.array([[1.0], [2.0], [4.0]])
+        Y = np.array([1.0, 3.0, 2.0])
+        query = np.array([[3.0]])
+        theta = 2.0
+
+        # Hand-compute: distances from query [3] to X points
+        # d = |3-1|=2, |3-2|=1, |3-4|=1  => d_mean = (2+1+1)/3 = 4/3
+        d_mean = 4.0 / 3.0
+        w = np.exp(-theta * np.array([2.0, 1.0, 1.0]) / d_mean)
+        # w = [exp(-3), exp(-1.5), exp(-1.5)]
+
+        # Augmented X: [[1,1],[1,2],[1,4]], query_aug: [[1,3]]
+        X_aug = np.array([[1, 1], [1, 2], [1, 4]], dtype=float)
+        q_aug = np.array([[1, 3]], dtype=float)
+        W = np.diag(w)
+        C = np.linalg.solve(X_aug.T @ W @ X_aug, X_aug.T @ W @ Y)
+        expected = q_aug @ C
+
+        actual = smap(X, Y, query, theta=theta, alpha=0.0)
+        np.testing.assert_allclose(actual, expected.squeeze(), atol=1e-12)
+
+
+# ===========================================================================
+# 3.4.3 Property-Based Tests (hypothesis)
+# ===========================================================================
+class TestSmapProperties:
+    @settings(deadline=None)
+    @given(inputs=smap_inputs())
+    def test_constant_target_property(self, inputs):
+        """(A) 任意の有効入力で、定数 Y に対して予測値 = その定数"""
+        X, _, query, theta, alpha = inputs
+        c = 7.0
+        Y_const = np.full(X.shape[0], c)
+        X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
+        assume(np.linalg.cond(X_aug) < 1e12)
+        predictions = smap(X, Y_const, query, theta=theta, alpha=alpha)
+        np.testing.assert_allclose(predictions, c, atol=1e-6)
+
+    @settings(deadline=None)
+    @given(inputs=smap_inputs(), seed=st.integers(0, 2**32 - 1))
+    def test_permutation_invariance_property(self, inputs, seed):
+        """(A) ライブラリ行の並び替えで結果不変"""
+        X, Y, query, theta, alpha = inputs
+        X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
+        assume(np.linalg.cond(X_aug) < 1e8)
+        pred_orig = smap(X, Y, query, theta=theta, alpha=alpha)
+        perm = np.random.default_rng(seed).permutation(X.shape[0])
+        pred_perm = smap(X[perm], Y[perm], query, theta=theta, alpha=alpha)
+        np.testing.assert_allclose(pred_orig, pred_perm, atol=1e-12)
+
+
+# ===========================================================================
+# 3.4.4 収束性・傾向テスト
+# ===========================================================================
+class TestConvergenceTrends:
+    def test_noise_sensitivity(self, logistic_map):
+        """(C) ノイズ増加で精度低下"""
+        x = logistic_map
+        E, tau = 2, 1
+        rng = np.random.default_rng(42)
+
+        noise_levels = [0.0, 0.05, 0.15, 0.3]
+        correlations = []
+        for sigma in noise_levels:
+            x_noisy = x + rng.normal(0, sigma, len(x))
+            embedded = lagged_embed(x_noisy, tau=tau, e=E)
+            shift = (E - 1) * tau
+            lib_size = 300
+            X = embedded[:lib_size]
+            Y = x_noisy[shift + 1 : shift + 1 + lib_size]
+            query = embedded[lib_size:-1]
+            actual = x_noisy[shift + 1 + lib_size :]
+            preds = smap(X, Y, query, theta=2.0, alpha=1e-10)
+            correlations.append(np.corrcoef(preds, actual)[0, 1])
+
+        rho, _ = spearmanr(noise_levels, correlations)
+        assert rho < 0
+
+    def test_forecast_horizon_decay(self, lorenz_series):
+        """(C) 予測ホライズン増加で精度低下（Lorenz x-component）"""
+        # サブサンプリングで粗くし、予測困難度を上げる
+        x = lorenz_series[::5, 0]
+        E, tau = 3, 1
+
+        correlations = {}
+        for Tp in [1, 2, 5, 10]:
+            embedded = lagged_embed(x, tau=tau, e=E)
+            shift = (E - 1) * tau
+            N_embed = len(embedded)
+            lib_size = 50
+            if lib_size + Tp > N_embed:
+                continue
+            X = embedded[:lib_size]
+            Y = x[shift + Tp : shift + Tp + lib_size]
+            pred_end = N_embed - Tp
+            if pred_end <= lib_size + 5:
+                continue
+            query = embedded[lib_size:pred_end]
+            actual = x[shift + lib_size + Tp : shift + pred_end + Tp]
+            preds = smap(X, Y, query, theta=2.0, alpha=1e-10)
+            correlations[Tp] = np.corrcoef(preds, actual)[0, 1]
+
+        Tp_values = sorted(correlations.keys())
+        corr_values = [correlations[tp] for tp in Tp_values]
+        rho, _ = spearmanr(Tp_values, corr_values)
+        assert rho < 0, f"Expected negative rank correlation, got rho={rho:.4f}"
+
+
+# ===========================================================================
+# 3.4.5 theta に関する比較テスト
+# ===========================================================================
+class TestThetaComparison:
+    def test_theta_nonzero_better_on_nonlinear(self, logistic_map):
+        """(C) 非線形系では theta>0 が theta=0 より高精度"""
+        x = logistic_map
+        E, tau = 2, 1
+        embedded = lagged_embed(x, tau=tau, e=E)
+        shift = (E - 1) * tau
+        lib_size = 300
+        X = embedded[:lib_size]
+        Y = x[shift + 1 : shift + 1 + lib_size]
+        query = embedded[lib_size:-1]
+        actual = x[shift + 1 + lib_size :]
+
+        rmse_0 = np.sqrt(np.mean((smap(X, Y, query, theta=0.0, alpha=1e-10) - actual) ** 2))
+        best_rmse = rmse_0
+        for theta in [2.0, 4.0]:
+            rmse_t = np.sqrt(np.mean((smap(X, Y, query, theta=theta, alpha=1e-10) - actual) ** 2))
+            best_rmse = min(best_rmse, rmse_t)
+
+        improvement = (rmse_0 - best_rmse) / rmse_0 if rmse_0 > 0 else 0
+        assert improvement > 0, f"RMSE improvement {improvement:.4f} <= 0"
+
+
+# ===========================================================================
+# 3.4.6 自己無撞着性テスト
+# ===========================================================================
+class TestSmapSelfConsistency:
+    def test_batch_vs_individual(self):
+        """(A) バッチ処理と個別処理の一致"""
+        rng = np.random.default_rng(42)
+        B, N, E, M = 3, 30, 2, 5
+        X_2d = rng.standard_normal((N, E))
+        Y_2d = rng.standard_normal(N)
+        query_2d = rng.standard_normal((M, E))
+
+        indiv = smap(X_2d, Y_2d, query_2d, theta=2.0, alpha=1e-10)
+
+        X_3d = np.tile(X_2d[None], (B, 1, 1))
+        Y_3d = np.tile(Y_2d[:, None][None], (B, 1, 1))
+        query_3d = np.tile(query_2d[None], (B, 1, 1))
+        batch = smap(X_3d, Y_3d, query_3d, theta=2.0, alpha=1e-10).squeeze(-1)
+
+        for b in range(B):
+            np.testing.assert_allclose(batch[b], indiv, atol=1e-12)
+
+    # TODO: smap の tensor 実装が完了したら NotImplementedError テストを
+    #       numpy vs tensor 一致テストに置き換える
+    @pytest.mark.gpu
+    def test_tensor_not_implemented(self):
+        """use_tensor=True は未実装で NotImplementedError を送出"""
+        rng = np.random.default_rng(42)
+        N, E = 20, 2
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((3, E))
+
+        with pytest.raises(NotImplementedError):
+            smap(X, Y, query, theta=2.0, use_tensor=True)
+
+
+# ===========================================================================
+# 3.4.7 退化ケース
+# ===========================================================================
+class TestDegenerateCases:
+    def test_single_query_point(self):
+        """クエリ点1つ: scalar output within reasonable range"""
+        rng = np.random.default_rng(0)
+        N, E = 20, 3
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((1, E))
+
+        pred = smap(X, Y, query, theta=2.0, alpha=1e-10)
+        assert np.isfinite(pred).all()
+        assert pred.ndim == 0 or pred.shape == (1,), f"Expected scalar or (1,), got shape {pred.shape}"
+        # Prediction should be in a plausible range (within library Y range, with margin)
+        y_range = Y.max() - Y.min()
+        assert Y.min() - y_range <= float(pred) <= Y.max() + y_range
+
+    def test_minimum_library_size(self):
+        """ライブラリサイズ = E + 2（回帰の切片含む最小点数）"""
+        E = 3
+        N = E + 2  # = 5, 切片含む E+1 パラメータに対して最小限の自由度
+        rng = np.random.default_rng(0)
+        X = rng.standard_normal((N, E))
+        # Use a linear relationship so we can verify correctness
+        coeffs = np.array([1.0, -0.5, 2.0])
+        intercept = 3.0
+        Y = X @ coeffs + intercept
+        query = rng.standard_normal((2, E))
+        expected = query @ coeffs + intercept
+
+        pred = smap(X, Y, query, theta=0.0, alpha=0.0)
+        assert np.isfinite(pred).all()
+        assert pred.shape == (2,)
+        # With a perfect linear system and theta=0, predictions should match
+        np.testing.assert_allclose(pred, expected, atol=1e-10)
+
+
+# ===========================================================================
+# 3.4.8 数値安定性テスト
+# ===========================================================================
+class TestNumericalStability:
+    def test_ill_conditioned_library(self):
+        """ほぼ共線的なライブラリ点でも正則化により安定"""
+        N, E = 20, 2
+        rng = np.random.default_rng(42)
+        # ほぼ共線的: X[:,1] ≈ X[:,0]
+        x0 = rng.standard_normal(N)
+        X = np.column_stack([x0, x0 + rng.normal(0, 1e-8, N)])
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((3, E))
+
+        pred = smap(X, Y, query, theta=2.0, alpha=1e-10)
+        assert np.all(np.isfinite(pred))
+
+    @pytest.mark.parametrize("theta", [10.0, 20.0, 50.0])
+    def test_large_theta_stability(self, theta):
+        """theta が大きくても NaN/Inf が発生しない"""
+        rng = np.random.default_rng(42)
+        N, E = 30, 2
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        query = rng.standard_normal((5, E))
+
+        pred = smap(X, Y, query, theta=theta, alpha=1e-10)
+        assert np.all(np.isfinite(pred))

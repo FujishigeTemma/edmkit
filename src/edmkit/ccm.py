@@ -8,11 +8,15 @@ import numpy as np
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 
-rng = np.random.default_rng(42)
+# NOTE: Module-level RNG is shared mutable state. When test order changes,
+# the sequence of draws from this RNG changes too, causing non-determinism.
+# Tests should always pass an explicit sampler (e.g. via make_seeded_sampler)
+# rather than relying on default_sampler.
+_rng = np.random.default_rng(42)
 
 
 def default_sampler(pool: np.ndarray, size: int) -> np.ndarray:
-    return rng.choice(pool, size=size, replace=True)
+    return _rng.choice(pool, size=size, replace=True)
 
 
 PredictFunc = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
@@ -261,15 +265,17 @@ def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
     correlation : np.ndarray
         Pearson correlation coefficient(s) between X and Y. Shape (B,) if inputs are 2D, else scalar.
     """
-    X = np.expand_dims(X, axis=-1) if X.ndim == 2 else X
-    Y = np.expand_dims(Y, axis=-1) if Y.ndim == 2 else Y
+    if X.ndim == 1:
+        X = X[None, :]
+    if Y.ndim == 1:
+        Y = Y[None, :]
 
     mean_X = X.mean(axis=1, keepdims=True)
     mean_Y = Y.mean(axis=1, keepdims=True)
     cov = ((X - mean_X) * (Y - mean_Y)).mean(axis=1)
     std_X = X.std(axis=1)
     std_Y = Y.std(axis=1)
-    correlation = (cov / (std_X * std_Y)).mean(axis=-1)
+    correlation = cov / (std_X * std_Y)
 
     return correlation.squeeze()
 

@@ -20,6 +20,15 @@ Or you can also use [uv](https://docs.astral.sh/uv/):
 uv add edmkit
 ```
 
-## Usage
+## Testing
 
-Most of the functions accept and return `numpy` arrays or `edmkit.Tensor`(alias to `tinygrad.Tensor`).
+```bash
+# Run all tests
+uv run pytest
+
+# Skip slow tests
+uv run pytest -m "not slow"
+
+# Run with CI profile (more hypothesis examples)
+HYPOTHESIS_PROFILE=ci uv run pytest
+```
