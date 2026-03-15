@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial import KDTree
 from tinygrad import Tensor, dtypes
+from usearch.index import Index
 
 from edmkit.util import pairwise_distance
 
@@ -73,6 +74,20 @@ def simplex_projection(
     return _numpy(X, Y, query_points) if not use_tensor else _tensor(X, Y, query_points)
 
 
+def knn(X: np.ndarray, query_points: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    N, E = X.shape
+    if E >= 15 and N >= 10_000:
+        index = Index(ndim=E, metric="l2sq")
+        index.add(np.arange(len(X)), np.ascontiguousarray(X, dtype=np.float32))
+        matches = index.search(np.ascontiguousarray(query_points, dtype=np.float32), k)
+        distances = np.atleast_2d(np.sqrt(np.asarray(matches.distances)))
+        indices = np.atleast_2d(np.asarray(matches.keys).astype(np.intp))
+        return distances, indices
+    else:
+        tree = KDTree(X)
+        return tree.query(query_points, k=k)
+
+
 def _numpy(
     X: np.ndarray,
     Y: np.ndarray,
@@ -117,8 +132,7 @@ def _numpy(
 
         k: int = X.shape[1] + 1
 
-        tree = KDTree(X)
-        distances, indices = tree.query(query_points, k=k)
+        distances, indices = knn(X, query_points, k)
 
         Y_neighbors = Y[indices]  # (M, k, E')
 
@@ -146,8 +160,7 @@ def _numpy(
         distances = np.empty((B, M, k))
         indices = np.empty((B, M, k), dtype=np.intp)
         for b in range(B):
-            tree = KDTree(X[b])
-            distances[b], indices[b] = tree.query(query_points[b], k=k)
+            distances[b], indices[b] = knn(X[b], query_points[b], k)
 
         batch_idx = np.arange(B)[:, None, None]  # (B, 1, 1)
         Y_neighbors = Y[batch_idx, indices]  # (B, M, k, E')

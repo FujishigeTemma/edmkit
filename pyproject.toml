@@ -5,15 +5,20 @@ description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"
 requires-python = ">= 3.13"
-dependencies = ["numpy>=2.4.3", "scipy>=1.17.1", "tinygrad>=0.11.0"]
+dependencies = [
+    "numpy>=2.4.3",
+    "scipy>=1.17.1",
+    "tinygrad>=0.11.0",
+    "usearch>=2.23.0",
+]
 
 [dependency-groups]
 dev = [
     "hypothesis>=6.151.9",
     "pytest>=9.0.2",
-    "ruff>=0.15.5",
+    "ruff>=0.15.6",
     "tabulate>=0.10.0",
-    "ty>=0.0.21",
+    "ty>=0.0.23",
 ]
 
 [tool.pytest.ini_options]
