@@ -2,8 +2,10 @@
 
 import numpy as np
 
-from edmkit import lagged_embed, simplex_projection, smap
 from edmkit.ccm import with_simplex_projection
+from edmkit.embedding import lagged_embed
+from edmkit.simplex_projection import simplex_projection
+from edmkit.smap import smap
 from tests.helpers import make_seeded_sampler
 
 

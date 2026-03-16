@@ -6,8 +6,11 @@ tests パッケージや dev 依存には一切依存してはならない。
 
 import numpy as np
 
-from edmkit import generate, lagged_embed, simplex_projection, smap
+from edmkit import generate
 from edmkit.ccm import with_simplex_projection
+from edmkit.embedding import lagged_embed
+from edmkit.simplex_projection import simplex_projection
+from edmkit.smap import smap
 
 
 def test_basic_call():

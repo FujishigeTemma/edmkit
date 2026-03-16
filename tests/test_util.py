@@ -130,8 +130,9 @@ class TestPairwiseDistanceProperties:
     def test_numpy_tensor_agreement_property(self, pair):
         """NumPy と Tensor パスが一致（float32 精度内）"""
         A, B = pair
-        D_np = pairwise_distance_np(A, B)
-        D_tensor = pairwise_distance(Tensor(A.astype(np.float32)), Tensor(B.astype(np.float32))).numpy()
+        A32, B32 = A.astype(np.float32), B.astype(np.float32)
+        D_np = pairwise_distance_np(A32, B32)
+        D_tensor = pairwise_distance(Tensor(A32), Tensor(B32)).numpy()
         np.testing.assert_allclose(D_np, D_tensor, atol=1e-3, rtol=1e-3)
 
 

@@ -13,7 +13,7 @@ wheels = [
 
 [[package]]
 name = "edmkit"
-version = "0.0.1a2"
+version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
@@ -36,16 +36,16 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.4.3" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "tinygrad", specifier = ">=0.11.0" },
-    { name = "usearch", specifier = ">=2.16" },
+    { name = "usearch", specifier = ">=2.23.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.151.9" },
     { name = "pytest", specifier = ">=9.0.2" },
-    { name = "ruff", specifier = ">=0.15.5" },
+    { name = "ruff", specifier = ">=0.15.6" },
     { name = "tabulate", specifier = ">=0.10.0" },
-    { name = "ty", specifier = ">=0.0.21" },
+    { name = "ty", specifier = ">=0.0.23" },
 ]
 
 [[package]]
