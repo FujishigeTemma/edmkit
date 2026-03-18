@@ -13,15 +13,15 @@ from edmkit.simplex_projection import simplex_projection
 # hypothesis strategies
 # ---------------------------------------------------------------------------
 @st.composite
-def simplex_inputs(draw, min_n=10, max_n=50, min_e=1, max_e=5, min_m=1, max_m=10):
+def simplex_inputs(draw, min_e=1, max_e=5, min_n=10, max_n=50, min_m=1, max_m=10):
     """有効な simplex_projection 入力を生成"""
     E = draw(st.integers(min_e, max_e))
     N = draw(st.integers(max(E + 2, min_n), max_n))
     M = draw(st.integers(min_m, max_m))
     X = draw(stn.arrays(np.float64, (N, E), elements=st.floats(-10, 10, allow_nan=False, allow_infinity=False)))
     Y = draw(stn.arrays(np.float64, (N,), elements=st.floats(-10, 10, allow_nan=False, allow_infinity=False)))
-    query = draw(stn.arrays(np.float64, (M, E), elements=st.floats(-10, 10, allow_nan=False, allow_infinity=False)))
-    return X, Y, query
+    Q = draw(stn.arrays(np.float64, (M, E), elements=st.floats(-10, 10, allow_nan=False, allow_infinity=False)))
+    return X, Y, Q
 
 
 # ===========================================================================
@@ -37,8 +37,8 @@ class TestAnalyticalSolutions:
 
         # ライブラリ点をクエリとして使用
         query_idx = [3, 7, 15]
-        query = X[query_idx]
-        predictions = simplex_projection(X, Y, query)
+        Q = X[query_idx]
+        predictions = simplex_projection(X, Y, Q)
 
         np.testing.assert_allclose(predictions, Y[query_idx], atol=1e-15)
 
@@ -53,10 +53,10 @@ class TestAnalyticalSolutions:
         X = embedded[:lib_size]
         Y = x[shift + 1 : shift + 1 + lib_size]
 
-        query = embedded[lib_size:-1]
+        Q = embedded[lib_size:-1]
         actual = x[shift + 1 + lib_size :]
 
-        predictions = simplex_projection(X, Y, query)
+        predictions = simplex_projection(X, Y, Q)
 
         rho = np.corrcoef(predictions, actual)[0, 1]
         rmse = np.sqrt(np.mean((predictions - actual) ** 2))
@@ -70,9 +70,9 @@ class TestAnalyticalSolutions:
         X = rng.standard_normal((N, E))
         c = 42.0
         Y = np.full(N, c)
-        query = rng.standard_normal((5, E))
+        Q = rng.standard_normal((5, E))
 
-        predictions = simplex_projection(X, Y, query)
+        predictions = simplex_projection(X, Y, Q)
         np.testing.assert_allclose(predictions, c, atol=1e-14, rtol=1e-14)
 
 
@@ -89,7 +89,7 @@ class TestMathematicalProperties:
         k = E + 1  # = 3
 
         # Query at origin
-        query = np.array([[0.0, 0.0]])
+        Q = np.array([[0.0, 0.0]])
 
         # 3 points on a unit circle (equidistant from origin)
         angles = np.linspace(0, 2 * np.pi, k, endpoint=False)
@@ -103,7 +103,7 @@ class TestMathematicalProperties:
         X = np.vstack([X_near, X_far])
         Y = np.concatenate([Y_near, Y_far])
 
-        actual = simplex_projection(X, Y, query)
+        actual = simplex_projection(X, Y, Q)
         expected = np.mean(Y_near)  # = 4.0, unweighted mean of equidistant neighbors
         np.testing.assert_allclose(actual, expected, atol=1e-14)
 
@@ -127,10 +127,10 @@ class TestMathematicalProperties:
             pred_end = N_embed - Tp
             if pred_end <= lib_size + 5:
                 continue
-            query = embedded[lib_size:pred_end]
+            Q = embedded[lib_size:pred_end]
             actual = x[shift + lib_size + Tp : shift + pred_end + Tp]
-            preds = simplex_projection(X, Y, query)
-            correlations[E] = np.corrcoef(preds, actual)[0, 1]
+            predictions = simplex_projection(X, Y, Q)
+            correlations[E] = np.corrcoef(predictions, actual)[0, 1]
 
         best_e = max(correlations, key=lambda e: correlations[e])
         assert best_e > 1, f"Best E={best_e}, expected > 1 for Lorenz (dim ≈ 2.06)"
@@ -144,31 +144,31 @@ class TestSimplexProperties:
     @given(inputs=simplex_inputs())  # ty: ignore[missing-argument]
     def test_prediction_in_target_range_property(self, inputs):
         """(A) 予測値は Y の値域に収まる（凸結合性）"""
-        X, Y, query = inputs
-        predictions = simplex_projection(X, Y, query)
+        X, Y, Q = inputs
+        predictions = simplex_projection(X, Y, Q)
         assert np.all(predictions >= Y.min() - 1e-14)
         assert np.all(predictions <= Y.max() + 1e-14)
 
     @given(inputs=simplex_inputs())  # ty: ignore[missing-argument]
     def test_constant_target_property(self, inputs):
         """(A) 任意の定数 Y に対して予測値 = その定数"""
-        X, _, query = inputs
+        X, _, Q = inputs
         c = np.float64(42.0)
         Y_const = np.full(X.shape[0], c)
-        predictions = simplex_projection(X, Y_const, query)
+        predictions = simplex_projection(X, Y_const, Q)
         np.testing.assert_allclose(predictions, c, atol=1e-14, rtol=1e-14)
 
     @given(inputs=simplex_inputs(), noise_seed=st.integers(0, 2**32 - 1), perm_seed=st.integers(0, 2**32 - 1))  # ty: ignore[missing-argument]
     def test_permutation_invariance_property(self, inputs, noise_seed, perm_seed):
         """(A) ライブラリ点の順序入れ替えで結果不変"""
-        X, Y, query = inputs
+        X, Y, Q = inputs
         # 各点に一意なノイズを加えて KDTree タイブレークを防ぐ
         rng = np.random.default_rng(noise_seed)
         X = X + rng.normal(0, 1e-8, X.shape)
-        pred_original = simplex_projection(X, Y, query)
+        predictions_original = simplex_projection(X, Y, Q)
         perm = np.random.default_rng(perm_seed).permutation(X.shape[0])
-        pred_permuted = simplex_projection(X[perm], Y[perm], query)
-        np.testing.assert_allclose(pred_original, pred_permuted, atol=1e-12)
+        predictions_permuted = simplex_projection(X[perm], Y[perm], Q)
+        np.testing.assert_allclose(predictions_original, predictions_permuted, atol=1e-12)
 
 
 # ===========================================================================
@@ -190,10 +190,10 @@ class TestConvergenceTrends:
             lib_size = 300
             X = embedded[:lib_size]
             Y = x_noisy[shift + 1 : shift + 1 + lib_size]
-            query = embedded[lib_size:-1]
+            Q = embedded[lib_size:-1]
             actual = x_noisy[shift + 1 + lib_size :]
-            preds = simplex_projection(X, Y, query)
-            correlations.append(np.corrcoef(preds, actual)[0, 1])
+            predictions = simplex_projection(X, Y, Q)
+            correlations.append(np.corrcoef(predictions, actual)[0, 1])
 
         # Spearman 順位相関 < 0 (精度が単調減少の傾向)
         rho, _ = spearmanr(noise_levels, correlations)
@@ -217,10 +217,10 @@ class TestConvergenceTrends:
             pred_end = N_embed - Tp
             if pred_end <= lib_size + 10:
                 continue
-            query = embedded[lib_size:pred_end]
+            Q = embedded[lib_size:pred_end]
             actual = x[shift + lib_size + Tp : shift + pred_end + Tp]
-            preds = simplex_projection(X, Y, query)
-            correlations[Tp] = np.corrcoef(preds, actual)[0, 1]
+            predictions = simplex_projection(X, Y, Q)
+            correlations[Tp] = np.corrcoef(predictions, actual)[0, 1]
 
         Tp_values = sorted(correlations.keys())
         corr_values = [correlations[tp] for tp in Tp_values]
@@ -235,17 +235,17 @@ class TestSelfConsistency:
     def test_batch_vs_individual(self):
         """(A) バッチ入力と個別入力の結果一致"""
         rng = np.random.default_rng(42)
-        B, N, E, M = 3, 30, 2, 10
+        B, N, M, E = 3, 30, 10, 2
         X_2d = rng.standard_normal((N, E))
         Y_2d = rng.standard_normal(N)
-        query_2d = rng.standard_normal((M, E))
+        Q_2d = rng.standard_normal((M, E))
 
-        indiv = simplex_projection(X_2d, Y_2d, query_2d)
+        indiv = simplex_projection(X_2d, Y_2d, Q_2d)
 
         X_3d = np.tile(X_2d[None], (B, 1, 1))
         Y_3d = np.tile(Y_2d[:, None][None], (B, 1, 1))
-        query_3d = np.tile(query_2d[None], (B, 1, 1))
-        batch = simplex_projection(X_3d, Y_3d, query_3d).squeeze(-1)
+        Q_3d = np.tile(Q_2d[None], (B, 1, 1))
+        batch = simplex_projection(X_3d, Y_3d, Q_3d).squeeze(-1)
 
         for b in range(B):
             np.testing.assert_allclose(batch[b], indiv, atol=1e-14)
@@ -254,13 +254,13 @@ class TestSelfConsistency:
     def test_numpy_vs_tensor_2d(self):
         """(A) 2D入力で use_tensor=True/False が同一結果"""
         rng = np.random.default_rng(42)
-        N, E, M = 50, 2, 10
+        N, M, E = 50, 10, 2
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((M, E))
+        Q = rng.standard_normal((M, E))
 
-        pred_np = simplex_projection(X, Y, query, use_tensor=False)
-        pred_tensor = simplex_projection(X, Y, query, use_tensor=True)
+        pred_np = simplex_projection(X, Y, Q, use_tensor=False)
+        pred_tensor = simplex_projection(X, Y, Q, use_tensor=True)
 
         np.testing.assert_allclose(pred_np, pred_tensor, atol=1e-5, rtol=1e-5)
 
@@ -268,13 +268,13 @@ class TestSelfConsistency:
     def test_numpy_vs_tensor_3d_batch(self):
         """(A) 3Dバッチ入力で use_tensor=True/False が同一結果"""
         rng = np.random.default_rng(42)
-        B, N, E, M = 3, 30, 2, 10
+        B, N, M, E = 3, 30, 10, 2
         X = rng.standard_normal((B, N, E))
         Y = rng.standard_normal((B, N, 1))
-        query = rng.standard_normal((B, M, E))
+        Q = rng.standard_normal((B, M, E))
 
-        pred_np = simplex_projection(X, Y, query, use_tensor=False)
-        pred_tensor = simplex_projection(X, Y, query, use_tensor=True)
+        pred_np = simplex_projection(X, Y, Q, use_tensor=False)
+        pred_tensor = simplex_projection(X, Y, Q, use_tensor=True)
 
         np.testing.assert_allclose(pred_np, pred_tensor, atol=1e-5, rtol=1e-5)
 
@@ -289,14 +289,14 @@ class TestDegenerateCases:
         N, E = 20, 3
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((1, E))
+        Q = rng.standard_normal((1, E))
 
-        pred = simplex_projection(X, Y, query)
-        assert np.isfinite(pred).all()
-        assert pred.shape == (1,) or pred.ndim == 0  # single prediction
+        predictions = simplex_projection(X, Y, Q)
+        assert np.isfinite(predictions).all()
+        assert predictions.shape == (1,) or predictions.ndim == 0  # single prediction
         # Prediction must be within the convex hull of Y values (convex combination property)
-        assert pred.item() >= Y.min() - 1e-14
-        assert pred.item() <= Y.max() + 1e-14
+        assert predictions.item() >= Y.min() - 1e-14
+        assert predictions.item() <= Y.max() + 1e-14
 
     def test_minimum_library_size(self):
         """ライブラリサイズ = E + 1（最小近傍数）→ 全点が近傍として使われ解析解と一致"""
@@ -316,11 +316,11 @@ class TestDegenerateCases:
         assert np.allclose(dists, dists[0]), "Library points must be equidistant from query"
 
         Y = np.array([2.0, 4.0, 6.0, 8.0])
-        query = np.array([[0.0, 0.0, 0.0]])  # origin
+        Q = np.array([[0.0, 0.0, 0.0]])  # origin
 
-        pred = simplex_projection(X, Y, query)
-        assert np.isfinite(pred).all()
+        predictions = simplex_projection(X, Y, Q)
+        assert np.isfinite(predictions).all()
 
         # All neighbors equidistant → equal weights → prediction = mean(Y)
         expected = np.mean(Y)  # = 5.0
-        np.testing.assert_allclose(pred, expected, atol=1e-14)
+        np.testing.assert_allclose(predictions, expected, atol=1e-14)

@@ -8,11 +8,11 @@ def pad(As: list[np.ndarray]):
 
     Parameters
     ----------
-        `As` : `list` of `np.ndarray` of shape `(L, D_i)`
+        `As` : `list` of `np.ndarray` of shape `(N, D_i)`
 
     Returns
     -------
-        Single `np.ndarray` of shape `(B, L, max(D))` where `B` is `len(As)`
+        Single `np.ndarray` of shape `(B, N, max(D))` where `B` is `len(As)`
 
     Raises
     ------
@@ -26,10 +26,10 @@ def pad(As: list[np.ndarray]):
         raise ValueError(f"All arrays must have the same length, got {[A.shape[0] for A in As]}")
 
     B = len(As)
-    L = As[0].shape[0]
+    N = As[0].shape[0]
     max_D = max(t.shape[-1] for t in As)
 
-    A = np.zeros((B, L, max_D), dtype=As[0].dtype)
+    A = np.zeros((B, N, max_D), dtype=As[0].dtype)
     for i, x in enumerate(As):
         A[i, :, : x.shape[-1]] = x
 
@@ -41,21 +41,21 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
 
     Parameters
     ----------
-    `A` : `Tensor` of shape `(L, D)` or `(B, L, D)`
+    `A` : `Tensor` of shape `(N, D)` or `(B, N, D)`
         - `B`: batch size
-        - `L`: number of points
+        - `N`: number of points
         - `D`: dimension of each point
-    `B` : `Tensor` of shape `(L', D)` or `(B, L', D)`
+    `B` : `Tensor` of shape `(M, D)` or `(B, M, D)`
         - `B`: batch size
-        - `L'`: number of points
+        - `M`: number of points
         - `D`: dimension of each point
 
     Returns
     -------
-    When `A` is of shape `(L, D)`:
-        `Tensor` of shape `(L, L)` [or `(L, L')`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
-    When `A` is of shape `(B, L, D)`:
-        `Tensor` of shape `(B, L, L)` [or `(B, L, L')`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
+    When `A` is of shape `(N, D)`:
+        `Tensor` of shape `(N, N)` [or `(N, M)`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
+    When `A` is of shape `(B, N, D)`:
+        `Tensor` of shape `(B, N, N)` [or `(B, N, M)`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
 
     Raises
     ------
@@ -84,21 +84,21 @@ def pairwise_distance_np(A: np.ndarray, B: np.ndarray | None = None) -> np.ndarr
 
     Parameters
     ----------
-    `A` : `np.ndarray` of shape `(L, D)` or `(B, L, D)`
+    `A` : `np.ndarray` of shape `(N, D)` or `(B, N, D)`
         - `B`: batch size
-        - `L`: number of points
+        - `N`: number of points
         - `D`: dimension of each point
-    `B` : `np.ndarray` of shape `(L', D)` or `(B, L', D)`
+    `B` : `np.ndarray` of shape `(M, D)` or `(B, M, D)`
         - `B`: batch size
-        - `L'`: number of points
+        - `M`: number of points
         - `D`: dimension of each point
 
     Returns
     -------
-    When `A` is of shape `(L, D)`:
-        `np.ndarray` of shape `(L, L)` [or `(L, L')`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
-    When `A` is of shape `(B, L, D)`:
-        `np.ndarray` of shape `(B, L, L)` [or `(B, L, L')`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
+    When `A` is of shape `(N, D)`:
+        `np.ndarray` of shape `(N, N)` [or `(N, M)`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
+    When `A` is of shape `(B, N, D)`:
+        `np.ndarray` of shape `(B, N, N)` [or `(B, N, M)`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
 
     Raises
     ------

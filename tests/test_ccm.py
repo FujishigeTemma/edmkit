@@ -8,7 +8,6 @@ from scipy.stats import spearmanr
 from edmkit.ccm import bootstrap, ccm, pearson_correlation, with_simplex_projection, with_smap
 from edmkit.embedding import lagged_embed
 from edmkit.simplex_projection import simplex_projection
-from tests.helpers import make_seeded_sampler
 
 
 # ---------------------------------------------------------------------------
@@ -143,8 +142,8 @@ class TestCCMComponents:
         """カスタムサンプラーが正しく呼ばれる"""
         Y_embed, X_aligned, _ = ccm_test_data
         N = Y_embed.shape[0]
-        lib_pool = np.arange(N // 2)
-        pred_pool = np.arange(N // 2, N)
+        library_pool = np.arange(N // 2)
+        prediction_pool = np.arange(N // 2, N)
         lib_sizes = np.array([20])
 
         call_count = [0]
@@ -162,9 +161,9 @@ class TestCCMComponents:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=5,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=counting_sampler,
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
+            sample_func=counting_sampler,
         )
         assert call_count[0] == 5  # n_samples 回呼ばれる
 
@@ -172,11 +171,9 @@ class TestCCMComponents:
         """カスタムアグリゲータ（中央値）が適用される"""
         Y_embed, X_aligned, _ = ccm_test_data
         N = Y_embed.shape[0]
-        lib_pool = np.arange(N // 2)
-        pred_pool = np.arange(N // 2, N)
+        library_pool = np.arange(N // 2)
+        prediction_pool = np.arange(N // 2, N)
         lib_sizes = np.array([30])
-
-        sampler = make_seeded_sampler(42)
 
         samples = bootstrap(
             Y_embed,
@@ -184,22 +181,19 @@ class TestCCMComponents:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=10,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=sampler,
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
 
-        sampler2 = make_seeded_sampler(42)
         result = ccm(
             Y_embed,
             X_aligned,
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=10,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=sampler2,
-            aggregator=np.median,
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
+            aggregate_func=np.median,
         )
         np.testing.assert_allclose(result[0], np.median(samples[:, 0]), atol=1e-14)
 
@@ -207,8 +201,8 @@ class TestCCMComponents:
         """同一シードで同一結果"""
         Y_embed, X_aligned, _ = ccm_test_data
         N = Y_embed.shape[0]
-        lib_pool = np.arange(N // 2)
-        pred_pool = np.arange(N // 2, N)
+        library_pool = np.arange(N // 2)
+        prediction_pool = np.arange(N // 2, N)
         lib_sizes = np.array([20, 50])
 
         result1 = ccm(
@@ -217,9 +211,8 @@ class TestCCMComponents:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=10,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
         result2 = ccm(
             Y_embed,
@@ -227,9 +220,8 @@ class TestCCMComponents:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=10,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
         np.testing.assert_array_equal(result1, result2)
 
@@ -256,8 +248,8 @@ class TestCCMSelfConsistency:
 
         N_embed = X_embed.shape[0]
         half = N_embed // 2
-        lib_pool = np.arange(half)
-        pred_pool = np.arange(half, N_embed)
+        library_pool = np.arange(half)
+        prediction_pool = np.arange(half, N_embed)
         lib_sizes = np.array([50, half])
 
         correlations = ccm(
@@ -266,9 +258,8 @@ class TestCCMSelfConsistency:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=20,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
 
         # Self-prediction via simplex on a deterministic system should yield high correlation
@@ -285,8 +276,8 @@ class TestCCMSelfConsistency:
 
         N = Y_embed.shape[0]
         half = N // 2
-        lib_pool = np.arange(half)
-        pred_pool = np.arange(half, N)
+        library_pool = np.arange(half)
+        prediction_pool = np.arange(half, N)
         lib_sizes = np.array([50, half])
 
         correlations = with_simplex_projection(
@@ -294,9 +285,8 @@ class TestCCMSelfConsistency:
             X_aligned,
             lib_sizes,
             n_samples=20,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
 
         # On a causal system, correlation at the largest library size should be positive
@@ -313,8 +303,8 @@ class TestCCMSelfConsistency:
 
         N = Y_embed.shape[0]
         half = N // 2
-        lib_pool = np.arange(half)
-        pred_pool = np.arange(half, N)
+        library_pool = np.arange(half)
+        prediction_pool = np.arange(half, N)
         lib_sizes = np.array([50, half])
 
         correlations = with_smap(
@@ -324,9 +314,8 @@ class TestCCMSelfConsistency:
             theta=2.0,
             alpha=1e-10,
             n_samples=20,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
 
         # On a causal system, correlation at the largest library size should be positive
@@ -350,8 +339,8 @@ class TestCCMConvergence:
 
         N = Y_embed.shape[0]
         half = N // 2
-        lib_pool = np.arange(half)
-        pred_pool = np.arange(half, N)
+        library_pool = np.arange(half)
+        prediction_pool = np.arange(half, N)
         lib_sizes = np.array([10, 20, 50, 100, 200, half])
 
         correlations = ccm(
@@ -360,9 +349,8 @@ class TestCCMConvergence:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=50,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
 
         # Spearman rank correlation > 0 verifies convergence trend
@@ -380,8 +368,8 @@ class TestCCMConvergence:
 
         N = Y_embed.shape[0]
         half = N // 2
-        lib_pool = np.arange(half)
-        pred_pool = np.arange(half, N)
+        library_pool = np.arange(half)
+        prediction_pool = np.arange(half, N)
         lib_sizes = np.array([10, 50, 100, 200, half])
 
         correlations = ccm(
@@ -390,9 +378,8 @@ class TestCCMConvergence:
             lib_sizes,
             predict_func=simplex_projection,
             n_samples=50,
-            library_pool=lib_pool,
-            prediction_pool=pred_pool,
-            sampler=make_seeded_sampler(42),
+            library_pool=library_pool,
+            prediction_pool=prediction_pool,
         )
 
         assert correlations[-1] < 0.15, f"corr(max_lib)={correlations[-1]:.4f}"

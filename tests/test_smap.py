@@ -13,31 +13,31 @@ from edmkit.smap import smap
 # hypothesis strategies
 # ---------------------------------------------------------------------------
 @st.composite
-def smap_inputs(draw, min_n=8, max_n=30, min_e=1, max_e=3, min_m=1, max_m=5):
+def smap_inputs(draw, min_e=1, max_e=3, min_n=8, max_n=30, min_m=1, max_m=5):
     """有効な smap 入力を生成（well-conditioned に限定）"""
     E = draw(st.integers(min_e, max_e))
     N = draw(st.integers(max(E + 3, min_n), max_n))
     M = draw(st.integers(min_m, max_m))
     X = draw(stn.arrays(np.float64, (N, E), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
     Y = draw(stn.arrays(np.float64, (N,), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
-    query = draw(stn.arrays(np.float64, (M, E), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
+    Q = draw(stn.arrays(np.float64, (M, E), elements=st.floats(-5, 5, allow_nan=False, allow_infinity=False)))
     theta = draw(st.floats(0, 5))
     alpha = draw(st.floats(1e-8, 1e-2))
-    return X, Y, query, theta, alpha
+    return X, Y, Q, theta, alpha
 
 
 # ---------------------------------------------------------------------------
 # Helper: 手動 OLS 予測
 # ---------------------------------------------------------------------------
-def ols_predictions(X, Y, query_points):
+def ols(X, Y, Q):
     """Pure OLS predictions (theta=0, alpha=0)"""
     X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
-    query_aug = np.hstack([np.ones((query_points.shape[0], 1)), query_points])
+    Q_aug = np.hstack([np.ones((Q.shape[0], 1)), Q])
     Y_col = Y[:, None] if Y.ndim == 1 else Y
     XTX = X_aug.T @ X_aug
     XTY = X_aug.T @ Y_col
     C = np.linalg.solve(XTX, XTY)
-    return (query_aug @ C).squeeze()
+    return (Q_aug @ C).squeeze()
 
 
 # ===========================================================================
@@ -50,10 +50,10 @@ class TestAnalyticalSolutions:
         N, E = 50, 2
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((10, E))
+        Q = rng.standard_normal((10, E))
 
-        expected = ols_predictions(X, Y, query)
-        actual = smap(X, Y, query, theta=0.0, alpha=0.0)
+        expected = ols(X, Y, Q)
+        actual = smap(X, Y, Q, theta=0.0, alpha=0.0)
         np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
     def test_theta_zero_approx_ols_alpha_default(self):
@@ -62,11 +62,11 @@ class TestAnalyticalSolutions:
         N, E = 50, 1
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((10, E))
+        Q = rng.standard_normal((10, E))
 
-        ols_pred = ols_predictions(X, Y, query)
-        smap_pred = smap(X, Y, query, theta=0.0, alpha=1e-10)
-        np.testing.assert_allclose(smap_pred, ols_pred, atol=1e-9)
+        ols_predictions = ols(X, Y, Q)
+        smap_predictions = smap(X, Y, Q, theta=0.0, alpha=1e-10)
+        np.testing.assert_allclose(smap_predictions, ols_predictions, atol=1e-9)
 
     def test_linear_system_recovery_alpha_zero(self):
         """(A) Y = a*X + b, theta=0, alpha=0 で完全復元"""
@@ -75,10 +75,10 @@ class TestAnalyticalSolutions:
         X = rng.uniform(0, 1, (N, E))
         a, b = 2.0, 3.0
         Y = (a * X + b).squeeze()
-        query = rng.uniform(0, 1, (10, E))
-        expected = (a * query + b).squeeze()
+        Q = rng.uniform(0, 1, (10, E))
+        expected = (a * Q + b).squeeze()
 
-        actual = smap(X, Y, query, theta=0.0, alpha=0.0)
+        actual = smap(X, Y, Q, theta=0.0, alpha=0.0)
         np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
     def test_linear_system_recovery_alpha_default(self):
@@ -88,10 +88,10 @@ class TestAnalyticalSolutions:
         X = rng.uniform(0, 1, (N, E))
         a, b = 2.0, 3.0
         Y = (a * X + b).squeeze()
-        query = rng.uniform(0, 1, (10, E))
-        expected = (a * query + b).squeeze()
+        Q = rng.uniform(0, 1, (10, E))
+        expected = (a * Q + b).squeeze()
 
-        actual = smap(X, Y, query, theta=0.0, alpha=1e-10)
+        actual = smap(X, Y, Q, theta=0.0, alpha=1e-10)
         np.testing.assert_allclose(actual, expected, atol=1e-8)
 
     def test_constant_target(self):
@@ -101,10 +101,10 @@ class TestAnalyticalSolutions:
         X = rng.standard_normal((N, E))
         c = 7.0
         Y = np.full(N, c)
-        query = rng.standard_normal((5, E))
+        Q = rng.standard_normal((5, E))
 
-        pred = smap(X, Y, query, theta=2.0, alpha=0.0)
-        np.testing.assert_allclose(pred, c, atol=1e-12, rtol=1e-12)
+        predictions = smap(X, Y, Q, theta=2.0, alpha=0.0)
+        np.testing.assert_allclose(predictions, c, atol=1e-12, rtol=1e-12)
 
 
 # ===========================================================================
@@ -118,10 +118,10 @@ class TestMathematicalProperties:
         # 近傍に Y=0、遠方に Y=100 を配置
         X = np.vstack([rng.uniform(-0.1, 0.1, (15, E)), rng.uniform(5, 6, (15, E))])
         Y = np.concatenate([np.zeros(15), np.full(15, 100.0)])
-        query = np.array([[0.0]])
+        Q = np.array([[0.0]])
 
-        pred_theta_0 = smap(X, Y, query, theta=0.0, alpha=0.0)
-        pred_theta_4 = smap(X, Y, query, theta=4.0, alpha=0.0)
+        pred_theta_0 = smap(X, Y, Q, theta=0.0, alpha=0.0)
+        pred_theta_4 = smap(X, Y, Q, theta=4.0, alpha=0.0)
 
         # theta=4 では近傍（Y≈0）に偏るので予測値は theta=0 より小さい
         assert pred_theta_4 < pred_theta_0
@@ -132,11 +132,11 @@ class TestMathematicalProperties:
         N, E = 30, 2
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((5, E))
+        Q = rng.standard_normal((5, E))
 
         # alpha 増加で予測値のばらつき（係数のノルム効果）が縮小
-        pred_small_alpha = smap(X, Y, query, theta=0.0, alpha=1e-10)
-        pred_large_alpha = smap(X, Y, query, theta=0.0, alpha=1.0)
+        pred_small_alpha = smap(X, Y, Q, theta=0.0, alpha=1e-10)
+        pred_large_alpha = smap(X, Y, Q, theta=0.0, alpha=1.0)
 
         # 大きい alpha → 係数が縮小 → 予測値が平均に近づく → 分散が小さい
         assert np.var(pred_large_alpha) < np.var(pred_small_alpha)
@@ -148,11 +148,11 @@ class TestMathematicalProperties:
         X = rng.uniform(0, 1, (N, E))
         c = 10.0
         Y = np.full(N, c)  # 定数: 切片 = c, 傾き = 0
-        query = np.array([[0.5]])
+        Q = np.array([[0.5]])
 
         # 非常に大きい alpha でも定数ターゲットなら予測は正確
-        pred = smap(X, Y, query, theta=0.0, alpha=100.0)
-        np.testing.assert_allclose(pred, c, atol=1e-14, rtol=1e-14)
+        predictions = smap(X, Y, Q, theta=0.0, alpha=100.0)
+        np.testing.assert_allclose(predictions, c, atol=1e-14, rtol=1e-14)
 
     def test_permutation_invariance_of_library(self):
         """(A) ライブラリ順序に依存しない"""
@@ -160,11 +160,11 @@ class TestMathematicalProperties:
         N, E = 20, 2
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((5, E))
+        Q = rng.standard_normal((5, E))
 
-        pred_orig = smap(X, Y, query, theta=2.0, alpha=1e-10)
+        pred_orig = smap(X, Y, Q, theta=2.0, alpha=1e-10)
         perm = rng.permutation(N)
-        pred_perm = smap(X[perm], Y[perm], query, theta=2.0, alpha=1e-10)
+        pred_perm = smap(X[perm], Y[perm], Q, theta=2.0, alpha=1e-10)
         np.testing.assert_allclose(pred_orig, pred_perm, atol=1e-14)
 
     def test_coefficients_state_dependent(self, logistic_map):
@@ -195,7 +195,7 @@ class TestMathematicalProperties:
         # Small example where we can verify the weighted least squares by hand
         X = np.array([[1.0], [2.0], [4.0]])
         Y = np.array([1.0, 3.0, 2.0])
-        query = np.array([[3.0]])
+        Q = np.array([[3.0]])
         theta = 2.0
 
         # Hand-compute: distances from query [3] to X points
@@ -211,7 +211,7 @@ class TestMathematicalProperties:
         C = np.linalg.solve(X_aug.T @ W @ X_aug, X_aug.T @ W @ Y)
         expected = q_aug @ C
 
-        actual = smap(X, Y, query, theta=theta, alpha=0.0)
+        actual = smap(X, Y, Q, theta=theta, alpha=0.0)
         np.testing.assert_allclose(actual, expected.squeeze(), atol=1e-12)
 
 
@@ -223,24 +223,24 @@ class TestSmapProperties:
     @given(inputs=smap_inputs())  # ty: ignore[missing-argument]
     def test_constant_target_property(self, inputs):
         """(A) 任意の有効入力で、定数 Y に対して予測値 = その定数"""
-        X, _, query, theta, alpha = inputs
+        X, _, Q, theta, alpha = inputs
         c = 7.0
         Y_const = np.full(X.shape[0], c)
         X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
         assume(np.linalg.cond(X_aug) < 1e12)
-        predictions = smap(X, Y_const, query, theta=theta, alpha=alpha)
+        predictions = smap(X, Y_const, Q, theta=theta, alpha=alpha)
         np.testing.assert_allclose(predictions, c, atol=1e-6)
 
     @settings(deadline=None)
     @given(inputs=smap_inputs(), seed=st.integers(0, 2**32 - 1))  # ty: ignore[missing-argument]
     def test_permutation_invariance_property(self, inputs, seed):
         """(A) ライブラリ行の並び替えで結果不変"""
-        X, Y, query, theta, alpha = inputs
+        X, Y, Q, theta, alpha = inputs
         X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
         assume(np.linalg.cond(X_aug) < 1e8)
-        pred_orig = smap(X, Y, query, theta=theta, alpha=alpha)
+        pred_orig = smap(X, Y, Q, theta=theta, alpha=alpha)
         perm = np.random.default_rng(seed).permutation(X.shape[0])
-        pred_perm = smap(X[perm], Y[perm], query, theta=theta, alpha=alpha)
+        pred_perm = smap(X[perm], Y[perm], Q, theta=theta, alpha=alpha)
         np.testing.assert_allclose(pred_orig, pred_perm, atol=1e-12)
 
 
@@ -263,10 +263,10 @@ class TestConvergenceTrends:
             lib_size = 300
             X = embedded[:lib_size]
             Y = x_noisy[shift + 1 : shift + 1 + lib_size]
-            query = embedded[lib_size:-1]
+            Q = embedded[lib_size:-1]
             actual = x_noisy[shift + 1 + lib_size :]
-            preds = smap(X, Y, query, theta=2.0, alpha=1e-10)
-            correlations.append(np.corrcoef(preds, actual)[0, 1])
+            predictions = smap(X, Y, Q, theta=2.0, alpha=1e-10)
+            correlations.append(np.corrcoef(predictions, actual)[0, 1])
 
         rho, _ = spearmanr(noise_levels, correlations)
         assert rho < 0
@@ -290,10 +290,10 @@ class TestConvergenceTrends:
             pred_end = N_embed - Tp
             if pred_end <= lib_size + 5:
                 continue
-            query = embedded[lib_size:pred_end]
+            Q = embedded[lib_size:pred_end]
             actual = x[shift + lib_size + Tp : shift + pred_end + Tp]
-            preds = smap(X, Y, query, theta=2.0, alpha=1e-10)
-            correlations[Tp] = np.corrcoef(preds, actual)[0, 1]
+            predictions = smap(X, Y, Q, theta=2.0, alpha=1e-10)
+            correlations[Tp] = np.corrcoef(predictions, actual)[0, 1]
 
         Tp_values = sorted(correlations.keys())
         corr_values = [correlations[tp] for tp in Tp_values]
@@ -334,17 +334,17 @@ class TestSmapSelfConsistency:
     def test_batch_vs_individual(self):
         """(A) バッチ処理と個別処理の一致"""
         rng = np.random.default_rng(42)
-        B, N, E, M = 3, 30, 2, 5
+        B, N, M, E = 3, 30, 5, 2
         X_2d = rng.standard_normal((N, E))
         Y_2d = rng.standard_normal(N)
-        query_2d = rng.standard_normal((M, E))
+        Q_2d = rng.standard_normal((M, E))
 
-        indiv = smap(X_2d, Y_2d, query_2d, theta=2.0, alpha=1e-10)
+        indiv = smap(X_2d, Y_2d, Q_2d, theta=2.0, alpha=1e-10)
 
         X_3d = np.tile(X_2d[None], (B, 1, 1))
         Y_3d = np.tile(Y_2d[:, None][None], (B, 1, 1))
-        query_3d = np.tile(query_2d[None], (B, 1, 1))
-        batch = smap(X_3d, Y_3d, query_3d, theta=2.0, alpha=1e-10).squeeze(-1)
+        Q_3d = np.tile(Q_2d[None], (B, 1, 1))
+        batch = smap(X_3d, Y_3d, Q_3d, theta=2.0, alpha=1e-10).squeeze(-1)
 
         for b in range(B):
             np.testing.assert_allclose(batch[b], indiv, atol=1e-12)
@@ -358,10 +358,10 @@ class TestSmapSelfConsistency:
         N, E = 20, 2
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((3, E))
+        Q = rng.standard_normal((3, E))
 
         with pytest.raises(NotImplementedError):
-            smap(X, Y, query, theta=2.0, use_tensor=True)
+            smap(X, Y, Q, theta=2.0, use_tensor=True)
 
 
 # ===========================================================================
@@ -374,14 +374,14 @@ class TestDegenerateCases:
         N, E = 20, 3
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((1, E))
+        Q = rng.standard_normal((1, E))
 
-        pred = smap(X, Y, query, theta=2.0, alpha=1e-10)
-        assert np.isfinite(pred).all()
-        assert pred.ndim == 0 or pred.shape == (1,), f"Expected scalar or (1,), got shape {pred.shape}"
+        predictions = smap(X, Y, Q, theta=2.0, alpha=1e-10)
+        assert np.isfinite(predictions).all()
+        assert predictions.ndim == 0 or predictions.shape == (1,), f"Expected scalar or (1,), got shape {predictions.shape}"
         # Prediction should be in a plausible range (within library Y range, with margin)
         y_range = Y.max() - Y.min()
-        assert Y.min() - y_range <= float(pred) <= Y.max() + y_range
+        assert Y.min() - y_range <= float(predictions) <= Y.max() + y_range
 
     def test_minimum_library_size(self):
         """ライブラリサイズ = E + 2（回帰の切片含む最小点数）"""
@@ -393,14 +393,14 @@ class TestDegenerateCases:
         coeffs = np.array([1.0, -0.5, 2.0])
         intercept = 3.0
         Y = X @ coeffs + intercept
-        query = rng.standard_normal((2, E))
-        expected = query @ coeffs + intercept
+        Q = rng.standard_normal((2, E))
+        expected = Q @ coeffs + intercept
 
-        pred = smap(X, Y, query, theta=0.0, alpha=0.0)
-        assert np.isfinite(pred).all()
-        assert pred.shape == (2,)
+        predictions = smap(X, Y, Q, theta=0.0, alpha=0.0)
+        assert np.isfinite(predictions).all()
+        assert predictions.shape == (2,)
         # With a perfect linear system and theta=0, predictions should match
-        np.testing.assert_allclose(pred, expected, atol=1e-10)
+        np.testing.assert_allclose(predictions, expected, atol=1e-10)
 
 
 # ===========================================================================
@@ -415,10 +415,10 @@ class TestNumericalStability:
         x0 = rng.standard_normal(N)
         X = np.column_stack([x0, x0 + rng.normal(0, 1e-8, N)])
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((3, E))
+        Q = rng.standard_normal((3, E))
 
-        pred = smap(X, Y, query, theta=2.0, alpha=1e-10)
-        assert np.all(np.isfinite(pred))
+        predictions = smap(X, Y, Q, theta=2.0, alpha=1e-10)
+        assert np.all(np.isfinite(predictions))
 
     @pytest.mark.parametrize("theta", [10.0, 20.0, 50.0])
     def test_large_theta_stability(self, theta):
@@ -427,7 +427,7 @@ class TestNumericalStability:
         N, E = 30, 2
         X = rng.standard_normal((N, E))
         Y = rng.standard_normal(N)
-        query = rng.standard_normal((5, E))
+        Q = rng.standard_normal((5, E))
 
-        pred = smap(X, Y, query, theta=theta, alpha=1e-10)
-        assert np.all(np.isfinite(pred))
+        predictions = smap(X, Y, Q, theta=theta, alpha=1e-10)
+        assert np.all(np.isfinite(predictions))

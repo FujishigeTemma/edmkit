@@ -18,11 +18,11 @@ def test_basic_call():
     emb = lagged_embed(x, tau=1, e=3)
     assert emb.ndim == 2
 
-    pred = simplex_projection(emb[:30], emb[1:31, 0], emb[30:])
-    assert np.all(np.isfinite(pred))
+    predictions = simplex_projection(emb[:30], emb[1:31, 0], emb[30:])
+    assert np.all(np.isfinite(predictions))
 
-    pred = smap(emb[:30], emb[1:31, 0], emb[30:], theta=1.0)
-    assert np.all(np.isfinite(pred))
+    predictions = smap(emb[:30], emb[1:31, 0], emb[30:], theta=1.0)
+    assert np.all(np.isfinite(predictions))
 
 
 def test_ccm_basic_call():
@@ -39,7 +39,7 @@ def test_ccm_basic_call():
         n_samples=3,
         library_pool=np.arange(n // 2),
         prediction_pool=np.arange(n // 2, n),
-        sampler=lambda pool, size: rng.choice(pool, size=size, replace=True),
+        sample_func=lambda pool, size: rng.choice(pool, size=size, replace=True),
     )
     assert corrs.shape == (2,)
     assert np.all(np.isfinite(corrs))

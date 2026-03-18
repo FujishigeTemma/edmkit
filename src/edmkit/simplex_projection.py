@@ -9,11 +9,12 @@ from edmkit.util import pairwise_distance
 def simplex_projection(
     X: np.ndarray,
     Y: np.ndarray,
-    query_points: np.ndarray,
+    Q: np.ndarray,
+    *,
     use_tensor: bool = False,
 ) -> np.ndarray:
     """
-    Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `query_points`.
+    Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
 
     Parameters
     ----------
@@ -21,7 +22,7 @@ def simplex_projection(
         The input data
     `Y` : `np.ndarray`
         The target data
-    `query_points` : `np.ndarray`
+    `Q` : `np.ndarray`
         The query points for which to find the nearest neighbors in `X`.
     `use_tensor` : `bool`, default `False`
         Whether to use `tinygrad.Tensor` for computation.
@@ -62,39 +63,39 @@ def simplex_projection(
     Tp = 1
     X = embedding[:lib_size - shift]
     Y = x[shift + Tp : lib_size + Tp]
-    query_points = embedding[lib_size - shift : -Tp]
+    Q = embedding[lib_size - shift : -Tp]
     actual = x[lib_size + Tp :]
 
-    predictions = simplex_projection(X, Y, query_points)
+    predictions = simplex_projection(X, Y, Q)
 
     correlation = np.corrcoef(predictions, actual)[0, 1]
     print(f"Correlation: {correlation:.3f}")
     ```
     """
-    return _numpy(X, Y, query_points) if not use_tensor else _tensor(X, Y, query_points)
+    return _numpy(X, Y, Q) if not use_tensor else _tensor(X, Y, Q)
 
 
-def knn(X: np.ndarray, query_points: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+def knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
     N, E = X.shape
     if E >= 15 and N >= 10_000:
         index = Index(ndim=E, metric="l2sq")
         index.add(np.arange(len(X)), np.ascontiguousarray(X, dtype=np.float32))
-        matches = index.search(np.ascontiguousarray(query_points, dtype=np.float32), k)
+        matches = index.search(np.ascontiguousarray(Q, dtype=np.float32), k)
         distances = np.atleast_2d(np.sqrt(np.asarray(matches.distances)))
         indices = np.atleast_2d(np.asarray(matches.keys).astype(np.intp))
         return distances, indices
     else:
         tree = KDTree(X)
-        return tree.query(query_points, k=k)
+        return tree.query(Q, k=k)
 
 
 def _numpy(
     X: np.ndarray,
     Y: np.ndarray,
-    query_points: np.ndarray,
+    Q: np.ndarray,
 ):
     """
-    Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `query_points`.
+    Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
 
     Parameters
     ----------
@@ -102,7 +103,7 @@ def _numpy(
         (N,) or (N, E) or (B, N, E)
     `Y` : `np.ndarray`
         (N,) or (N, E') or (B, N, E')
-    `query_points` : `np.ndarray`
+    `Q` : `np.ndarray`
         The query points for which to find the nearest neighbors in `X`.
         (M,) or (M, E) or (B, M, E)
 
@@ -122,17 +123,17 @@ def _numpy(
         X = X[:, None]
     if Y.ndim == 1:
         Y = Y[:, None]
-    if query_points.ndim == 1:
-        query_points = query_points[:, None]
+    if Q.ndim == 1:
+        Q = Q[:, None]
 
-    # X (N, E), Y (N, E'), query_points (M, E)
-    if X.ndim == 2 and Y.ndim == 2 and query_points.ndim == 2:
+    # X (N, E), Y (N, E'), Q (M, E)
+    if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
         if X.shape[0] != Y.shape[0]:
             raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
 
         k: int = X.shape[1] + 1
 
-        distances, indices = knn(X, query_points, k)
+        distances, indices = knn(X, Q, k)
 
         Y_neighbors = Y[indices]  # (M, k, E')
 
@@ -144,23 +145,21 @@ def _numpy(
         predictions = weighted_sum / np.sum(weights, axis=1, keepdims=True)
 
         return predictions.squeeze()  # (M,) or (M, E')
-    # X (B, N, E), Y (B, N, E'), query_points (B, M, E)
-    elif X.ndim == 3 and Y.ndim == 3 and query_points.ndim == 3:
+    # X (B, N, E), Y (B, N, E'), Q (B, M, E)
+    elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
         B, N, E = X.shape
         if Y.shape[0] != B or Y.shape[1] != N:
             raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
-        if query_points.shape[0] != B or query_points.shape[2] != E:
-            raise ValueError(
-                f"batch size and dimension of X and query_points must match, got X.shape={X.shape} and query_points.shape={query_points.shape}"
-            )
+        if Q.shape[0] != B or Q.shape[2] != E:
+            raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
 
         k: int = E + 1
-        M = query_points.shape[1]
+        M = Q.shape[1]
 
         distances = np.empty((B, M, k))
         indices = np.empty((B, M, k), dtype=np.intp)
         for b in range(B):
-            distances[b], indices[b] = knn(X[b], query_points[b], k)
+            distances[b], indices[b] = knn(X[b], Q[b], k)
 
         batch_idx = np.arange(B)[:, None, None]  # (B, 1, 1)
         Y_neighbors = Y[batch_idx, indices]  # (B, M, k, E')
@@ -174,18 +173,16 @@ def _numpy(
 
         return predictions
     else:
-        raise ValueError(
-            f"X, Y, and query_points must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, query_points.ndim={query_points.ndim}"
-        )
+        raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
 
 
 def _tensor(
     X: np.ndarray,
     Y: np.ndarray,
-    query_points: np.ndarray,
+    Q: np.ndarray,
 ):
     """
-    Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `query_points`.
+    Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
 
     Parameters
     ----------
@@ -193,7 +190,7 @@ def _tensor(
         (N,) or (N, E) or (B, N, E)
     `Y` : `np.ndarray`
         (N,) or (N, E') or (B, N, E')
-    `query_points` : `np.ndarray`
+    `Q` : `np.ndarray`
         The query points for which to find the nearest neighbors in `X`.
         (M,) or (M, E) or (B, M, E)
 
@@ -212,17 +209,17 @@ def _tensor(
         X = X[:, None]
     if Y.ndim == 1:
         Y = Y[:, None]
-    if query_points.ndim == 1:
-        query_points = query_points[:, None]
+    if Q.ndim == 1:
+        Q = Q[:, None]
 
-    # X (N, E), Y (N, E'), query_points (M, E)
-    if X.ndim == 2 and Y.ndim == 2 and query_points.ndim == 2:
+    # X (N, E), Y (N, E'), Q (M, E)
+    if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
         if X.shape[0] != Y.shape[0]:
             raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
 
         X_tensor = Tensor(X, dtype=dtypes.float32)
         Y_tensor = Tensor(Y, dtype=dtypes.float32)
-        query_tensor = Tensor(query_points, dtype=dtypes.float32)
+        query_tensor = Tensor(Q, dtype=dtypes.float32)
 
         D = pairwise_distance(query_tensor, X_tensor).sqrt()  # (M, N)
 
@@ -238,19 +235,17 @@ def _tensor(
         predictions: Tensor = weighted_sum / weights.sum(axis=1, keepdim=True)  # (M, E')
 
         return predictions.numpy().squeeze()
-    # X (B, N, E), Y (B, N, E'), query_points (B, M, E)
-    elif X.ndim == 3 and Y.ndim == 3 and query_points.ndim == 3:
+    # X (B, N, E), Y (B, N, E'), Q (B, M, E)
+    elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
         B, N, E = X.shape
         if Y.shape[0] != B or Y.shape[1] != N:
             raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
-        if query_points.shape[0] != B or query_points.shape[2] != E:
-            raise ValueError(
-                f"batch size and dimension of X and query_points must match, got X.shape={X.shape} and query_points.shape={query_points.shape}"
-            )
+        if Q.shape[0] != B or Q.shape[2] != E:
+            raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
 
         Y_tensor = Tensor(Y, dtype=dtypes.float32)
 
-        D = pairwise_distance(Tensor(query_points, dtype=dtypes.float32), Tensor(X, dtype=dtypes.float32)).sqrt()  # (B, M, N)
+        D = pairwise_distance(Tensor(Q, dtype=dtypes.float32), Tensor(X, dtype=dtypes.float32)).sqrt()  # (B, M, N)
 
         k: int = E + 1
 
@@ -275,9 +270,9 @@ def _tensor(
         #   3) Reshape Y into (B*N, E') and gather using the flattened indices
         #   4) Reshape the gathered results back to (B, M, k, E') to continue computation
         offsets = Tensor.arange(B, dtype=dtypes.int32).reshape(B, 1, 1) * N  # (B,1,1) create per-batch offsets spaced by N
-        flat_indices = (indices + offsets).reshape(B * query_points.shape[1], k)  # (B*M, k) flatten batch and query dimensions
+        flat_indices = (indices + offsets).reshape(B * Q.shape[1], k)  # (B*M, k) flatten batch and query dimensions
         Y_flat = Y_tensor.reshape(B * N, Y_tensor.shape[-1])  # (B*N, E') flatten batch and library points
-        Y_neighbors = Y_flat[flat_indices].reshape(B, query_points.shape[1], k, Y_tensor.shape[-1])  # (B, M, k, E') restore shape
+        Y_neighbors = Y_flat[flat_indices].reshape(B, Q.shape[1], k, Y_tensor.shape[-1])  # (B, M, k, E') restore shape
         # ---------------------------------------------------------------------------
 
         d_min = distances[:, :, :1].clip(min_=1e-6)  # (B, M, 1)
@@ -288,6 +283,4 @@ def _tensor(
 
         return predictions.numpy()
     else:
-        raise ValueError(
-            f"X, Y, and query_points must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, query_points.ndim={query_points.ndim}"
-        )
+        raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")

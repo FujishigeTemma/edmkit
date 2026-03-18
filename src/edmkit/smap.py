@@ -7,7 +7,8 @@ from edmkit.util import pairwise_distance_np
 def smap(
     X: np.ndarray,
     Y: np.ndarray,
-    query_points: np.ndarray,
+    Q: np.ndarray,
+    *,
     theta: float,
     alpha: float = 1e-10,
     use_tensor: bool = False,
@@ -21,7 +22,7 @@ def smap(
         The input data
     `Y` : `np.ndarray`
         The target data
-    `query_points` : `np.ndarray`
+    `Q` : `np.ndarray`
         The query points for which to make predictions.
     `theta` : `float`
         Locality parameter. (0: global linear, >0: local linear)
@@ -67,27 +68,28 @@ def smap(
     Tp = 1
     X = embedding[:lib_size - shift]
     Y = x[shift + Tp : lib_size + Tp]
-    query_points = embedding[lib_size - shift : -Tp]
+    Q = embedding[lib_size - shift : -Tp]
     actual = x[lib_size + Tp :]
 
     # Local linear with theta=4.0
-    predictions = smap(X, Y, query_points, theta=4.0)
+    predictions = smap(X, Y, Q, theta=4.0)
     correlation = np.corrcoef(predictions, actual)[0, 1]
     print(f"Correlation (theta=4.0): {correlation:.3f}")
 
     # Global linear with theta=0.0
-    predictions_global = smap(X, Y, query_points, theta=0.0)
+    predictions_global = smap(X, Y, Q, theta=0.0)
     correlation_global = np.corrcoef(predictions_global, actual)[0, 1]
     print(f"Correlation (theta=0.0): {correlation_global:.3f}")
     ```
     """
-    return _numpy(X, Y, query_points, theta, alpha) if not use_tensor else _tensor(X, Y, query_points, theta, alpha)
+    return _numpy(X, Y, Q, theta=theta, alpha=alpha) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha)
 
 
 def _numpy(
     X: np.ndarray,
     Y: np.ndarray,
-    query_points: np.ndarray,
+    Q: np.ndarray,
+    *,
     theta: float,
     alpha: float = 1e-10,
 ):
@@ -100,7 +102,7 @@ def _numpy(
         (N,) or (N, E) or (B, N, E)
     `Y` : `np.ndarray`
         (N,) or (N, E') or (B, N, E')
-    `query_points` : `np.ndarray`
+    `Q` : `np.ndarray`
         The query points for which to make predictions.
         (M,) or (M, E) or (B, M, E)
     `theta` : `float`
@@ -130,12 +132,12 @@ def _numpy(
         X = X[:, None]
     if Y.ndim == 1:
         Y = Y[:, None]
-    if query_points.ndim == 1:
-        query_points = query_points[:, None]
+    if Q.ndim == 1:
+        Q = Q[:, None]
 
-    # X (N, E), Y (N, E'), query_points (M, E)
-    if X.ndim == 2 and Y.ndim == 2 and query_points.ndim == 2:
-        D = cdist(query_points, X, metric="euclidean")  # (M, N)
+    # X (N, E), Y (N, E'), Q (M, E)
+    if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
+        D = cdist(Q, X, metric="euclidean")  # (M, N)
 
         if theta == 0:
             weights = np.ones_like(D)
@@ -145,7 +147,7 @@ def _numpy(
 
         # Add intercept term
         X_aug = np.hstack([np.ones((X.shape[0], 1)), X])  # (N, E+1)
-        query_points_aug = np.hstack([np.ones((query_points.shape[0], 1)), query_points])  # (M, E+1)
+        Q_aug = np.hstack([np.ones((Q.shape[0], 1)), Q])  # (M, E+1)
 
         # Create weighted design matrices for all query points
         # A^T @ W @ A
@@ -161,15 +163,15 @@ def _numpy(
 
         C = np.linalg.solve(XTX, XTY)  # (M, E+1, E')
 
-        predictions = np.einsum("pi,pij->pj", query_points_aug, C)
+        predictions = np.einsum("pi,pij->pj", Q_aug, C)
 
         return predictions.squeeze()  # (M,) or (M, E')
-    # X (B, N, E), Y (B, N, E'), query_points (B, M, E)
-    elif X.ndim == 3 and Y.ndim == 3 and query_points.ndim == 3:
+    # X (B, N, E), Y (B, N, E'), Q (B, M, E)
+    elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
         B, N, E = X.shape
-        M = query_points.shape[1]
+        M = Q.shape[1]
 
-        D = np.sqrt(pairwise_distance_np(query_points, X))  # (B, M, N)
+        D = np.sqrt(pairwise_distance_np(Q, X))  # (B, M, N)
 
         if theta == 0:
             weights = np.ones_like(D)  # (B, M, N)
@@ -179,7 +181,7 @@ def _numpy(
 
         # Add intercept term
         X_aug = np.concatenate([np.ones((B, N, 1)), X], axis=2)  # (B, N, E+1)
-        query_points_aug = np.concatenate([np.ones((B, M, 1)), query_points], axis=2)  # (B, M, E+1)
+        Q_aug = np.concatenate([np.ones((B, M, 1)), Q], axis=2)  # (B, M, E+1)
 
         # Weighted design matrices: A^T @ W @ A
         XTX = np.einsum("bpn,bni,bnj->bpij", weights, X_aug, X_aug)  # (B, M, E+1, E+1)
@@ -194,19 +196,18 @@ def _numpy(
 
         C = np.linalg.solve(XTX, XTY)  # (B, M, E+1, E')
 
-        predictions = np.einsum("bpi,bpij->bpj", query_points_aug, C)  # (B, M, E')
+        predictions = np.einsum("bpi,bpij->bpj", Q_aug, C)  # (B, M, E')
 
         return predictions
     else:
-        raise ValueError(
-            f"X, Y, and query_points must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, query_points.ndim={query_points.ndim}"
-        )
+        raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
 
 
 def _tensor(
     X: np.ndarray,
     Y: np.ndarray,
-    query_points: np.ndarray,
+    Q: np.ndarray,
+    *,
     theta: float,
     alpha: float = 1e-10,
 ):
@@ -219,7 +220,7 @@ def _tensor(
         The input data
     `Y` : `np.ndarray`
         The target data
-    `query_points` : `np.ndarray`
+    `Q` : `np.ndarray`
         The query points for which to make predictions.
     `theta` : `float`
         Locality parameter. (0: global linear, >0: local linear)

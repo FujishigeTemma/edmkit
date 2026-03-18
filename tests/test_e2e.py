@@ -6,7 +6,6 @@ from edmkit.ccm import with_simplex_projection
 from edmkit.embedding import lagged_embed
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
-from tests.helpers import make_seeded_sampler
 
 
 def test_simplex_and_smap_end_to_end():
@@ -19,19 +18,19 @@ def test_simplex_and_smap_end_to_end():
 
     X = embedding[: lib_size - shift]
     Y = embedding[Tp : lib_size - shift + Tp, 0]
-    query = embedding[lib_size - shift :]
+    Q = embedding[lib_size - shift :]
 
-    simplex_pred = simplex_projection(X, Y, query)
-    assert simplex_pred.shape == (len(query),)
-    assert np.all(np.isfinite(simplex_pred))
+    simplex_predictions = simplex_projection(X, Y, Q)
+    assert simplex_predictions.shape == (len(Q),)
+    assert np.all(np.isfinite(simplex_predictions))
 
-    smap_pred = smap(X, Y, query, theta=1.0)
-    assert smap_pred.shape == (len(query),)
-    assert np.all(np.isfinite(smap_pred))
+    smap_predictions = smap(X, Y, Q, theta=1.0)
+    assert smap_predictions.shape == (len(Q),)
+    assert np.all(np.isfinite(smap_predictions))
 
     # For a sine wave, simplex prediction should correlate positively with actual values
-    actual = x[lib_size + Tp - 1 : lib_size + Tp - 1 + len(query)]
-    simplex_corr = np.corrcoef(simplex_pred, actual[: len(simplex_pred)])[0, 1]
+    actual = x[lib_size + Tp - 1 : lib_size + Tp - 1 + len(Q)]
+    simplex_corr = np.corrcoef(simplex_predictions, actual[: len(simplex_predictions)])[0, 1]
     assert simplex_corr > 0, f"Expected positive correlation for sine wave, got {simplex_corr}"
 
 
@@ -51,8 +50,8 @@ def test_ccm_pipeline():
     X_aligned = X[shift:]
 
     N_embed = Y_embed.shape[0]
-    lib_pool = np.arange(N_embed // 2)
-    pred_pool = np.arange(N_embed // 2, N_embed)
+    library_pool = np.arange(N_embed // 2)
+    prediction_pool = np.arange(N_embed // 2, N_embed)
     lib_sizes = np.array([10, 50, N_embed // 2])
 
     correlations = with_simplex_projection(
@@ -60,9 +59,8 @@ def test_ccm_pipeline():
         X_aligned,
         lib_sizes,
         n_samples=5,
-        library_pool=lib_pool,
-        prediction_pool=pred_pool,
-        sampler=make_seeded_sampler(42),
+        library_pool=library_pool,
+        prediction_pool=prediction_pool,
     )
 
     assert correlations.shape == (len(lib_sizes),)

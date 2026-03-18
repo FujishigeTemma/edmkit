@@ -1,27 +1,28 @@
-"""Convergent Cross Mapping (CCM) for causality detection in time series."""
-
 from collections.abc import Callable
 from functools import partial
+from typing import TypeAlias
 
 import numpy as np
 
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 
-# NOTE: Module-level RNG is shared mutable state. When test order changes,
-# the sequence of draws from this RNG changes too, causing non-determinism.
-# Tests should always pass an explicit sampler (e.g. via make_seeded_sampler)
-# rather than relying on default_sampler.
-_rng = np.random.default_rng(42)
+PredictFunc: TypeAlias = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
+"""PredictFunc is a function that takes (X, Y, Q) and returns predictions."""
+SampleFunc: TypeAlias = Callable[[np.ndarray, int], np.ndarray]
+"""SampleFunc is a function that takes (pool, size) and returns a sampled array."""
+AggregateFunc: TypeAlias = Callable[[np.ndarray], float]
+"""AggregateFunc is a function that takes an array of values and returns a single value."""
 
 
-def default_sampler(pool: np.ndarray, size: int) -> np.ndarray:
-    return _rng.choice(pool, size=size, replace=True)
+def make_sample_func(seed: int | None = 42) -> SampleFunc:
+    """Create a sample function with its own independent RNG."""
+    rng = np.random.default_rng(seed)
 
+    def sample_func(pool: np.ndarray, size: int) -> np.ndarray:
+        return rng.choice(pool, size=size, replace=True)
 
-PredictFunc = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
-Sampler = Callable[[np.ndarray, int], np.ndarray]
-Aggregator = Callable[[np.ndarray], float]
+    return sample_func
 
 
 def bootstrap(
@@ -33,7 +34,7 @@ def bootstrap(
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
-    sampler: Sampler = default_sampler,
+    sample_func: SampleFunc | None = None,
     batch_size: int | None = 10,
 ) -> np.ndarray:
     """
@@ -51,15 +52,16 @@ def bootstrap(
     lib_sizes : np.ndarray
         Array of library sizes to test convergence.
     predict_func : :type: `PredictFunc`
-        Prediction function with signature (lib_X, lib_Y, pred_X) -> predictions.
+        Prediction function with signature (X, Y, Q) -> predictions.
     n_samples : int, default 20
         Number of random samples per library size for bootstrapping.
     library_pool : np.ndarray
         1-D array of integer indices from which library members are sampled.
     prediction_pool : np.ndarray
         1-D array of integer indices that are predicted.
-    sampler : :type: `Sampler`, default `default_sampler`
+    sample_func : :type: `SampleFunc` | None, default None
         Function responsible for drawing a library sample of a given size.
+        When None, a fresh RNG-backed sampler is created per call.
     batch_size : int | None, default 10
         If specified, predictions are made in batches to limit memory usage.
 
@@ -68,6 +70,9 @@ def bootstrap(
     samples : np.ndarray of shape (n_samples, len(lib_sizes))
         Per-sample correlation coefficients.
     """
+    if sample_func is None:
+        sample_func = make_sample_func()
+
     if X.shape[0] != Y.shape[0]:
         raise ValueError(f"X and Y must have same length, got {X.shape[0]} and {Y.shape[0]}")
     if not callable(predict_func):
@@ -86,7 +91,7 @@ def bootstrap(
         Y = Y[:, None]
 
     prediction_indices = np.tile(prediction_pool, (batch_size, 1))
-    query_points = X[prediction_indices]
+    Q = X[prediction_indices]
     actual = Y[prediction_indices]
 
     samples = np.zeros((n_samples, len(lib_sizes)))
@@ -96,12 +101,12 @@ def bootstrap(
         while remaining > 0:
             batch = min(batch_size, remaining)
 
-            library_indices = np.vstack([sampler(library_pool, lib_size) for _ in range(batch)])
+            library_indices = np.vstack([sample_func(library_pool, lib_size) for _ in range(batch)])
 
             lib_X = X[library_indices]
             lib_Y = Y[library_indices]
 
-            predictions = predict_func(lib_X, lib_Y, query_points[:batch])
+            predictions = predict_func(lib_X, lib_Y, Q[:batch])
 
             offset = n_samples - remaining
             samples[offset : offset + batch, i] = pearson_correlation(predictions, actual[:batch])
@@ -119,8 +124,8 @@ def ccm(
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
-    sampler: Sampler = default_sampler,
-    aggregator: Aggregator = np.mean,
+    sample_func: SampleFunc | None = None,
+    aggregate_func: AggregateFunc = np.mean,
     batch_size: int | None = 10,
 ) -> np.ndarray:
     """
@@ -139,7 +144,7 @@ def ccm(
     lib_sizes : np.ndarray
         Array of library sizes to test convergence.
     predict_func : :type: `PredictFunc`
-        Prediction function with signature (lib_X, lib_Y, pred_X) -> predictions.
+        Prediction function with signature (X, Y, Q) -> predictions.
         Can be `simplex_projection`, `smap` with partial application, or a custom function.
     n_samples : int, default 100
         Number of random samples per library size for bootstrapping.
@@ -147,10 +152,11 @@ def ccm(
         1-D array of integer indices from which library members are sampled.
     prediction_pool : np.ndarray
         1-D array of integer indices that are predicted.
-    sampler : :type: `Sampler`, default `default_sampler`
+    sample_func : :type: `SampleFunc` | None, default None
         Function responsible for drawing a library sample of a given size.
         It receives `(pool, size)` and returns an array of indices.
-    aggregator : :type: `Aggregator`, default `np.mean`
+        When None, a fresh RNG-backed sampler is created per call.
+    aggregate_func : :type: `AggregateFunc`, default `np.mean`
         Reducer applied to the correlation samples for each library size.
     batch_size : int | None, default None
         If not specified, batch_size == n_samples.
@@ -167,7 +173,7 @@ def ccm(
         - If `lib_sizes` contains non-positive values.
         - If `predict_func` is not callable.
         - If `n_samples` is not positive.
-        - If `aggregator` is not callable.
+        - If `aggregate_func` is not callable.
         - If `library_pool` or `prediction_pool` is invalid.
 
     Notes
@@ -231,8 +237,8 @@ def ccm(
     )
     ```
     """
-    if aggregator is None or not callable(aggregator):
-        raise ValueError("aggregator must be a callable")
+    if aggregate_func is None or not callable(aggregate_func):
+        raise ValueError("aggregate_func must be a callable")
 
     samples = bootstrap(
         X,
@@ -242,11 +248,11 @@ def ccm(
         n_samples,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
-        sampler=sampler,
+        sample_func=sample_func,
         batch_size=batch_size,
     )
 
-    return np.array([aggregator(samples[:, i]) for i in range(samples.shape[1])])
+    return np.array([aggregate_func(samples[:, i]) for i in range(samples.shape[1])])
 
 
 def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
@@ -289,8 +295,8 @@ def with_simplex_projection(
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
-    sampler: Sampler = default_sampler,
-    aggregator: Aggregator = np.mean,
+    sample_func: SampleFunc | None = None,
+    aggregate_func: AggregateFunc = np.mean,
 ) -> np.ndarray:
     """
     Perform Convergent Cross Mapping using simplex projection.
@@ -314,10 +320,10 @@ def with_simplex_projection(
         Indices that can be used to draw library samples. Defaults to the full range.
     prediction_pool : np.ndarray, optional
         Indices that should be predicted (leave-one-out over this set). Defaults to the full range.
-    sampler : callable, optional
+    sample_func : callable, optional
         Function responsible for drawing a library sample of a given size.
-        Falls back to `default_sampler` (bootstrap with replacement) when omitted.
-    aggregator : callable, optional
+        When omitted, a fresh RNG-backed sampler is created per call.
+    aggregate_func : callable, optional
         Reducer applied to the correlation samples for each library size.
         Falls back to `np.mean` when omitted.
     Returns
@@ -381,8 +387,8 @@ def with_simplex_projection(
         n_samples=n_samples,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
-        sampler=sampler,
-        aggregator=aggregator,
+        sample_func=sample_func,
+        aggregate_func=aggregate_func,
     )
 
 
@@ -397,8 +403,8 @@ def with_smap(
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
-    sampler: Sampler = default_sampler,
-    aggregator: Aggregator = np.mean,
+    sample_func: SampleFunc | None = None,
+    aggregate_func: AggregateFunc = np.mean,
 ) -> np.ndarray:
     """
     Perform Convergent Cross Mapping using S-Map (local linear regression).
@@ -426,10 +432,10 @@ def with_smap(
         Indices that can be used to draw library samples. Defaults to the full range.
     prediction_pool : np.ndarray, optional
         Indices that should be predicted (leave-one-out over this set). Defaults to the full range.
-    sampler : callable, optional
+    sample_func : callable, optional
         Function responsible for drawing a library sample of a given size.
-        Falls back to `default_sampler` (bootstrap with replacement) when omitted.
-    aggregator : callable, optional
+        When omitted, a fresh RNG-backed sampler is created per call.
+    aggregate_func : callable, optional
         Reducer applied to the correlation samples for each library size.
         Falls back to `np.mean` when omitted.
     Returns
@@ -494,6 +500,6 @@ def with_smap(
         n_samples=n_samples,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
-        sampler=sampler,
-        aggregator=aggregator,
+        sample_func=sample_func,
+        aggregate_func=aggregate_func,
     )
