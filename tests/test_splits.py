@@ -9,7 +9,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from edmkit.splits import Fold, expanding_folds, sliding_folds, temporal_fold
+from edmkit.splits import expanding_folds, sliding_folds, temporal_fold
 
 
 # ---------------------------------------------------------------------------

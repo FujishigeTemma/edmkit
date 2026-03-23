@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from hypothesis.extra import numpy as stn
 
 from edmkit.simplex_projection import simplex_projection
 
@@ -74,7 +73,6 @@ class TestMask2D:
     def test_too_few_valid_points_raises(self):
         """mask valid count < k → ValueError."""
         E = 3
-        k = E + 1  # 4
         N = 10
         X, Y, Q = _make_data_2d(N, E, 2)
         mask = np.zeros(N, dtype=bool)
@@ -123,7 +121,6 @@ class TestMask3D:
 
     def test_3d_too_few_valid_raises(self):
         E = 2
-        k = E + 1
         rng = np.random.default_rng(42)
         B, N, M = 2, 10, 3
         X = rng.standard_normal((B, N, E))

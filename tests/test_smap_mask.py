@@ -5,7 +5,6 @@ all-True mask equivalence, and hypothesis shape properties.
 """
 
 import numpy as np
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
