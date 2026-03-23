@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import numpy as np
 from scipy.spatial.distance import cdist
 
@@ -86,6 +88,35 @@ def smap(
     return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha)
 
 
+def weights(
+    D: np.ndarray,
+    theta: float,
+    *,
+    mask: np.ndarray | None = None,
+) -> np.ndarray:
+    """Compute S-Map exponential weights, zeroing out masked library points.
+
+    Parameters
+    ----------
+    D : np.ndarray
+        Distance matrix — (M, N) or (B, M, N).
+    theta : float
+        Locality parameter.
+    mask : np.ndarray | None
+        Boolean mask over the library axis — (N,) or (B, N).
+    """
+    valid = np.isfinite(D) if mask is None else np.isfinite(D) & mask[..., None, :]  # (1, N) or (B, 1, N)
+
+    if theta == 0.0:
+        return np.where(valid, 1.0, 0.0)
+
+    d_sum = np.where(valid, D, 0.0).sum(axis=-1, keepdims=True)
+    n_valid = np.maximum(valid.sum(axis=-1, keepdims=True), 1)
+    d_mean = np.maximum(d_sum / n_valid, 1e-6)
+    w = np.exp(-theta * D / d_mean)
+    return np.where(valid, w, 0.0)
+
+
 def _numpy(
     X: np.ndarray,
     Y: np.ndarray,
@@ -140,22 +171,7 @@ def _numpy(
     # X (N, E), Y (N, E'), Q (M, E)
     if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
         D = cdist(Q, X, metric="euclidean")  # (M, N)
-
-        if mask is not None:
-            D[:, ~mask] = np.inf
-
-        if theta == 0:
-            weights = np.ones_like(D)
-            if mask is not None:
-                weights[:, ~mask] = 0.0
-        else:
-            if mask is not None:
-                n_valid = mask.sum()
-                d_sum = np.where(mask[None, :], D, 0.0).sum(axis=1, keepdims=True)
-                d_mean = np.maximum(d_sum / n_valid, 1e-6)
-            else:
-                d_mean = np.maximum(D.mean(axis=1, keepdims=True), 1e-6)
-            weights = np.exp(-theta * D / d_mean)  # inf → 0
+        W = weights(D, theta, mask=mask)
 
         # Add intercept term
         X_aug = np.hstack([np.ones((X.shape[0], 1)), X])  # (N, E+1)
@@ -163,8 +179,8 @@ def _numpy(
 
         # Create weighted design matrices for all query points
         # A^T @ W @ A
-        XTX = np.einsum("pn,ni,nj->pij", weights, X_aug, X_aug)  # (M, E+1, E+1)
-        XTY = np.einsum("pn,ni,nj->pij", weights, X_aug, Y)  # (M, E+1, E')
+        XTX = np.einsum("pn,ni,nj->pij", W, X_aug, X_aug)  # (M, E+1, E+1)
+        XTY = np.einsum("pn,ni,nj->pij", W, X_aug, Y)  # (M, E+1, E')
 
         # Tikhonov regularization
         eye = np.eye(XTX.shape[1])
@@ -184,31 +200,15 @@ def _numpy(
         M = Q.shape[1]
 
         D = np.sqrt(pairwise_distance_np(Q, X))  # (B, M, N)
-
-        if mask is not None:
-            inv_mask = ~mask[:, None, :]  # (B, 1, N)
-            D = np.where(inv_mask, np.inf, D)
-
-        if theta == 0:
-            weights = np.ones_like(D)  # (B, M, N)
-            if mask is not None:
-                weights = np.where(inv_mask, 0.0, weights)
-        else:
-            if mask is not None:
-                n_valid = mask.sum(axis=1)[:, None, None].astype(float)  # (B, 1, 1)
-                d_sum = np.where(inv_mask, 0.0, D).sum(axis=2, keepdims=True)
-                d_mean = np.maximum(d_sum / n_valid, 1e-6)
-            else:
-                d_mean = np.maximum(D.mean(axis=2, keepdims=True), 1e-6)  # (B, M, 1)
-            weights = np.exp(-theta * D / d_mean)  # (B, M, N)
+        W = weights(D, theta, mask=mask)
 
         # Add intercept term
         X_aug = np.concatenate([np.ones((B, N, 1)), X], axis=2)  # (B, N, E+1)
         Q_aug = np.concatenate([np.ones((B, M, 1)), Q], axis=2)  # (B, M, E+1)
 
         # Weighted design matrices: A^T @ W @ A
-        XTX = np.einsum("bpn,bni,bnj->bpij", weights, X_aug, X_aug)  # (B, M, E+1, E+1)
-        XTY = np.einsum("bpn,bni,bnj->bpij", weights, X_aug, Y)  # (B, M, E+1, E')
+        XTX = np.einsum("bpn,bni,bnj->bpij", W, X_aug, X_aug)  # (B, M, E+1, E+1)
+        XTY = np.einsum("bpn,bni,bnj->bpij", W, X_aug, Y)  # (B, M, E+1, E')
 
         # Tikhonov regularization
         eye = np.eye(E + 1)
@@ -267,3 +267,12 @@ def _tensor(
         raise ValueError(f"theta must be non-negative, got theta={theta}")
 
     raise NotImplementedError("Tensor-based S-Map is not implemented yet.")
+
+
+if TYPE_CHECKING:
+    from functools import partial
+
+    from edmkit.types import PredictFunc
+
+    func: PredictFunc
+    func = partial(smap, theta=4.0)

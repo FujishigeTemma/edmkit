@@ -1,10 +1,3 @@
-"""Tests for simplex_projection mask support.
-
-Verifies backward compatibility (mask=None), 2D/3D mask behavior,
-all-True mask equivalence, insufficient valid points error, and
-hypothesis shape properties.
-"""
-
 import numpy as np
 import pytest
 from hypothesis import given, settings
@@ -12,10 +5,10 @@ from hypothesis import strategies as st
 
 from edmkit.simplex_projection import simplex_projection
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_data_2d(N: int, E: int, M: int, seed: int = 42):
     rng = np.random.default_rng(seed)
@@ -28,6 +21,7 @@ def _make_data_2d(N: int, E: int, M: int, seed: int = 42):
 # ---------------------------------------------------------------------------
 # Backward compatibility: mask=None
 # ---------------------------------------------------------------------------
+
 
 class TestMaskNoneBackwardCompat:
     def test_identity_prediction_no_mask(self):
@@ -44,6 +38,7 @@ class TestMaskNoneBackwardCompat:
 # ---------------------------------------------------------------------------
 # 2D mask: padding rows + mask → same as real-only
 # ---------------------------------------------------------------------------
+
 
 class TestMask2D:
     def test_padding_rows_masked_out(self):
@@ -77,13 +72,14 @@ class TestMask2D:
         X, Y, Q = _make_data_2d(N, E, 2)
         mask = np.zeros(N, dtype=bool)
         mask[:3] = True  # only 3 valid, need k=4
-        with pytest.raises(ValueError, match="valid"):
+        with pytest.raises(ValueError, match="Not enough"):
             simplex_projection(X, Y, Q, mask=mask)
 
 
 # ---------------------------------------------------------------------------
 # 3D mask: batch elements with different valid counts
 # ---------------------------------------------------------------------------
+
 
 class TestMask3D:
     def test_batch_mask_matches_2d(self):
@@ -129,13 +125,14 @@ class TestMask3D:
         mask = np.ones((B, N), dtype=bool)
         mask[1, 3:] = False  # batch 1: only 3 valid, need k=3 → ok, but let's make it 2
         mask[1, 2:] = False  # batch 1: only 2 valid, need k=3
-        with pytest.raises(ValueError, match="valid"):
+        with pytest.raises(ValueError, match="Not enough"):
             simplex_projection(X, Y, Q, mask=mask)
 
 
 # ---------------------------------------------------------------------------
 # 2D tensor path: mask support
 # ---------------------------------------------------------------------------
+
 
 class TestMaskTensor2D:
     @pytest.mark.gpu
@@ -171,6 +168,7 @@ class TestMaskTensor2D:
 # ---------------------------------------------------------------------------
 # Hypothesis: random mask → correct shape
 # ---------------------------------------------------------------------------
+
 
 class TestHypothesisMask:
     @settings(deadline=None)

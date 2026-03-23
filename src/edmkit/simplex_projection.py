@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import numpy as np
 from scipy.spatial import KDTree
 from tinygrad import Tensor, dtypes
@@ -77,7 +79,30 @@ def simplex_projection(
 
 
 def knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    """Find the k-nearest neighbors of `Q` in `X` using either `usearch` or `scipy.spatial.KDTree` depending on the size and dimensionality of the data.
+
+    Parameters
+    ----------
+    `X` : `np.ndarray`
+        The input data (N, E)
+    `Q` : `np.ndarray`
+        The query points (M, E)
+    `k` : `int`
+        The number of nearest neighbors to find (typically E+1 for simplex projection).
+
+    Returns
+    -------
+    distances : `np.ndarray`
+        The distances from each query point in `Q` to its k nearest neighbors in `X` (M, k)
+    indices : `np.ndarray`
+        The indices of the k nearest neighbors in `X` for each query point in `Q` (M, k)
+    """
+
     N, E = X.shape
+
+    if N < k:
+        raise ValueError(f"Not enough points in X to find {k} neighbors, got N={N}")
+
     if E >= 15 and N >= 10_000:
         index = Index(ndim=E, metric="l2sq")
         index.add(np.arange(len(X)), np.ascontiguousarray(X, dtype=np.float32))
@@ -137,12 +162,6 @@ def _numpy(
         k: int = X.shape[1] + 1
 
         if mask is not None:
-            n_valid = int(mask.sum())
-            if n_valid < k:
-                raise ValueError(
-                    f"Only {n_valid} valid points but k={k} neighbors required. "
-                    f"Cannot perform kNN with the given mask."
-                )
             X = X[mask]
             Y = Y[mask]
 
@@ -169,24 +188,16 @@ def _numpy(
         k: int = E + 1
         M = Q.shape[1]
 
-        if mask is not None:
-            min_valid = int(mask.sum(axis=1).min())
-            if min_valid < k:
-                raise ValueError(
-                    f"At least one batch element has only {min_valid} valid points, "
-                    f"fewer than k={k}. Cannot perform kNN with the given mask."
-                )
-
         distances = np.empty((B, M, k))
         indices = np.empty((B, M, k), dtype=np.intp)
-        for b in range(B):
-            if mask is not None:
-                valid_idx = np.where(mask[b])[0]
-                d_b, i_b = knn(X[b, valid_idx], Q[b], k)
-                distances[b] = d_b
-                indices[b] = valid_idx[i_b]  # remap to original N coords
-            else:
+        if mask is None:
+            for b in range(B):
                 distances[b], indices[b] = knn(X[b], Q[b], k)
+        else:
+            for b in range(B):
+                positions = np.flatnonzero(mask[b])
+                distances[b], _indices = knn(X[b, positions], Q[b], k)
+                indices[b] = positions[_indices]
 
         batch_idx = np.arange(B)[:, None, None]  # (B, 1, 1)
         Y_neighbors = Y[batch_idx, indices]  # (B, M, k, E')
@@ -252,9 +263,9 @@ def _tensor(
 
         X_tensor = Tensor(X, dtype=dtypes.float32)
         Y_tensor = Tensor(Y, dtype=dtypes.float32)
-        query_tensor = Tensor(Q, dtype=dtypes.float32)
+        Q_tensor = Tensor(Q, dtype=dtypes.float32)
 
-        D = pairwise_distance(query_tensor, X_tensor).sqrt()  # (M, N)
+        D = pairwise_distance(Q_tensor, X_tensor).sqrt()  # (M, N)
 
         k: int = X.shape[1] + 1
 
@@ -271,10 +282,7 @@ def _tensor(
     # X (B, N, E), Y (B, N, E'), Q (B, M, E)
     elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
         if mask is not None:
-            raise NotImplementedError(
-                "Tensor-based 3D simplex_projection with mask is not supported. "
-                "Use use_tensor=False instead."
-            )
+            raise NotImplementedError("Tensor-based 3D simplex_projection with mask is not supported. Use use_tensor=False instead.")
         B, N, E = X.shape
         if Y.shape[0] != B or Y.shape[1] != N:
             raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
@@ -322,3 +330,11 @@ def _tensor(
         return predictions.numpy()
     else:
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
+
+
+if TYPE_CHECKING:
+    from edmkit.types import PredictFunc
+
+    func: PredictFunc
+
+    func = simplex_projection

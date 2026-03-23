@@ -1,35 +1,31 @@
-"""Tests for edmkit.metrics — prediction evaluation metrics.
-
-Covers 1D auto-promote, 2D standard path, 3D batch path,
-shape mismatch validation, and hypothesis property-based tests.
-"""
-
 import numpy as np
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
-from edmkit.metrics import mae, mae_per_dim, mean_rho, rho_per_dim, rmse, rmse_per_dim
-
+from edmkit.metrics import mae, mean_rho, rhos, rmse
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _random_arrays_2d(N: int, D: int, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+
+def random_arrays_2d(N: int, D: int, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
     rng = np.random.default_rng(seed)
     return rng.standard_normal((N, D)), rng.standard_normal((N, D))
 
 
-def _random_arrays_3d(B: int, N: int, D: int, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+def random_arrays_3d(B: int, N: int, D: int, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
     rng = np.random.default_rng(seed)
     return rng.standard_normal((B, N, D)), rng.standard_normal((B, N, D))
+
 
 
 # ---------------------------------------------------------------------------
 # Perfect prediction
 # ---------------------------------------------------------------------------
+
 
 class TestPerfectPrediction:
     def test_mean_rho_perfect(self):
@@ -49,6 +45,7 @@ class TestPerfectPrediction:
 # Anti-correlated
 # ---------------------------------------------------------------------------
 
+
 class TestAntiCorrelated:
     def test_mean_rho_anti(self):
         a = np.array([[1.0], [2.0], [3.0]])
@@ -60,6 +57,7 @@ class TestAntiCorrelated:
 # Constant prediction → rho = 0
 # ---------------------------------------------------------------------------
 
+
 class TestConstantPrediction:
     def test_rho_constant(self):
         pred = np.array([[5.0], [5.0], [5.0]])
@@ -69,13 +67,63 @@ class TestConstantPrediction:
     def test_rho_per_dim_constant(self):
         pred = np.array([[5.0], [5.0], [5.0]])
         obs = np.array([[1.0], [2.0], [3.0]])
-        result = rho_per_dim(pred, obs)
+        result = rhos(pred, obs)
         np.testing.assert_allclose(result, [0.0])
+
+
+
+# ---------------------------------------------------------------------------
+# Hand-computed element-wise checks (D > 1, non-uniform errors)
+# ---------------------------------------------------------------------------
+
+
+class TestHandComputed:
+    """Hand-computed from element-wise definitions.
+
+    pred = [[0, 0], [0, 0]]
+    obs  = [[3, 4], [1, 0]]
+    errors = [[3, 4], [1, 0]]
+    squared = [[9, 16], [1, 0]]
+    MAE = mean of |errors| = (3+4+1+0)/4 = 2.0
+    """
+
+    def test_rmse_elementwise(self):
+        pred = np.array([[0.0, 0.0], [0.0, 0.0]])
+        obs = np.array([[3.0, 4.0], [1.0, 0.0]])
+        assert rmse(pred, obs) == pytest.approx(np.sqrt(6.5))
+
+    def test_mae_elementwise(self):
+        pred = np.array([[0.0, 0.0], [0.0, 0.0]])
+        obs = np.array([[3.0, 4.0], [1.0, 0.0]])
+        assert mae(pred, obs) == pytest.approx(2.0)
+
+
+# ---------------------------------------------------------------------------
+# D-invariance: uniform error should not scale with D
+# ---------------------------------------------------------------------------
+
+
+class TestDimensionInvariance:
+    """If every element has the same error, the metric should not depend on D."""
+
+    def test_mae_invariant_to_D(self):
+        for D in [1, 3, 10]:
+            pred = np.zeros((20, D))
+            obs = np.ones((20, D))
+            assert mae(pred, obs) == pytest.approx(1.0), f"MAE should be 1.0 for D={D}"
+
+    def test_rmse_invariant_to_D(self):
+        for D in [1, 3, 10]:
+            pred = np.zeros((20, D))
+            obs = np.ones((20, D))
+            assert rmse(pred, obs) == pytest.approx(1.0), f"RMSE should be 1.0 for D={D}"
+
 
 
 # ---------------------------------------------------------------------------
 # 1D / 2D compatibility
 # ---------------------------------------------------------------------------
+
 
 class TestOneDimPromote:
     def test_mean_rho_1d_2d_equal(self):
@@ -100,19 +148,7 @@ class TestOneDimPromote:
         """rho_per_dim(1d, 1d) should return shape (1,)."""
         a = np.array([1.0, 2.0, 3.0])
         b = np.array([2.0, 4.0, 6.0])
-        result = rho_per_dim(a, b)
-        assert result.shape == (1,)
-
-    def test_rmse_per_dim_1d_shape(self):
-        a = np.array([1.0, 2.0, 3.0])
-        b = np.array([2.0, 4.0, 6.0])
-        result = rmse_per_dim(a, b)
-        assert result.shape == (1,)
-
-    def test_mae_per_dim_1d_shape(self):
-        a = np.array([1.0, 2.0, 3.0])
-        b = np.array([2.0, 4.0, 6.0])
-        result = mae_per_dim(a, b)
+        result = rhos(a, b)
         assert result.shape == (1,)
 
 
@@ -120,38 +156,29 @@ class TestOneDimPromote:
 # 3D batch
 # ---------------------------------------------------------------------------
 
+
 class TestBatch3D:
     def test_mean_rho_3d_shape(self):
-        pred, obs = _random_arrays_3d(4, 20, 3)
+        pred, obs = random_arrays_3d(4, 20, 3)
         result = mean_rho(pred, obs)
         assert isinstance(result, np.ndarray)
         assert result.shape == (4,)
 
     def test_rmse_3d_shape(self):
-        pred, obs = _random_arrays_3d(4, 20, 3)
+        pred, obs = random_arrays_3d(4, 20, 3)
         result = rmse(pred, obs)
         assert isinstance(result, np.ndarray)
         assert result.shape == (4,)
 
     def test_mae_3d_shape(self):
-        pred, obs = _random_arrays_3d(4, 20, 3)
+        pred, obs = random_arrays_3d(4, 20, 3)
         result = mae(pred, obs)
         assert isinstance(result, np.ndarray)
         assert result.shape == (4,)
 
     def test_rho_per_dim_3d_shape(self):
-        pred, obs = _random_arrays_3d(4, 20, 3)
-        result = rho_per_dim(pred, obs)
-        assert result.shape == (4, 3)
-
-    def test_rmse_per_dim_3d_shape(self):
-        pred, obs = _random_arrays_3d(4, 20, 3)
-        result = rmse_per_dim(pred, obs)
-        assert result.shape == (4, 3)
-
-    def test_mae_per_dim_3d_shape(self):
-        pred, obs = _random_arrays_3d(4, 20, 3)
-        result = mae_per_dim(pred, obs)
+        pred, obs = random_arrays_3d(4, 20, 3)
+        result = rhos(pred, obs)
         assert result.shape == (4, 3)
 
 
@@ -159,49 +186,39 @@ class TestBatch3D:
 # 3D / 2D consistency
 # ---------------------------------------------------------------------------
 
+
 class TestBatch3DConsistency:
     """mean_rho(a_3d, b_3d)[i] == mean_rho(a_3d[i], b_3d[i])"""
 
     def test_mean_rho_3d_2d(self):
-        pred, obs = _random_arrays_3d(3, 20, 2)
+        pred, obs = random_arrays_3d(3, 20, 2)
         batch_result = mean_rho(pred, obs)
         for i in range(3):
             assert batch_result[i] == pytest.approx(mean_rho(pred[i], obs[i]))
 
     def test_rmse_3d_2d(self):
-        pred, obs = _random_arrays_3d(3, 20, 2)
+        pred, obs = random_arrays_3d(3, 20, 2)
         batch_result = rmse(pred, obs)
         for i in range(3):
             assert batch_result[i] == pytest.approx(rmse(pred[i], obs[i]))
 
     def test_mae_3d_2d(self):
-        pred, obs = _random_arrays_3d(3, 20, 2)
+        pred, obs = random_arrays_3d(3, 20, 2)
         batch_result = mae(pred, obs)
         for i in range(3):
             assert batch_result[i] == pytest.approx(mae(pred[i], obs[i]))
 
     def test_rho_per_dim_3d_2d(self):
-        pred, obs = _random_arrays_3d(3, 20, 2)
-        batch_result = rho_per_dim(pred, obs)
+        pred, obs = random_arrays_3d(3, 20, 2)
+        batch_result = rhos(pred, obs)
         for i in range(3):
-            np.testing.assert_allclose(batch_result[i], rho_per_dim(pred[i], obs[i]))
-
-    def test_rmse_per_dim_3d_2d(self):
-        pred, obs = _random_arrays_3d(3, 20, 2)
-        batch_result = rmse_per_dim(pred, obs)
-        for i in range(3):
-            np.testing.assert_allclose(batch_result[i], rmse_per_dim(pred[i], obs[i]))
-
-    def test_mae_per_dim_3d_2d(self):
-        pred, obs = _random_arrays_3d(3, 20, 2)
-        batch_result = mae_per_dim(pred, obs)
-        for i in range(3):
-            np.testing.assert_allclose(batch_result[i], mae_per_dim(pred[i], obs[i]))
+            np.testing.assert_allclose(batch_result[i], rhos(pred[i], obs[i]))
 
 
 # ---------------------------------------------------------------------------
 # Shape mismatch → ValueError
 # ---------------------------------------------------------------------------
+
 
 class TestShapeMismatch:
     def test_mean_rho_mismatch(self):
@@ -248,56 +265,64 @@ def matched_arrays_nd(draw, *, ndim: int):
     return pred, obs
 
 
-class TestHypothesisShapes:
-    @given(matched_arrays_nd(ndim=1))
-    def test_1d_mean_rho_returns_float(self, pair):
+class TestHypothesisProperties:
+    @given(matched_arrays_nd(ndim=1))  # type: ignore
+    def test_1d_mean_rho_returns_scalar(self, pair):
         pred, obs = pair
         result = mean_rho(pred, obs)
-        assert isinstance(result, float)
+        assert result.shape == ()
 
-    @given(matched_arrays_nd(ndim=2))
-    def test_2d_mean_rho_returns_float(self, pair):
+    @given(matched_arrays_nd(ndim=2))  # type: ignore
+    def test_2d_mean_rho_returns_scalar(self, pair):
         pred, obs = pair
         result = mean_rho(pred, obs)
-        assert isinstance(result, float)
+        assert result.shape == ()
 
-    @given(matched_arrays_nd(ndim=3))
+    @given(matched_arrays_nd(ndim=3))  # type: ignore
     def test_3d_mean_rho_returns_batch(self, pair):
         pred, obs = pair
         result = mean_rho(pred, obs)
         assert isinstance(result, np.ndarray)
         assert result.shape == (pred.shape[0],)
 
-    @given(matched_arrays_nd(ndim=1))
+    @given(matched_arrays_nd(ndim=1))  # type: ignore
     def test_1d_rho_per_dim_shape(self, pair):
         pred, obs = pair
-        result = rho_per_dim(pred, obs)
+        result = rhos(pred, obs)
         assert result.shape == (1,)
 
-    @given(matched_arrays_nd(ndim=2))
+    @given(matched_arrays_nd(ndim=2))  # type: ignore
     def test_2d_rho_per_dim_shape(self, pair):
         pred, obs = pair
-        result = rho_per_dim(pred, obs)
+        result = rhos(pred, obs)
         assert result.shape == (pred.shape[1],)
 
-    @given(matched_arrays_nd(ndim=3))
+    @given(matched_arrays_nd(ndim=3))  # type: ignore
     def test_3d_rho_per_dim_shape(self, pair):
         pred, obs = pair
-        result = rho_per_dim(pred, obs)
+        result = rhos(pred, obs)
         assert result.shape == (pred.shape[0], pred.shape[2])
 
-    @given(matched_arrays_nd(ndim=2))
+    @given(matched_arrays_nd(ndim=2))  # type: ignore
     def test_rmse_non_negative(self, pair):
         pred, obs = pair
         assert rmse(pred, obs) >= 0.0
 
-    @given(matched_arrays_nd(ndim=2))
+    @given(matched_arrays_nd(ndim=2))  # type: ignore
     def test_mae_non_negative(self, pair):
         pred, obs = pair
         assert mae(pred, obs) >= 0.0
 
-    @given(matched_arrays_nd(ndim=3))
+    @given(matched_arrays_nd(ndim=3))  # type: ignore
     def test_3d_rmse_non_negative(self, pair):
         pred, obs = pair
         result = rmse(pred, obs)
         assert np.all(result >= 0.0)
+
+    @given(matched_arrays_nd(ndim=2))  # type: ignore
+    def test_mae_equals_elementwise_mean(self, pair):
+        """MAE must equal the flat mean of absolute errors."""
+        pred, obs = pair
+        expected = float(np.abs(pred - obs).mean())
+        assert mae(pred, obs) == pytest.approx(expected, rel=1e-6)
+

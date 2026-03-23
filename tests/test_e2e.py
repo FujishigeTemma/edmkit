@@ -1,5 +1,3 @@
-"""End-to-end integration tests — 精度・振る舞いまで検証する結合テスト。"""
-
 import numpy as np
 
 from edmkit.ccm import with_simplex_projection

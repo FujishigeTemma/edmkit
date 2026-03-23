@@ -1,11 +1,4 @@
-"""Time-series cross-validation split utilities.
-
-Provides ``temporal_fold``, ``expanding_folds``, and ``sliding_folds``
-for generating index-based train/validation splits that respect temporal
-ordering.
-"""
-
-from typing import NamedTuple
+from typing import TYPE_CHECKING, Callable, NamedTuple, TypeAlias
 
 import numpy as np
 
@@ -15,6 +8,9 @@ class Fold(NamedTuple):
 
     train: np.ndarray  # index array
     validation: np.ndarray  # index array
+
+
+SplitFunc: TypeAlias = Callable[[int], list[Fold]]
 
 
 def temporal_fold(
@@ -99,13 +95,9 @@ def expanding_folds(
     if n <= 0:
         raise ValueError(f"n must be positive, got {n}")
     if initial_train_size <= 0:
-        raise ValueError(
-            f"initial_train_size must be positive, got {initial_train_size}"
-        )
+        raise ValueError(f"initial_train_size must be positive, got {initial_train_size}")
     if validation_size <= 0:
-        raise ValueError(
-            f"validation_size must be positive, got {validation_size}"
-        )
+        raise ValueError(f"validation_size must be positive, got {validation_size}")
     if gap < 0:
         raise ValueError(f"gap must be non-negative, got {gap}")
 
@@ -158,9 +150,7 @@ def sliding_folds(
     if train_size <= 0:
         raise ValueError(f"train_size must be positive, got {train_size}")
     if validation_size <= 0:
-        raise ValueError(
-            f"validation_size must be positive, got {validation_size}"
-        )
+        raise ValueError(f"validation_size must be positive, got {validation_size}")
     if gap < 0:
         raise ValueError(f"gap must be non-negative, got {gap}")
 
@@ -176,3 +166,26 @@ def sliding_folds(
         folds.append(Fold(train_idx, validation_idx))
         validation_start += stride
     return folds
+
+
+if TYPE_CHECKING:
+    from functools import partial
+
+    func: SplitFunc
+
+    def temporal_folds(n: int) -> list[Fold]:
+        return [temporal_fold(n, train_ratio=0.8, gap=10)]
+
+    func = temporal_folds
+    func = partial(
+        expanding_folds,
+        initial_train_size=100,
+        validation_size=20,
+        stride=20,
+    )
+    func = partial(
+        sliding_folds,
+        train_size=100,
+        validation_size=20,
+        stride=20,
+    )
