@@ -15,6 +15,7 @@ from edmkit.smap import smap
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_data_2d(N: int, E: int, M: int, seed: int = 42):
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((N, E))
@@ -26,6 +27,7 @@ def _make_data_2d(N: int, E: int, M: int, seed: int = 42):
 # ---------------------------------------------------------------------------
 # Backward compat: mask=None
 # ---------------------------------------------------------------------------
+
 
 class TestMaskNoneBackwardCompat:
     def test_theta_zero_no_mask(self):
@@ -42,6 +44,7 @@ class TestMaskNoneBackwardCompat:
 # ---------------------------------------------------------------------------
 # 2D mask
 # ---------------------------------------------------------------------------
+
 
 class TestMask2D:
     def test_padding_rows_masked_out(self):
@@ -85,6 +88,7 @@ class TestMask2D:
 # ---------------------------------------------------------------------------
 # 3D mask
 # ---------------------------------------------------------------------------
+
 
 class TestMask3D:
     def test_batch_mask_matches_2d(self):
@@ -139,6 +143,7 @@ class TestMask3D:
 # ---------------------------------------------------------------------------
 # Hypothesis
 # ---------------------------------------------------------------------------
+
 
 class TestHypothesisMask:
     @settings(deadline=None)

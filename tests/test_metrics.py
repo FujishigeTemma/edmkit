@@ -21,7 +21,6 @@ def random_arrays_3d(B: int, N: int, D: int, seed: int = 42) -> tuple[np.ndarray
     return rng.standard_normal((B, N, D)), rng.standard_normal((B, N, D))
 
 
-
 # ---------------------------------------------------------------------------
 # Perfect prediction
 # ---------------------------------------------------------------------------
@@ -71,7 +70,6 @@ class TestConstantPrediction:
         np.testing.assert_allclose(result, [0.0])
 
 
-
 # ---------------------------------------------------------------------------
 # Hand-computed element-wise checks (D > 1, non-uniform errors)
 # ---------------------------------------------------------------------------
@@ -117,7 +115,6 @@ class TestDimensionInvariance:
             pred = np.zeros((20, D))
             obs = np.ones((20, D))
             assert rmse(pred, obs) == pytest.approx(1.0), f"RMSE should be 1.0 for D={D}"
-
 
 
 # ---------------------------------------------------------------------------
@@ -325,4 +322,3 @@ class TestHypothesisProperties:
         pred, obs = pair
         expected = float(np.abs(pred - obs).mean())
         assert mae(pred, obs) == pytest.approx(expected, rel=1e-6)
-

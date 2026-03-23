@@ -3,8 +3,7 @@ from functools import partial
 import numpy as np
 import pytest
 
-from edmkit.embed import scan, select
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import lagged_embed, scan, select
 from edmkit.metrics import MetricFunc, mean_rho, rmse
 from edmkit.simplex_projection import simplex_projection
 from edmkit.splits import SplitFunc, expanding_folds, sliding_folds

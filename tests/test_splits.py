@@ -16,6 +16,7 @@ from edmkit.splits import expanding_folds, sliding_folds, temporal_fold
 # temporal_fold
 # ---------------------------------------------------------------------------
 
+
 class TestTemporalFold:
     def test_basic_split(self):
         fold = temporal_fold(100, 0.8)
@@ -55,6 +56,7 @@ class TestTemporalFold:
 # expanding_folds
 # ---------------------------------------------------------------------------
 
+
 class TestExpandingFolds:
     def test_basic(self):
         folds = expanding_folds(20, initial_train_size=10, validation_size=5)
@@ -84,7 +86,10 @@ class TestExpandingFolds:
     def test_stride(self):
         folds_default = expanding_folds(50, initial_train_size=10, validation_size=5)
         folds_stride = expanding_folds(
-            50, initial_train_size=10, validation_size=5, stride=3,
+            50,
+            initial_train_size=10,
+            validation_size=5,
+            stride=3,
         )
         # With smaller stride, we get more folds
         assert len(folds_stride) >= len(folds_default)
@@ -114,6 +119,7 @@ class TestExpandingFolds:
 # sliding_folds
 # ---------------------------------------------------------------------------
 
+
 class TestSlidingFolds:
     def test_basic(self):
         folds = sliding_folds(20, train_size=10, validation_size=5)
@@ -140,7 +146,10 @@ class TestSlidingFolds:
     def test_stride(self):
         folds_default = sliding_folds(50, train_size=10, validation_size=5)
         folds_stride = sliding_folds(
-            50, train_size=10, validation_size=5, stride=3,
+            50,
+            train_size=10,
+            validation_size=5,
+            stride=3,
         )
         assert len(folds_stride) >= len(folds_default)
 
@@ -167,6 +176,7 @@ class TestSlidingFolds:
 # ---------------------------------------------------------------------------
 # Hypothesis: fold indices are valid
 # ---------------------------------------------------------------------------
+
 
 class TestHypothesisFoldIndices:
     @given(
