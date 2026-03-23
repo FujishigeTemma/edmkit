@@ -103,6 +103,13 @@ class TestPearsonCorrelationExamples:
         corr = pearson_correlation(X, Y)
         np.testing.assert_allclose(corr, 1.0, atol=1e-14)
 
+    def test_constant_input_returns_zero(self):
+        """Zero-variance input should produce 0 instead of NaN."""
+        X = np.array([[5.0, 5.0, 5.0]])
+        Y = np.array([[1.0, 2.0, 3.0]])
+        corr = pearson_correlation(X, Y)
+        np.testing.assert_allclose(corr, 0.0, atol=1e-14)
+
 
 class TestPearsonCorrelationProperties:
     @given(pair=paired_nonconst_arrays())  # ty: ignore[missing-argument]

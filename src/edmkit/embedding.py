@@ -211,7 +211,14 @@ def select(
     -------
     (best_E, best_tau, best_score)
     """
-    mean_scores = np.nanmean(scores, axis=2)
+    valid_counts = np.sum(~np.isnan(scores), axis=2)
+    summed_scores = np.nansum(scores, axis=2)
+    mean_scores = np.divide(
+        summed_scores,
+        valid_counts,
+        out=np.full(summed_scores.shape, np.nan, dtype=float),
+        where=valid_counts > 0,
+    )
     flat_idx = int(np.nanargmax(mean_scores))
     e_idx, t_idx = np.unravel_index(flat_idx, mean_scores.shape)
     return E[e_idx], tau[t_idx], float(mean_scores[e_idx, t_idx])

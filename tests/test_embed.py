@@ -1,4 +1,5 @@
 from functools import partial
+import warnings
 
 import numpy as np
 import pytest
@@ -206,6 +207,17 @@ class TestSelect:
         best_E, _, best_score = select(scores, E=E_list, tau=tau_list)
         assert best_E == 2
         assert best_score == pytest.approx(0.85)
+
+    def test_select_with_nan_rows_emits_no_warning(self):
+        scores = np.full((2, 1, 3), np.nan)
+        scores[1, 0, :] = [0.1, 0.2, 0.3]
+
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            best_E, best_tau, best_score = select(scores, E=[1, 2], tau=[1])
+
+        assert len(record) == 0
+        assert (best_E, best_tau, best_score) == (2, 1, pytest.approx(0.2))
 
 
 # ---------------------------------------------------------------------------

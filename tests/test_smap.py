@@ -40,6 +40,36 @@ def ols(X, Y, Q):
     return (Q_aug @ C).squeeze()
 
 
+def weighted_lstsq_reference(X, Y, Q, *, theta, alpha):
+    """Independent reference using weighted least squares on an augmented system."""
+    X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
+    Q_aug = np.hstack([np.ones((Q.shape[0], 1)), Q])
+    Y_col = Y[:, None] if Y.ndim == 1 else Y
+
+    D = np.linalg.norm(Q[:, None, :] - X[None, :, :], axis=2)
+    if theta == 0.0:
+        W = np.ones_like(D)
+    else:
+        d_mean = np.maximum(D.mean(axis=1, keepdims=True), 1e-6)
+        W = np.exp(-theta * D / d_mean)
+
+    eye = np.eye(X_aug.shape[1])
+    eye[0, 0] = 0
+    predictions = []
+    for i in range(Q.shape[0]):
+        sqrt_w = np.sqrt(W[i])[:, None]
+        A = sqrt_w * X_aug
+        b = sqrt_w * Y_col
+        trace = max(float(np.trace(A.T @ A)), 1e-12)
+        reg_rows = np.sqrt(alpha * trace) * eye[1:]
+        A_reg = np.vstack([A, reg_rows])
+        b_reg = np.vstack([b, np.zeros((reg_rows.shape[0], Y_col.shape[1]))])
+        coeffs, *_ = np.linalg.lstsq(A_reg, b_reg, rcond=None)
+        predictions.append((Q_aug[i] @ coeffs).squeeze())
+
+    return np.asarray(predictions).squeeze()
+
+
 # ===========================================================================
 # 3.4.1 解析解テスト
 # ===========================================================================
@@ -105,6 +135,18 @@ class TestAnalyticalSolutions:
 
         predictions = smap(X, Y, Q, theta=2.0, alpha=0.0)
         np.testing.assert_allclose(predictions, c, atol=1e-12, rtol=1e-12)
+
+    def test_matches_independent_weighted_lstsq_reference(self):
+        """Compare against a weighted least-squares reference, not the same normal-equation solve."""
+        rng = np.random.default_rng(123)
+        N, E = 40, 2
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+        Q = rng.standard_normal((6, E))
+
+        expected = weighted_lstsq_reference(X, Y, Q, theta=2.5, alpha=1e-4)
+        actual = smap(X, Y, Q, theta=2.5, alpha=1e-4)
+        np.testing.assert_allclose(actual, expected, rtol=1e-10, atol=1e-10)
 
 
 # ===========================================================================
@@ -431,3 +473,24 @@ class TestNumericalStability:
 
         predictions = smap(X, Y, Q, theta=theta, alpha=1e-10)
         assert np.all(np.isfinite(predictions))
+
+
+class TestInputValidation:
+    def test_negative_theta_rejected(self):
+        rng = np.random.default_rng(0)
+        X = rng.standard_normal((10, 2))
+        Y = rng.standard_normal(10)
+        Q = rng.standard_normal((3, 2))
+
+        with pytest.raises(ValueError, match="non-negative"):
+            smap(X, Y, Q, theta=-1.0)
+
+    def test_mask_with_too_few_valid_points_raises(self):
+        rng = np.random.default_rng(0)
+        X = rng.standard_normal((10, 3))
+        Y = rng.standard_normal(10)
+        Q = rng.standard_normal((2, 3))
+        mask = np.array([True, True, True, False, False, False, False, False, False, False])
+
+        with pytest.raises(ValueError, match="Not enough valid library points"):
+            smap(X, Y, Q, theta=1.0, mask=mask)

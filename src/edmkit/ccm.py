@@ -280,7 +280,9 @@ def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
     cov = ((X - mean_X) * (Y - mean_Y)).mean(axis=1)
     std_X = X.std(axis=1)
     std_Y = Y.std(axis=1)
-    correlation = cov / (std_X * std_Y)
+    denom = std_X * std_Y
+    safe_denom = np.where(denom > 0, denom, 1.0)
+    correlation = np.where(denom > 0, cov / safe_denom, 0.0)
 
     return correlation.squeeze()
 

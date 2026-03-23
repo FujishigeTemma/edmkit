@@ -93,6 +93,7 @@ def weights(
     theta: float,
     *,
     mask: np.ndarray | None = None,
+    min_points: int,
 ) -> np.ndarray:
     """Compute S-Map exponential weights, zeroing out masked library points.
 
@@ -104,15 +105,20 @@ def weights(
         Locality parameter.
     mask : np.ndarray | None
         Boolean mask over the library axis — (N,) or (B, N).
+    min_points : int
+        Minimum number of valid library points required.
     """
-    valid = np.isfinite(D) if mask is None else np.isfinite(D) & mask[..., None, :]  # (1, N) or (B, 1, N)
+    valid = np.isfinite(D) if mask is None else np.isfinite(D) & mask[..., None, :]  # mask[..., None, :].shape == (1, N) or (B, 1, N)
+
+    n_valid = valid.sum(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
+    if int(n_valid.min()) < min_points:
+        raise ValueError(f"Not enough valid library points to fit S-Map: need at least {min_points}, got {int(n_valid.min())}")
 
     if theta == 0.0:
         return np.where(valid, 1.0, 0.0)
 
     d_sum = np.where(valid, D, 0.0).sum(axis=-1, keepdims=True)
-    n_valid = np.maximum(valid.sum(axis=-1, keepdims=True), 1)
-    d_mean = np.maximum(d_sum / n_valid, 1e-6)
+    d_mean = np.maximum(d_sum / np.maximum(n_valid, 1), 1e-6)
     w = np.exp(-theta * D / d_mean)
     return np.where(valid, w, 0.0)
 
@@ -171,7 +177,7 @@ def _numpy(
     # X (N, E), Y (N, E'), Q (M, E)
     if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
         D = cdist(Q, X, metric="euclidean")  # (M, N)
-        W = weights(D, theta, mask=mask)
+        W = weights(D, theta, mask=mask, min_points=X.shape[1] + 1)
 
         # Add intercept term
         X_aug = np.hstack([np.ones((X.shape[0], 1)), X])  # (N, E+1)
@@ -200,7 +206,7 @@ def _numpy(
         M = Q.shape[1]
 
         D = np.sqrt(pairwise_distance_np(Q, X))  # (B, M, N)
-        W = weights(D, theta, mask=mask)
+        W = weights(D, theta, mask=mask, min_points=E + 1)
 
         # Add intercept term
         X_aug = np.concatenate([np.ones((B, N, 1)), X], axis=2)  # (B, N, E+1)

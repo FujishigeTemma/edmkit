@@ -23,6 +23,9 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = "-v --tb=short"
+filterwarnings = [
+    "error",
+]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests requiring tinygrad tensor backend (deselect with '-m \"not gpu\"')",
