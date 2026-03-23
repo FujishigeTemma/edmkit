@@ -1,0 +1,4 @@
+interface:
+  display_name: "Python Testing"
+  short_description: "AI-era pytest testing guidance"
+  default_prompt: "Use $python-testing-best-practices to design or review robust Python tests with pytest and Hypothesis."

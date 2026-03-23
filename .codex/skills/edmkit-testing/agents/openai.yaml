@@ -1,0 +1,4 @@
+interface:
+  display_name: "edmkit Testing"
+  short_description: "Repo-specific EDM test guidance"
+  default_prompt: "Use $edmkit-testing to add or review tests for edmkit algorithms and fixtures."
