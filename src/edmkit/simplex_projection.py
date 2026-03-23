@@ -11,6 +11,7 @@ def simplex_projection(
     Y: np.ndarray,
     Q: np.ndarray,
     *,
+    mask: np.ndarray | None = None,
     use_tensor: bool = False,
 ) -> np.ndarray:
     """
@@ -72,7 +73,7 @@ def simplex_projection(
     print(f"Correlation: {correlation:.3f}")
     ```
     """
-    return _numpy(X, Y, Q) if not use_tensor else _tensor(X, Y, Q)
+    return _numpy(X, Y, Q, mask=mask) if not use_tensor else _tensor(X, Y, Q, mask=mask)
 
 
 def knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
@@ -93,6 +94,8 @@ def _numpy(
     X: np.ndarray,
     Y: np.ndarray,
     Q: np.ndarray,
+    *,
+    mask: np.ndarray | None = None,
 ):
     """
     Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
@@ -133,6 +136,16 @@ def _numpy(
 
         k: int = X.shape[1] + 1
 
+        if mask is not None:
+            n_valid = int(mask.sum())
+            if n_valid < k:
+                raise ValueError(
+                    f"Only {n_valid} valid points but k={k} neighbors required. "
+                    f"Cannot perform kNN with the given mask."
+                )
+            X = X[mask]
+            Y = Y[mask]
+
         distances, indices = knn(X, Q, k)
 
         Y_neighbors = Y[indices]  # (M, k, E')
@@ -156,10 +169,24 @@ def _numpy(
         k: int = E + 1
         M = Q.shape[1]
 
+        if mask is not None:
+            min_valid = int(mask.sum(axis=1).min())
+            if min_valid < k:
+                raise ValueError(
+                    f"At least one batch element has only {min_valid} valid points, "
+                    f"fewer than k={k}. Cannot perform kNN with the given mask."
+                )
+
         distances = np.empty((B, M, k))
         indices = np.empty((B, M, k), dtype=np.intp)
         for b in range(B):
-            distances[b], indices[b] = knn(X[b], Q[b], k)
+            if mask is not None:
+                valid_idx = np.where(mask[b])[0]
+                d_b, i_b = knn(X[b, valid_idx], Q[b], k)
+                distances[b] = d_b
+                indices[b] = valid_idx[i_b]  # remap to original N coords
+            else:
+                distances[b], indices[b] = knn(X[b], Q[b], k)
 
         batch_idx = np.arange(B)[:, None, None]  # (B, 1, 1)
         Y_neighbors = Y[batch_idx, indices]  # (B, M, k, E')
@@ -180,6 +207,8 @@ def _tensor(
     X: np.ndarray,
     Y: np.ndarray,
     Q: np.ndarray,
+    *,
+    mask: np.ndarray | None = None,
 ):
     """
     Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
@@ -217,6 +246,10 @@ def _tensor(
         if X.shape[0] != Y.shape[0]:
             raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
 
+        if mask is not None:
+            X = X[mask]
+            Y = Y[mask]
+
         X_tensor = Tensor(X, dtype=dtypes.float32)
         Y_tensor = Tensor(Y, dtype=dtypes.float32)
         query_tensor = Tensor(Q, dtype=dtypes.float32)
@@ -237,6 +270,11 @@ def _tensor(
         return predictions.numpy().squeeze()
     # X (B, N, E), Y (B, N, E'), Q (B, M, E)
     elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
+        if mask is not None:
+            raise NotImplementedError(
+                "Tensor-based 3D simplex_projection with mask is not supported. "
+                "Use use_tensor=False instead."
+            )
         B, N, E = X.shape
         if Y.shape[0] != B or Y.shape[1] != N:
             raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")

@@ -1,14 +1,27 @@
 from collections.abc import Callable
 from functools import partial
-from typing import TypeAlias
+from typing import Protocol, TypeAlias
 
 import numpy as np
 
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 
-PredictFunc: TypeAlias = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
-"""PredictFunc is a function that takes (X, Y, Q) and returns predictions."""
+
+class PredictFunc(Protocol):
+    """Prediction function protocol.
+
+    Accepts library X, target Y, query Q, and optional mask.
+    """
+
+    def __call__(
+        self,
+        X: np.ndarray,
+        Y: np.ndarray,
+        Q: np.ndarray,
+        *,
+        mask: np.ndarray | None = None,
+    ) -> np.ndarray: ...
 SampleFunc: TypeAlias = Callable[[np.ndarray, int], np.ndarray]
 """SampleFunc is a function that takes (pool, size) and returns a sampled array."""
 AggregateFunc: TypeAlias = Callable[[np.ndarray], float]

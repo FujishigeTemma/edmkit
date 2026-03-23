@@ -11,6 +11,7 @@ def smap(
     *,
     theta: float,
     alpha: float = 1e-10,
+    mask: np.ndarray | None = None,
     use_tensor: bool = False,
 ) -> np.ndarray:
     """
@@ -82,7 +83,7 @@ def smap(
     print(f"Correlation (theta=0.0): {correlation_global:.3f}")
     ```
     """
-    return _numpy(X, Y, Q, theta=theta, alpha=alpha) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha)
+    return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha)
 
 
 def _numpy(
@@ -92,6 +93,7 @@ def _numpy(
     *,
     theta: float,
     alpha: float = 1e-10,
+    mask: np.ndarray | None = None,
 ):
     """
     Perform S-Map (local linear regression) from `X` to `Y`.
@@ -139,11 +141,21 @@ def _numpy(
     if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
         D = cdist(Q, X, metric="euclidean")  # (M, N)
 
+        if mask is not None:
+            D[:, ~mask] = np.inf
+
         if theta == 0:
             weights = np.ones_like(D)
+            if mask is not None:
+                weights[:, ~mask] = 0.0
         else:
-            d_mean = np.maximum(D.mean(axis=1, keepdims=True), 1e-6)
-            weights = np.exp(-theta * D / d_mean)
+            if mask is not None:
+                n_valid = mask.sum()
+                d_sum = np.where(mask[None, :], D, 0.0).sum(axis=1, keepdims=True)
+                d_mean = np.maximum(d_sum / n_valid, 1e-6)
+            else:
+                d_mean = np.maximum(D.mean(axis=1, keepdims=True), 1e-6)
+            weights = np.exp(-theta * D / d_mean)  # inf → 0
 
         # Add intercept term
         X_aug = np.hstack([np.ones((X.shape[0], 1)), X])  # (N, E+1)
@@ -173,10 +185,21 @@ def _numpy(
 
         D = np.sqrt(pairwise_distance_np(Q, X))  # (B, M, N)
 
+        if mask is not None:
+            inv_mask = ~mask[:, None, :]  # (B, 1, N)
+            D = np.where(inv_mask, np.inf, D)
+
         if theta == 0:
             weights = np.ones_like(D)  # (B, M, N)
+            if mask is not None:
+                weights = np.where(inv_mask, 0.0, weights)
         else:
-            d_mean = np.maximum(D.mean(axis=2, keepdims=True), 1e-6)  # (B, M, 1)
+            if mask is not None:
+                n_valid = mask.sum(axis=1)[:, None, None].astype(float)  # (B, 1, 1)
+                d_sum = np.where(inv_mask, 0.0, D).sum(axis=2, keepdims=True)
+                d_mean = np.maximum(d_sum / n_valid, 1e-6)
+            else:
+                d_mean = np.maximum(D.mean(axis=2, keepdims=True), 1e-6)  # (B, M, 1)
             weights = np.exp(-theta * D / d_mean)  # (B, M, N)
 
         # Add intercept term
