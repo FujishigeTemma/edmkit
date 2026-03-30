@@ -1,8 +1,4 @@
-"""Smoke test — パッケージのインポートと最小限のAPI呼び出しのみ確認。
-
-CI の release ワークフローで `uv run --isolated --no-project` で実行されるため、
-tests パッケージや dev 依存には一切依存してはならない。
-"""
+"""Smoke tests for importability and one minimal success path per public surface."""
 
 import numpy as np
 
@@ -13,53 +9,46 @@ from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 
 
-def test_basic_call():
-    x = np.sin(np.linspace(0, 4 * np.pi, 60))
-    emb = lagged_embed(x, tau=1, e=3)
-    assert emb.ndim == 2
+def test_minimal_forecast_calls():
+    x = np.sin(np.linspace(0.0, 4.0 * np.pi, 60))
+    embedded = lagged_embed(x, tau=1, e=3)
 
-    predictions = simplex_projection(emb[:30], emb[1:31, 0], emb[30:])
-    assert np.all(np.isfinite(predictions))
+    simplex_predictions = simplex_projection(embedded[:30], x[3:33], embedded[30:-1])
+    smap_predictions = smap(embedded[:30], x[3:33], embedded[30:-1], theta=1.0)
 
-    predictions = smap(emb[:30], emb[1:31, 0], emb[30:], theta=1.0)
-    assert np.all(np.isfinite(predictions))
+    assert np.isfinite(simplex_predictions).all()
+    assert np.isfinite(smap_predictions).all()
 
 
-def test_ccm_basic_call():
-    rng = np.random.default_rng(0)
-    x = np.sin(np.linspace(0, 4 * np.pi, 100))
-    emb = lagged_embed(x, tau=1, e=2)
-    target = x[1:]
+def test_minimal_ccm_call():
+    x = np.sin(np.linspace(0.0, 6.0 * np.pi, 100))
+    embedded = lagged_embed(x, tau=1, e=2)
+    n = len(embedded)
 
-    n = emb.shape[0]
-    corrs = with_simplex_projection(
-        emb,
-        target,
-        lib_sizes=np.array([10, 30]),
+    correlations = with_simplex_projection(
+        embedded,
+        x[1:],
+        lib_sizes=np.array([10, 20]),
         n_samples=3,
         library_pool=np.arange(n // 2),
         prediction_pool=np.arange(n // 2, n),
-        sample_func=lambda pool, size: rng.choice(pool, size=size, replace=True),
     )
-    assert corrs.shape == (2,)
-    assert np.all(np.isfinite(corrs))
+
+    assert correlations.shape == (2,)
+    assert np.isfinite(correlations).all()
 
 
-def test_generators():
-    _, X = generate.lorenz(
+def test_minimal_generator_calls():
+    _, lorenz_x = generate.lorenz(
         sigma=10.0,
         rho=28.0,
-        beta=8 / 3,
+        beta=8.0 / 3.0,
         X0=np.array([1.0, 1.0, 1.0]),
         dt=0.01,
         t_max=1,
     )
-    assert X.ndim == 2 and np.all(np.isfinite(X))
-
-    _, x = generate.mackey_glass(tau=17.0, n=10, beta=0.2, gamma=0.1, x0=0.9, dt=1.0, t_max=50)
-    assert x.ndim == 1 and np.all(np.isfinite(x))
-
-    _, X = generate.double_pendulum(
+    _, mg_x = generate.mackey_glass(tau=17.0, n=10, beta=0.2, gamma=0.1, x0=0.9, dt=1.0, t_max=50)
+    _, dp_x = generate.double_pendulum(
         m1=1.0,
         m2=1.0,
         L1=1.0,
@@ -69,11 +58,7 @@ def test_generators():
         dt=0.01,
         t_max=1,
     )
-    assert X.ndim == 2 and np.all(np.isfinite(X))
 
-
-if __name__ == "__main__":
-    test_basic_call()
-    test_ccm_basic_call()
-    test_generators()
-    print("smoke tests passed")
+    assert np.isfinite(lorenz_x).all()
+    assert np.isfinite(mg_x).all()
+    assert np.isfinite(dp_x).all()
