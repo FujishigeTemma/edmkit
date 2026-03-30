@@ -1,6 +1,6 @@
 [project]
 name = "edmkit"
-version = "0.0.3"
+version = "0.0.4"
 description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"
@@ -23,9 +23,7 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = "-v --tb=short"
-filterwarnings = [
-    "error",
-]
+filterwarnings = ["error"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests requiring tinygrad tensor backend (deselect with '-m \"not gpu\"')",
