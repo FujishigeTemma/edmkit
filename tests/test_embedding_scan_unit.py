@@ -53,7 +53,7 @@ class TestScanExamples:
 
 
 class TestSelectExamples:
-    def test_select_matches_manual_nanmean_argmax(self):
+    def test_select_picks_highest_risk_adjusted_score(self):
         scores = np.array(
             [
                 [[0.6, 0.8, np.nan], [0.4, 0.5, 0.6]],
@@ -63,6 +63,17 @@ class TestSelectExamples:
         best_e, best_tau, best_score = select(scores, E=[2, 3], tau=[1, 2])
         assert (best_e, best_tau) == (3, 1)
         assert best_score == pytest.approx(0.8)
+
+    def test_select_penalizes_high_variance(self):
+        # Two (E, tau) with identical mean but different variance.
+        # E=1: stable folds  → low SE  → high adjusted
+        # E=2: volatile folds → high SE → low adjusted
+        scores = np.full((2, 1, 4), np.nan)
+        scores[0, 0, :] = [0.5, 0.5, 0.5, 0.5]  # mean=0.5, std=0
+        scores[1, 0, :] = [0.9, 0.1, 0.9, 0.1]  # mean=0.5, std≈0.46
+        best_e, _, best_score = select(scores, E=[1, 2], tau=[1])
+        assert best_e == 1
+        assert best_score == pytest.approx(0.5)
 
     def test_select_raises_on_all_nan_scores(self):
         with pytest.raises(ValueError):

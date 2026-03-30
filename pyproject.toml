@@ -1,6 +1,6 @@
 [project]
 name = "edmkit"
-version = "0.0.4"
+version = "0.0.5"
 description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"

@@ -195,8 +195,11 @@ def select(
 ) -> tuple[int, int, float]:
     """Select best (E, tau) from scan results.
 
-    Aggregates over the fold axis (axis=2) with nanmean, then
-    finds the (E, tau) combination with the highest mean score.
+    Ranks each (E, tau) by ``mean - SE`` where SE is the standard error
+    of the mean across folds.  This penalises combinations whose scores
+    vary widely across folds (unstable predictions) and those with fewer
+    valid folds (less certainty), favouring parameters we are *confident*
+    perform well.
 
     Parameters
     ----------
@@ -210,15 +213,31 @@ def select(
     Returns
     -------
     (best_E, best_tau, best_score)
+        ``best_score`` is the mean over folds (not the adjusted value)
+        so that it remains directly interpretable.
     """
-    valid_counts = np.sum(~np.isnan(scores), axis=2)
-    summed_scores = np.nansum(scores, axis=2)
+    K = np.sum(~np.isnan(scores), axis=2)
+    nan_out = np.full(scores.shape[:2], np.nan)
+
     mean_scores = np.divide(
-        summed_scores,
-        valid_counts,
-        out=np.full(summed_scores.shape, np.nan, dtype=float),
-        where=valid_counts > 0,
+        np.nansum(scores, axis=2),
+        K,
+        out=nan_out.copy(),
+        where=K > 0,
     )
-    flat_idx = int(np.nanargmax(mean_scores))
-    e_idx, t_idx = np.unravel_index(flat_idx, mean_scores.shape)
+
+    # SE = sqrt(var / K) = sqrt(sum_sq / (K * (K - 1)))
+    sum_sq = np.nansum((scores - mean_scores[:, :, None]) ** 2, axis=2)
+    se = np.sqrt(
+        np.divide(
+            sum_sq,
+            K * np.maximum(K - 1, 1),
+            out=np.zeros_like(nan_out),
+            where=K > 1,
+        )
+    )
+
+    adjusted = mean_scores - se
+    flat_idx = int(np.nanargmax(adjusted))
+    e_idx, t_idx = np.unravel_index(flat_idx, adjusted.shape)
     return E[e_idx], tau[t_idx], float(mean_scores[e_idx, t_idx])
