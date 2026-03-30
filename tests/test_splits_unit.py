@@ -60,6 +60,11 @@ class TestExpandingFolds:
         with pytest.raises(ValueError):
             expanding_folds(n, initial_train_size=initial_train_size, validation_size=validation_size, gap=gap)
 
+    @pytest.mark.parametrize("stride", [0, -1])
+    def test_expanding_folds_reject_non_positive_stride(self, stride: int):
+        with pytest.raises(ValueError, match="stride"):
+            expanding_folds(20, initial_train_size=6, validation_size=4, stride=stride)
+
 
 class TestSlidingFolds:
     def test_sliding_folds_keep_fixed_train_size(self):
@@ -88,3 +93,8 @@ class TestSlidingFolds:
     def test_sliding_folds_reject_invalid_parameters(self, n: int, train_size: int, validation_size: int, gap: int):
         with pytest.raises(ValueError):
             sliding_folds(n, train_size=train_size, validation_size=validation_size, gap=gap)
+
+    @pytest.mark.parametrize("stride", [0, -1])
+    def test_sliding_folds_reject_non_positive_stride(self, stride: int):
+        with pytest.raises(ValueError, match="stride"):
+            sliding_folds(20, train_size=6, validation_size=4, stride=stride)

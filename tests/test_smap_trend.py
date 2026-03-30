@@ -6,11 +6,14 @@ from edmkit.smap import smap
 
 class TestSMapTrend:
     def test_nonlinear_series_benefits_from_locality(self, logistic_map: np.ndarray):
-        embedded = lagged_embed(logistic_map, tau=1, e=2)
-        x = embedded[:300]
-        y = logistic_map[2:302]
-        q = embedded[300:-1]
-        actual = logistic_map[302 : 302 + len(q)]
+        tau, e, n_ahead = 1, 2, 1
+        shift = (e - 1) * tau + n_ahead
+        embedded = lagged_embed(logistic_map, tau=tau, e=e)
+        library_size = 300
+        x = embedded[:library_size]
+        y = logistic_map[shift : shift + library_size]
+        q = embedded[library_size:-n_ahead]
+        actual = logistic_map[shift + library_size : shift + library_size + len(q)]
 
         global_predictions = smap(x, y, q, theta=0.0)
         local_predictions = smap(x, y, q, theta=4.0)

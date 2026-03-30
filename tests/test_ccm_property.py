@@ -1,11 +1,12 @@
 import numpy as np
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
 from edmkit.ccm import pearson_correlation
+from tests.conftest import finite_floats
 
-finite_float64 = st.floats(min_value=-20, max_value=20, allow_nan=False, allow_infinity=False)
+finite_float64 = finite_floats()
 
 
 @st.composite
@@ -13,10 +14,8 @@ def nonconstant_pairs(draw):
     length = draw(st.integers(min_value=3, max_value=40))
     x = draw(hnp.arrays(np.float64, length, elements=finite_float64))
     y = draw(hnp.arrays(np.float64, length, elements=finite_float64))
-    if np.std(x) == 0:
-        x = x + np.linspace(0.0, 1.0, length)
-    if np.std(y) == 0:
-        y = y + np.linspace(1.0, 0.0, length)
+    assume(np.std(x) > 1e-10)
+    assume(np.std(y) > 1e-10)
     return x, y
 
 

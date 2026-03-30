@@ -59,3 +59,28 @@ class TestSimplexProjectionExamples:
         expected = simplex_projection(x, y, q, use_tensor=False)
         actual = simplex_projection(x, y, q, use_tensor=True)
         np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    def test_tensor_3d_mask_raises_not_implemented(self):
+        x = np.zeros((2, 10, 3))
+        y = np.zeros((2, 10, 1))
+        q = np.zeros((2, 4, 3))
+        mask = np.ones((2, 10), dtype=bool)
+        with pytest.raises(NotImplementedError, match="Tensor-based 3D"):
+            simplex_projection(x, y, q, mask=mask, use_tensor=True)
+
+    @pytest.mark.slow
+    def test_knn_usearch_path_returns_close_neighbors(self):
+        from scipy.spatial import KDTree
+
+        rng = np.random.default_rng(42)
+        E, N, M, k = 15, 10_000, 20, 16
+        x = rng.normal(size=(N, E)).astype(np.float32)
+        q = rng.normal(size=(M, E)).astype(np.float32)
+        distances_actual, _ = knn(x, q, k)
+        tree = KDTree(x)
+        distances_exact, _ = tree.query(q, k=k)
+        # usearch uses HNSW (approximate NN) with float32 internally;
+        # distances are sorted per query and within 10% of exact kNN
+        assert distances_actual.shape == distances_exact.shape
+        assert np.all(np.diff(distances_actual, axis=1) >= -1e-6)
+        np.testing.assert_allclose(distances_actual, distances_exact, atol=0, rtol=0.10)

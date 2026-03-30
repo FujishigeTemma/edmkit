@@ -16,6 +16,10 @@ class TestPadExamples:
         with pytest.raises(ValueError, match="same length"):
             pad([np.zeros((2, 1)), np.zeros((3, 1))])
 
+    def test_pad_rejects_non_2d_arrays(self):
+        with pytest.raises(ValueError, match="2D"):
+            pad([np.zeros(5)])
+
 
 class TestDistanceExamples:
     def test_pairwise_distance_np_matches_known_squared_distances(self):
@@ -41,6 +45,14 @@ class TestDistanceExamples:
         expected = pairwise_distance_np(a, b)
         actual = pairwise_distance(Tensor(a), Tensor(b)).numpy()
         np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    def test_pairwise_distance_np_rejects_1d_input(self):
+        with pytest.raises(ValueError, match="2D or 3D"):
+            pairwise_distance_np(np.zeros(5))
+
+    def test_pairwise_distance_np_rejects_mismatched_ndim(self):
+        with pytest.raises(ValueError, match="same number of dimensions"):
+            pairwise_distance_np(np.zeros((3, 2)), np.zeros((2, 3, 2)))
 
 
 class TestDtwExamples:

@@ -120,3 +120,10 @@ class TestSMapExamples:
         q = np.zeros((2, 2))
         with pytest.raises(ValueError, match="non-negative"):
             smap(x, y, q, theta=-1.0)
+
+    def test_tensor_path_raises_not_implemented(self):
+        x = np.zeros((5, 2))
+        y = np.zeros(5)
+        q = np.zeros((2, 2))
+        with pytest.raises(NotImplementedError, match="Tensor-based S-Map"):
+            smap(x, y, q, theta=1.0, use_tensor=True)

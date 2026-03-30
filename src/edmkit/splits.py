@@ -103,6 +103,8 @@ def expanding_folds(
 
     if stride is None:
         stride = validation_size
+    if stride <= 0:
+        raise ValueError(f"stride must be positive, got {stride}")
 
     folds: list[Fold] = []
     validation_start = initial_train_size + gap
@@ -156,6 +158,8 @@ def sliding_folds(
 
     if stride is None:
         stride = validation_size
+    if stride <= 0:
+        raise ValueError(f"stride must be positive, got {stride}")
 
     folds: list[Fold] = []
     validation_start = train_size + gap

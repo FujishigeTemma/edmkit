@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pytest
 from hypothesis import HealthCheck, settings
+from hypothesis import strategies as st
 
 settings.register_profile(
     "ci",
@@ -16,6 +17,11 @@ settings.register_profile(
     deadline=500,
 )
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
+
+
+def finite_floats(bound: float = 20.0):
+    """Hypothesis strategy for finite float64 values within [-bound, bound]."""
+    return st.floats(min_value=-bound, max_value=bound, allow_nan=False, allow_infinity=False)
 
 
 @pytest.fixture(scope="module")

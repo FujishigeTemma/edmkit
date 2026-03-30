@@ -9,12 +9,14 @@ from edmkit.smap import smap
 class TestForecastPipelines:
     def test_lagged_embed_plus_simplex_projection_tracks_sine_wave(self):
         x = np.sin(np.linspace(0.0, 8.0 * np.pi, 160))
-        embedded = lagged_embed(x, tau=1, e=3)
+        tau, e, n_ahead = 1, 3, 1
+        shift = (e - 1) * tau + n_ahead
+        embedded = lagged_embed(x, tau=tau, e=e)
         library_size = 90
         lib_x = embedded[:library_size]
-        lib_y = x[3 : 3 + library_size]
-        q = embedded[library_size:-1]
-        actual = x[3 + library_size : 3 + library_size + len(q)]
+        lib_y = x[shift : shift + library_size]
+        q = embedded[library_size:-n_ahead]
+        actual = x[shift + library_size : shift + library_size + len(q)]
 
         predictions = simplex_projection(lib_x, lib_y, q)
         rho = np.corrcoef(predictions, actual)[0, 1]
@@ -22,12 +24,14 @@ class TestForecastPipelines:
         assert rho > 0.99
 
     def test_lagged_embed_plus_smap_tracks_bounded_linear_series(self, bounded_linear_series: np.ndarray):
-        embedded = lagged_embed(bounded_linear_series, tau=1, e=2)
+        tau, e, n_ahead = 1, 2, 1
+        shift = (e - 1) * tau + n_ahead
+        embedded = lagged_embed(bounded_linear_series, tau=tau, e=e)
         library_size = 300
         lib_x = embedded[:library_size]
-        lib_y = bounded_linear_series[2 : 2 + library_size]
-        q = embedded[library_size:-1]
-        actual = bounded_linear_series[2 + library_size : 2 + library_size + len(q)]
+        lib_y = bounded_linear_series[shift : shift + library_size]
+        q = embedded[library_size:-n_ahead]
+        actual = bounded_linear_series[shift + library_size : shift + library_size + len(q)]
 
         predictions = smap(lib_x, lib_y, q, theta=0.0)
         rho = np.corrcoef(predictions, actual)[0, 1]

@@ -4,8 +4,9 @@ from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
 from edmkit.smap import smap
+from tests.conftest import finite_floats
 
-finite_float64 = st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False)
+finite_float64 = finite_floats(10.0)
 
 
 @st.composite

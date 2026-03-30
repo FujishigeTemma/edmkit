@@ -1,11 +1,12 @@
 import numpy as np
-from hypothesis import given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
 from edmkit.util import autocorrelation, dtw, pairwise_distance_np
+from tests.conftest import finite_floats
 
-finite_float64 = st.floats(min_value=-20, max_value=20, allow_nan=False, allow_infinity=False)
+finite_float64 = finite_floats()
 
 
 @st.composite
@@ -35,7 +36,7 @@ def paired_series(draw):
 def nonconstant_series(draw):
     n = draw(st.integers(min_value=8, max_value=64))
     x = draw(hnp.arrays(np.float64, n, elements=finite_float64))
-    x = x + np.linspace(0.0, 1.0, n) * 1e-3
+    assume(np.std(x) > 1e-10)
     return x
 
 
