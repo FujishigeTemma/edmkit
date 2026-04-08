@@ -1,9 +1,9 @@
 import numpy as np
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
-from edmkit.simplex_projection import simplex_projection
+from edmkit.simplex_projection import loo, simplex_projection
 from tests.conftest import finite_floats
 
 finite_float64 = finite_floats(10.0)
@@ -38,3 +38,40 @@ class TestSimplexProjectionProperties:
         predictions = np.atleast_1d(simplex_projection(x, y, q))
         assert np.all(predictions >= y.min() - 1e-10)
         assert np.all(predictions <= y.max() + 1e-10)
+
+
+@st.composite
+def theiler_inputs(draw):
+    """Generate valid inputs for theiler_window testing.
+
+    X values are randomly perturbed to avoid kd-tree tie-breaking
+    non-determinism between the full-tree and per-query naive paths.
+    """
+    E = draw(st.integers(min_value=1, max_value=4))
+    W = draw(st.integers(min_value=1, max_value=10))
+    k = E + 1
+    min_n = 2 * W + 1 + k
+    N = draw(st.integers(min_value=min_n, max_value=max(min_n, 40)))
+    X = draw(hnp.arrays(np.float64, (N, E), elements=finite_float64))
+    rng = np.random.default_rng(draw(st.integers(min_value=0, max_value=2**32 - 1)))
+    X = X + rng.uniform(-1e-6, 1e-6, X.shape)
+    Y = draw(hnp.arrays(np.float64, N, elements=finite_float64))
+    return X, Y, W
+
+
+class TestSimplexProjectionTheilerWindowProperties:
+    @given(data=theiler_inputs())  # ty: ignore[missing-argument]
+    @settings(deadline=5000)
+    def test_matches_naive_loop(self, data):
+        """theiler_window must match per-sample simplex_projection with manual exclusion."""
+        X, Y, W = data
+        N = X.shape[0]
+
+        expected = np.empty(N)
+        for i in range(N):
+            mask = np.ones(N, dtype=bool)
+            mask[max(0, i - W) : min(N, i + W + 1)] = False
+            expected[i] = simplex_projection(X[mask], Y[mask], X[i : i + 1]).item()
+
+        actual = loo(X, Y, theiler_window=W)
+        np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)

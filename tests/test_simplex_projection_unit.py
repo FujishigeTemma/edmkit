@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from edmkit.simplex_projection import knn, simplex_projection
+from edmkit.simplex_projection import knn, loo, simplex_projection
 
 
 class TestSimplexProjectionExamples:
@@ -84,3 +84,35 @@ class TestSimplexProjectionExamples:
         assert distances_actual.shape == distances_exact.shape
         assert np.all(np.diff(distances_actual, axis=1) >= -1e-6)
         np.testing.assert_allclose(distances_actual, distances_exact, atol=0, rtol=0.10)
+
+    def test_loo_matches_naive_loop(self):
+        """loo must match per-sample simplex_projection with manual exclusion."""
+        rng = np.random.default_rng(99)
+        N, E, W = 200, 3, 5
+        X = rng.standard_normal((N, E))
+        Y = rng.standard_normal(N)
+
+        expected = np.empty(N)
+        for i in range(N):
+            mask = np.ones(N, dtype=bool)
+            mask[max(0, i - W) : min(N, i + W + 1)] = False
+            expected[i] = simplex_projection(X[mask], Y[mask], X[i : i + 1]).item()
+
+        actual = loo(X, Y, theiler_window=W)
+        np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+
+    def test_loo_batch_matches_loop(self):
+        rng = np.random.default_rng(42)
+        B, N, E, W = 3, 30, 2, 2
+        X = rng.standard_normal((B, N, E))
+        Y = rng.standard_normal((B, N, 1))
+        batched = loo(X, Y, theiler_window=W)
+        for b in range(B):
+            expected = loo(X[b], Y[b], theiler_window=W)
+            np.testing.assert_allclose(batched[b].squeeze(-1), expected.squeeze(), atol=1e-12, rtol=1e-12)
+
+    def test_loo_rejects_insufficient_library(self):
+        X = np.zeros((10, 2))
+        Y = np.zeros(10)
+        with pytest.raises(ValueError, match="Not enough"):
+            loo(X, Y, theiler_window=100)
