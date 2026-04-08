@@ -7,10 +7,39 @@ def double_pendulum(
     L1: float,
     L2: float,
     g: float,
-    X0: np.ndarray,  # (theta1, theta2, omega1, omega2)
+    X0: np.ndarray,
     dt: float,
     t_max: int,
 ):
+    """Generate double pendulum dynamics via forward Euler integration.
+
+    Parameters
+    ----------
+    m1 : float
+        Mass of first pendulum.
+    m2 : float
+        Mass of second pendulum.
+    L1 : float
+        Length of first pendulum.
+    L2 : float
+        Length of second pendulum.
+    g : float
+        Gravitational acceleration.
+    X0 : np.ndarray
+        Initial state ``(theta1, theta2, omega1, omega2)`` of shape ``(4,)``.
+    dt : float
+        Integration time step.
+    t_max : int
+        Maximum time.
+
+    Returns
+    -------
+    t : np.ndarray
+        Time array.
+    X : np.ndarray
+        State trajectory of shape ``(N, 4)``.
+    """
+
     def f(x: np.ndarray):
         theta1, theta2, omega1, omega2 = x
         delta = theta1 - theta2
@@ -43,6 +72,30 @@ def double_pendulum(
 
 
 def to_xy(L1: float, L2: float, theta1: np.ndarray, theta2: np.ndarray):
+    """Convert double pendulum angles to Cartesian coordinates.
+
+    Parameters
+    ----------
+    L1 : float
+        Length of first pendulum.
+    L2 : float
+        Length of second pendulum.
+    theta1 : np.ndarray
+        Angle of first pendulum.
+    theta2 : np.ndarray
+        Angle of second pendulum.
+
+    Returns
+    -------
+    x1 : np.ndarray
+        x-coordinate of first pendulum.
+    y1 : np.ndarray
+        y-coordinate of first pendulum.
+    x2 : np.ndarray
+        x-coordinate of second pendulum.
+    y2 : np.ndarray
+        y-coordinate of second pendulum.
+    """
     x1 = L1 * np.sin(theta1)
     y1 = -L1 * np.cos(theta1)
 

@@ -20,21 +20,21 @@ def simplex_projection(
 
     Parameters
     ----------
-    `X` : `np.ndarray`
+    X : np.ndarray
         The input data of shape (N,) or (N, E) or (B, N, E)
-    `Y` : `np.ndarray`
+    Y : np.ndarray
         The target data of shape (N,) or (N, E') or (B, N, E')
-    `Q` : `np.ndarray`
+    Q : np.ndarray
         The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`.
-    `mask` : `np.ndarray | None`
+    mask : np.ndarray or None
         Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`.
-    `use_tensor` : `bool`, default `False`
+    use_tensor : bool, default False
         Whether to use `tinygrad.Tensor` for computation.
         **This may be slower than the NumPy implementation in most cases for now.**
 
     Returns
     -------
-    predictions : `np.ndarray`
+    predictions : np.ndarray
         The predicted values based on the weighted mean of the nearest neighbors in `Y`.
 
     Raises

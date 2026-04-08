@@ -1,0 +1,65 @@
+---
+title: edmkit
+description: Simple, fast Empirical Dynamic Modeling library for Python
+template: splash
+hero:
+  tagline: A lightweight Python library for Empirical Dynamic Modeling — embedding, simplex projection, S-Map, and convergent cross mapping.
+  actions:
+    - text: Getting Started
+      link: /edmkit/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/FujishigeTemma/edmkit
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Why edmkit?
+
+<CardGrid>
+  <Card title="Fast" icon="rocket">
+    Built on NumPy, SciPy, and usearch for high-performance nearest-neighbor search and numerical
+    computation.
+  </Card>
+  <Card title="Simple API" icon="puzzle">
+    Module-level functions with clear signatures. No unnecessary class hierarchies.
+  </Card>
+  <Card title="Flexible" icon="setting">
+    Supports batched operations, custom metrics, pluggable prediction functions, and optional
+    tinygrad GPU acceleration.
+  </Card>
+  <Card title="Complete" icon="open-book">
+    Covers the full EDM workflow: embedding, simplex projection, S-Map, CCM, cross-validation, and
+    synthetic data generation.
+  </Card>
+</CardGrid>
+
+## Quick Example
+
+```python
+import numpy as np
+from edmkit.generate import lorenz
+from edmkit.embedding import lagged_embed, scan, select
+from edmkit.simplex_projection import simplex_projection
+
+# Generate Lorenz attractor
+t, X = lorenz(sigma=10, rho=28, beta=8/3,
+              X0=np.array([1.0, 1.0, 1.0]), dt=0.01, t_max=50)
+x = X[:, 0]  # Use x-component
+
+# Find optimal embedding parameters
+scores = scan(x, None, E=list(range(1, 11)), tau=[1, 2, 3, 5])
+best_E, best_tau, best_score = select(scores, E=list(range(1, 11)), tau=[1, 2, 3, 5])
+
+# Embed and predict
+embedded = lagged_embed(x, tau=best_tau, e=best_E)
+n = len(embedded)
+lib = embedded[:n // 2]
+target = x[best_tau * (best_E - 1) + 1 : n // 2 + best_tau * (best_E - 1) + 1]
+query = embedded[n // 2:]
+
+predictions = simplex_projection(lib, target, query)
+```

@@ -50,7 +50,7 @@ def bootstrap(
         Target time series (potential driver)
     lib_sizes : np.ndarray
         Array of library sizes to test convergence.
-    predict_func : :type: `PredictFunc`
+    predict_func : PredictFunc
         Prediction function with signature (X, Y, Q) -> predictions.
     n_samples : int, default 20
         Number of random samples per library size for bootstrapping.
@@ -58,16 +58,16 @@ def bootstrap(
         1-D array of integer indices from which library members are sampled.
     prediction_pool : np.ndarray
         1-D array of integer indices that are predicted.
-    sample_func : :type: `SampleFunc` | None, default None
+    sample_func : SampleFunc or None, default None
         Function responsible for drawing a library sample of a given size.
         When None, a fresh RNG-backed sampler is created per call.
-    batch_size : int | None, default 10
+    batch_size : int or None, default 10
         If specified, predictions are made in batches to limit memory usage.
 
     Returns
     -------
-    samples : np.ndarray of shape (n_samples, len(lib_sizes))
-        Per-sample correlation coefficients.
+    samples : np.ndarray
+        Per-sample correlation coefficients of shape ``(n_samples, len(lib_sizes))``.
     """
     if sample_func is None:
         sample_func = make_sample_func()
@@ -142,7 +142,7 @@ def ccm(
         Target time series (potential driver)
     lib_sizes : np.ndarray
         Array of library sizes to test convergence.
-    predict_func : :type: `PredictFunc`
+    predict_func : PredictFunc
         Prediction function with signature (X, Y, Q) -> predictions.
         Can be `simplex_projection`, `smap` with partial application, or a custom function.
     n_samples : int, default 100
@@ -151,13 +151,13 @@ def ccm(
         1-D array of integer indices from which library members are sampled.
     prediction_pool : np.ndarray
         1-D array of integer indices that are predicted.
-    sample_func : :type: `SampleFunc` | None, default None
+    sample_func : SampleFunc or None, default None
         Function responsible for drawing a library sample of a given size.
-        It receives `(pool, size)` and returns an array of indices.
+        It receives ``(pool, size)`` and returns an array of indices.
         When None, a fresh RNG-backed sampler is created per call.
-    aggregate_func : :type: `AggregateFunc`, default `np.mean`
+    aggregate_func : AggregateFunc, default np.mean
         Reducer applied to the correlation samples for each library size.
-    batch_size : int | None, default None
+    batch_size : int or None, default None
         If not specified, batch_size == n_samples.
         If specified, predictions are made in batches to limit memory usage.
     Returns

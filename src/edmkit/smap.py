@@ -21,23 +21,23 @@ def smap(
 
     Parameters
     ----------
-    `X` : `np.ndarray`
+    X : np.ndarray
         The input data
-    `Y` : `np.ndarray`
+    Y : np.ndarray
         The target data
-    `Q` : `np.ndarray`
+    Q : np.ndarray
         The query points for which to make predictions.
-    `theta` : `float`
+    theta : float
         Locality parameter. (0: global linear, >0: local linear)
-    `alpha` : `float`, default `1e-10`
+    alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
-    `use_tensor` : `bool`, default `False`
+    use_tensor : bool, default False
         Whether to use `tinygrad.Tensor` for computation.
         **This may be slower than the NumPy implementation in most cases for now.**
 
     Returns
     -------
-    predictions : `np.ndarray`
+    predictions : np.ndarray
         The predicted values based on the weighted linear regression.
 
     Raises
@@ -137,21 +137,21 @@ def _numpy(
 
     Parameters
     ----------
-    `X` : `np.ndarray`
+    X : np.ndarray
         (N,) or (N, E) or (B, N, E)
-    `Y` : `np.ndarray`
+    Y : np.ndarray
         (N,) or (N, E') or (B, N, E')
-    `Q` : `np.ndarray`
+    Q : np.ndarray
         The query points for which to make predictions.
         (M,) or (M, E) or (B, M, E)
-    `theta` : `float`
+    theta : float
         Locality parameter. (0: global linear, >0: local linear)
-    `alpha` : `float`, default `1e-10`
+    alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
 
     Returns
     -------
-    predictions : `np.ndarray`
+    predictions : np.ndarray
         The predicted values based on the weighted linear regression.
         (M, E') or (B, M, E')
 
@@ -245,20 +245,20 @@ def _tensor(
 
     Parameters
     ----------
-    `X` : `np.ndarray`
+    X : np.ndarray
         The input data
-    `Y` : `np.ndarray`
+    Y : np.ndarray
         The target data
-    `Q` : `np.ndarray`
+    Q : np.ndarray
         The query points for which to make predictions.
-    `theta` : `float`
+    theta : float
         Locality parameter. (0: global linear, >0: local linear)
-    `alpha` : `float`, default `1e-10`
+    alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
 
     Returns
     -------
-    predictions : `np.ndarray`
+    predictions : np.ndarray
         The predicted values based on the weighted linear regression.
 
     Raises

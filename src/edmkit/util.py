@@ -8,11 +8,13 @@ def pad(As: list[np.ndarray]):
 
     Parameters
     ----------
-        `As` : `list` of `np.ndarray` of shape `(N, D_i)`
+    As : list[np.ndarray]
+        List of arrays of shape ``(N, D_i)``.
 
     Returns
     -------
-        Single `np.ndarray` of shape `(B, N, max(D))` where `B` is `len(As)`
+    np.ndarray
+        Single array of shape ``(B, N, max(D))`` where B is ``len(As)``.
 
     Raises
     ------
@@ -41,21 +43,18 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
 
     Parameters
     ----------
-    `A` : `Tensor` of shape `(N, D)` or `(B, N, D)`
-        - `B`: batch size
-        - `N`: number of points
-        - `D`: dimension of each point
-    `B` : `Tensor` of shape `(M, D)` or `(B, M, D)`
-        - `B`: batch size
-        - `M`: number of points
-        - `D`: dimension of each point
+    A : Tensor
+        Shape ``(N, D)`` or ``(B, N, D)``.
+        ``B`` is batch size, ``N`` is number of points, ``D`` is dimension of each point.
+    B : Tensor
+        Shape ``(M, D)`` or ``(B, M, D)``.
+        ``B`` is batch size, ``M`` is number of points, ``D`` is dimension of each point.
 
     Returns
     -------
-    When `A` is of shape `(N, D)`:
-        `Tensor` of shape `(N, N)` [or `(N, M)`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
-    When `A` is of shape `(B, N, D)`:
-        `Tensor` of shape `(B, N, N)` [or `(B, N, M)`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
+    Tensor
+        When `A` is of shape ``(N, D)``: shape ``(N, N)`` [or ``(N, M)``] where the element at position ``(i, j)`` is the squared Euclidean distance between ``A[i]`` and ``A[j]`` [or between ``A[i]`` and ``B[j]``].
+        When `A` is of shape ``(B, N, D)``: shape ``(B, N, N)`` [or ``(B, N, M)``] where the element at position ``(b, i, j)`` is the squared Euclidean distance between ``A[b, i]`` and ``A[b, j]``.
 
     Raises
     ------
@@ -84,21 +83,18 @@ def pairwise_distance_np(A: np.ndarray, B: np.ndarray | None = None) -> np.ndarr
 
     Parameters
     ----------
-    `A` : `np.ndarray` of shape `(N, D)` or `(B, N, D)`
-        - `B`: batch size
-        - `N`: number of points
-        - `D`: dimension of each point
-    `B` : `np.ndarray` of shape `(M, D)` or `(B, M, D)`
-        - `B`: batch size
-        - `M`: number of points
-        - `D`: dimension of each point
+    A : np.ndarray
+        Shape ``(N, D)`` or ``(B, N, D)``.
+        ``B`` is batch size, ``N`` is number of points, ``D`` is dimension of each point.
+    B : np.ndarray
+        Shape ``(M, D)`` or ``(B, M, D)``.
+        ``B`` is batch size, ``M`` is number of points, ``D`` is dimension of each point.
 
     Returns
     -------
-    When `A` is of shape `(N, D)`:
-        `np.ndarray` of shape `(N, N)` [or `(N, M)`] where the element at position `(i, j)` is the squared Euclidean distance between `A[i]` and `A[j]` [or between `A[i]` and `B[j]`].
-    When `A` is of shape `(B, N, D)`:
-        `np.ndarray` of shape `(B, N, N)` [or `(B, N, M)`] where the element at position `(b, i, j)` is the squared Euclidean distance between `A[b, i]` and `A[b, j]`.
+    np.ndarray
+        When `A` is of shape ``(N, D)``: shape ``(N, N)`` [or ``(N, M)``] where the element at position ``(i, j)`` is the squared Euclidean distance between ``A[i]`` and ``A[j]`` [or between ``A[i]`` and ``B[j]``].
+        When `A` is of shape ``(B, N, D)``: shape ``(B, N, N)`` [or ``(B, N, M)``] where the element at position ``(b, i, j)`` is the squared Euclidean distance between ``A[b, i]`` and ``A[b, j]``.
 
     Raises
     ------
@@ -128,12 +124,15 @@ def dtw(A: np.ndarray, B: np.ndarray):
 
     Parameters
     ----------
-        `A` : Tensor of shape `(N,D)`
-        `B` : Tensor of shape `(M,D)`
+    A : np.ndarray
+        Sequence of shape ``(N, D)``.
+    B : np.ndarray
+        Sequence of shape ``(M, D)``.
 
     Returns
     -------
-        distance : float
+    distance : float
+        The DTW distance between the two sequences.
     """
     N: int = A.shape[0]
     M: int = B.shape[0]
@@ -169,13 +168,17 @@ def autocorrelation(x: np.ndarray, max_lag: int, step: int = 1):
 
     Parameters
     ----------
-        `x` : `np.ndarray` The input array for which to compute the autocorrelation.
-        `max_lag` : `int` The maximum lag up to which the autocorrelation is computed.
-        `step` : `int`, `optional` The step size for the lag. Default is 1.
+    x : np.ndarray
+        The input array for which to compute the autocorrelation.
+    max_lag : int
+        The maximum lag up to which the autocorrelation is computed.
+    step : int, optional
+        The step size for the lag. Default is 1.
 
     Returns
     -------
-        `np.ndarray` of shape `(max_lag // step + 1,)` containing the autocorrelation values.
+    np.ndarray
+        Array of shape ``(max_lag // step + 1,)`` containing the autocorrelation values.
     """
     x = x - np.mean(x)
 

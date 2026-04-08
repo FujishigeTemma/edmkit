@@ -14,13 +14,17 @@ def lagged_embed(x: np.ndarray, tau: int, e: int):
 
     Parameters
     ----------
-        `x` : `np.ndarray` of shape `(N,)`
-        `tau` : `int`
-        `e` : `int`
+    x : np.ndarray
+        1D time series of shape ``(N,)``.
+    tau : int
+        Time delay.
+    e : int
+        Embedding dimension.
 
     Returns
     -------
-        `np.ndarray` of shape `(N - (e - 1) * tau, e)`
+    np.ndarray
+        Embedded array of shape ``(N - (e - 1) * tau, e)``.
 
     Raises
     ------

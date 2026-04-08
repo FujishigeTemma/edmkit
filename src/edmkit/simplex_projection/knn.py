@@ -8,18 +8,18 @@ def knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
 
     Parameters
     ----------
-    `X` : `np.ndarray`
+    X : np.ndarray
         The input data (N, E)
-    `Q` : `np.ndarray`
+    Q : np.ndarray
         The query points (M, E)
-    `k` : `int`
+    k : int
         The number of nearest neighbors to find (typically E+1 for simplex projection).
 
     Returns
     -------
-    distances : `np.ndarray`
+    distances : np.ndarray
         The distances from each query point in `Q` to its k nearest neighbors in `X` (M, k)
-    indices : `np.ndarray`
+    indices : np.ndarray
         The indices of the k nearest neighbors in `X` for each query point in `Q` (M, k)
     """
 

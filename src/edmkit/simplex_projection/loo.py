@@ -17,18 +17,18 @@ def loo(
 
     Parameters
     ----------
-    `X` : `np.ndarray`
+    X : np.ndarray
         The input data of shape (N,) or (N, E) or (B, N, E).
-    `Y` : `np.ndarray`
+    Y : np.ndarray
         The target data of shape (N,) or (N, E') or (B, N, E').
-    `theiler_window` : `int`
+    theiler_window : int
         Theiler window half-width. Library points ``j`` where
         ``|i - j| <= theiler_window`` are excluded when predicting point ``i``.
         For lagged embedding, use ``(E - 1) * tau + n_ahead``.
 
     Returns
     -------
-    predictions : `np.ndarray`
+    predictions : np.ndarray
         The predicted values of shape (N,) or (N, E') or (B, N, E').
 
     Raises
