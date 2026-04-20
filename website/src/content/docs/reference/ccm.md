@@ -18,29 +18,6 @@ Name | Description
 [`with_simplex_projection`](#edmkit.ccm.with_simplex_projection) | Perform Convergent Cross Mapping using simplex projection.
 [`with_smap`](#edmkit.ccm.with_smap) | Perform Convergent Cross Mapping using S-Map (local linear regression).
 
-**Attributes:**
-
-Name | Type | Description
----- | ---- | -----------
-[`SampleFunc`](#edmkit.ccm.SampleFunc) | <code>[TypeAlias](#typing.TypeAlias)</code> | SampleFunc is a function that takes (pool, size) and returns a sampled array.
-[`AggregateFunc`](#edmkit.ccm.AggregateFunc) | <code>[TypeAlias](#typing.TypeAlias)</code> | AggregateFunc is a function that takes an array of values and returns a single value.
-
-### `SampleFunc`
-
-```python
-SampleFunc: TypeAlias = Callable[[np.ndarray, int], np.ndarray]
-```
-
-SampleFunc is a function that takes (pool, size) and returns a sampled array.
-
-### `AggregateFunc`
-
-```python
-AggregateFunc: TypeAlias = Callable[[np.ndarray], float]
-```
-
-AggregateFunc is a function that takes an array of values and returns a single value.
-
 ### `make_sample_func`
 
 ```python
@@ -363,3 +340,27 @@ correlations = ccm.with_smap(
 )
 ```
 
+
+
+**Type Aliases:**
+
+Name | Description
+---- | -----------
+[`SampleFunc`](#edmkit.ccm.SampleFunc) | SampleFunc is a function that takes (pool, size) and returns a sampled array.
+[`AggregateFunc`](#edmkit.ccm.AggregateFunc) | AggregateFunc is a function that takes an array of values and returns a single value.
+
+### `SampleFunc` {#edmkit.ccm.SampleFunc}
+
+```python
+type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
+```
+
+SampleFunc is a function that takes (pool, size) and returns a sampled array.
+
+### `AggregateFunc` {#edmkit.ccm.AggregateFunc}
+
+```python
+type AggregateFunc = Callable[[np.ndarray], float]
+```
+
+AggregateFunc is a function that takes an array of values and returns a single value.

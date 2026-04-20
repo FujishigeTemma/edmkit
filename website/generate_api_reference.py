@@ -4,21 +4,29 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
-from griffe import GriffeLoader, Object, Parser
+from griffe import Alias, Attribute, ExprList, GriffeLoader, Module, Object, Parser
+from griffe import TypeAlias as GriffeTypeAlias
 from griffe2md import ConfigDict, default_config, render_object_docs
 
 OUTPUT_DIR = Path(__file__).parent / "src" / "content" / "docs" / "reference"
 
-MODULES: dict[str, dict[str, str | int]] = {
-    "embedding": {"description": "Time-delay embedding and parameter selection.", "order": 1},
-    "simplex_projection": {"description": "Simplex projection, leave-one-out, and k-nearest neighbors.", "order": 2},
-    "smap": {"description": "S-Map local linear prediction.", "order": 3},
-    "ccm": {"description": "Convergent Cross Mapping for causal inference.", "order": 4},
-    "metrics": {"description": "Prediction evaluation metrics.", "order": 5},
-    "splits": {"description": "Time-series cross-validation strategies.", "order": 6},
-    "generate": {"description": "Synthetic chaotic time series generators.", "order": 7},
-    "util": {"description": "Utility functions for distance computation, padding, and more.", "order": 8},
+
+class ModuleMeta(NamedTuple):
+    description: str
+    order: int
+
+
+MODULES: dict[str, ModuleMeta] = {
+    "embedding": ModuleMeta("Time-delay embedding and parameter selection.", 1),
+    "simplex_projection": ModuleMeta("Simplex projection, leave-one-out, and k-nearest neighbors.", 2),
+    "smap": ModuleMeta("S-Map local linear prediction.", 3),
+    "ccm": ModuleMeta("Convergent Cross Mapping for causal inference.", 4),
+    "metrics": ModuleMeta("Prediction evaluation metrics.", 5),
+    "splits": ModuleMeta("Time-series cross-validation strategies.", 6),
+    "generate": ModuleMeta("Synthetic chaotic time series generators.", 7),
+    "util": ModuleMeta("Utility functions for distance computation, padding, and more.", 8),
 }
 
 CONFIG: ConfigDict = {
@@ -37,43 +45,100 @@ CONFIG: ConfigDict = {
 }
 
 
-def _resolve_member(module: Object, name: str) -> Object:
+def resolve_member(module: Object, name: str) -> Object:
     """Resolve a member by name, following aliases and looking into submodules."""
     member = module.members.get(name)
     if member is None:
         raise KeyError(f"{name} not found in {module.path}")
-    if member.is_alias:
+    if isinstance(member, Alias):
         return member.final_target
     # When a submodule shadows the imported function (same name),
     # look for the function inside the submodule.
-    if member.kind.value == "module" and name in member.members:
-        return _resolve_member(member, name)
+    if isinstance(member, Module) and name in member.members:
+        return resolve_member(member, name)
     return member
 
 
-def _render_package_exports(module: Object) -> str:
-    """Render __all__ exports of a package as direct members."""
+def export_names(module: Object) -> list[str] | None:
+    """Return the names listed in ``__all__``, or None if not declared."""
     all_attr = module.members.get("__all__")
     if all_attr is None:
+        return None
+    if not isinstance(all_attr, Attribute):
+        raise TypeError(f"Expected __all__ to be Attribute, got {type(all_attr).__name__}")
+    if not isinstance(all_attr.value, ExprList):
+        raise TypeError(f"Expected __all__ value to be ExprList, got {type(all_attr.value).__name__}")
+    return [str(element).strip("'\"") for element in all_attr.value.elements]
+
+
+def docstring_summary(obj: Object) -> str:
+    """First line of the parsed docstring, or empty string when absent."""
+    if obj.docstring is None:
+        return ""
+    return obj.docstring.parsed[0].value.split("\n")[0]
+
+
+def render_overview_table(items: list[tuple[str, Object]]) -> str:
+    """Render a Markdown table listing exported objects."""
+    rows = [f"[`{name}`](#{name}) | {docstring_summary(obj)}" for name, obj in items]
+    return "**Functions:**\n\nName | Description\n---- | -----------\n" + "\n".join(rows)
+
+
+def render_package_exports(module: Object) -> str:
+    """Render ``__all__`` exports of a package as direct members."""
+    names = export_names(module)
+    if names is None:
         return render_object_docs(module, CONFIG)
 
-    names = [str(e).strip("'\"") for e in all_attr.value.elements]
-    objects = [(name, _resolve_member(module, name)) for name in names]
+    items = [(name, resolve_member(module, name)) for name in names]
+    sections = [render_overview_table(items), *(render_object_docs(obj, CONFIG) for _, obj in items)]
+    return "\n\n".join(sections)
 
-    # Overview table
-    rows = []
-    for name, obj in objects:
-        summary = ""
-        if obj.docstring:
-            summary = obj.docstring.parsed[0].value.split("\n")[0]
-        rows.append(f"[`{name}`](#{name}) | {summary}")
-    overview = "**Functions:**\n\nName | Description\n---- | -----------\n" + "\n".join(rows)
 
-    # Individual function docs
-    parts = [overview]
-    for _name, obj in objects:
-        parts.append(render_object_docs(obj, CONFIG))
-    return "\n\n".join(parts)
+def render_type_aliases(module: Object) -> str:
+    """Render PEP 695 ``type`` statements, which griffe2md does not emit natively."""
+    show_undocumented = bool(CONFIG.get("show_if_no_docstring", False))
+    aliases = [
+        member for member in module.members.values() if isinstance(member, GriffeTypeAlias) and (show_undocumented or member.docstring is not None)
+    ]
+    if not aliases:
+        return ""
+
+    rows = [f"[`{alias.name}`](#{alias.path}) | {docstring_summary(alias)}" for alias in aliases]
+    table = "**Type Aliases:**\n\nName | Description\n---- | -----------\n" + "\n".join(rows)
+
+    details = []
+    for alias in aliases:
+        body = alias.docstring.value if alias.docstring else ""
+        details.append(f"### `{alias.name}` {{#{alias.path}}}\n\n```python\ntype {alias.name} = {alias.value}\n```\n\n{body}")
+    return "\n\n".join([table, *details])
+
+
+def render_module(module: Object) -> str:
+    """Render a module, with a trailing section for PEP 695 type aliases."""
+    if isinstance(module, Module) and module.modules and export_names(module) is not None:
+        base = render_package_exports(module)
+    else:
+        base = render_object_docs(module, CONFIG)
+    aliases_section = render_type_aliases(module)
+    if not aliases_section:
+        return base
+    return f"{base}\n\n{aliases_section}\n"
+
+
+def write_reference(module_name: str, meta: ModuleMeta, body: str) -> Path:
+    """Write a single reference file with Starlight frontmatter."""
+    frontmatter = f"""---
+title: {module_name}
+description: {meta.description}
+sidebar:
+  order: {meta.order}
+---
+
+"""
+    path = OUTPUT_DIR / (module_name.replace("_", "-") + ".md")
+    path.write_text(frontmatter + body)
+    return path
 
 
 def main() -> None:
@@ -89,26 +154,8 @@ def main() -> None:
 
     for module_name, meta in MODULES.items():
         module = package.modules[module_name]
-
-        if module.modules:
-            # Package with submodules: collect exported functions from
-            # submodules (referenced in __all__) and render them as if
-            # they belong directly to the parent package.
-            body = _render_package_exports(module)
-        else:
-            body = render_object_docs(module, CONFIG)
-
-        filename = module_name.replace("_", "-") + ".md"
-        frontmatter = f"""---
-title: {module_name}
-description: {meta["description"]}
-sidebar:
-  order: {meta["order"]}
----
-
-"""
-        (OUTPUT_DIR / filename).write_text(frontmatter + body)
-        print(f"  {filename}")
+        path = write_reference(module_name, meta, render_module(module))
+        print(f"  {path.name}")
 
     print(f"Generated {len(MODULES)} files in {OUTPUT_DIR}")
 

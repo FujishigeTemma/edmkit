@@ -17,20 +17,6 @@ Name | Description
 [`rmse`](#edmkit.metrics.rmse) | Root Mean Squared Error.
 [`mae`](#edmkit.metrics.mae) | Mean Absolute Error.
 
-**Attributes:**
-
-Name | Type | Description
----- | ---- | -----------
-[`MetricFunc`](#edmkit.metrics.MetricFunc) | <code>[TypeAlias](#typing.TypeAlias)</code> | MetricFunc is a function that takes (predictions, observations) and returns a metric value.
-
-### `MetricFunc`
-
-```python
-MetricFunc: TypeAlias = Callable[[np.ndarray, np.ndarray], np.ndarray]
-```
-
-MetricFunc is a function that takes (predictions, observations) and returns a metric value.
-
 ### `validate_and_promote`
 
 ```python
@@ -123,3 +109,18 @@ Type | Description
 ---- | -----------
 <code>[ndarray](#numpy.ndarray)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
 
+
+
+**Type Aliases:**
+
+Name | Description
+---- | -----------
+[`MetricFunc`](#edmkit.metrics.MetricFunc) | MetricFunc is a function that takes (predictions, observations) and returns a metric value.
+
+### `MetricFunc` {#edmkit.metrics.MetricFunc}
+
+```python
+type MetricFunc = Callable[[np.ndarray, np.ndarray], np.ndarray]
+```
+
+MetricFunc is a function that takes (predictions, observations) and returns a metric value.
