@@ -7,6 +7,29 @@ sidebar:
 
 ## `ccm`
 
+**Type Aliases:**
+
+Name | Description
+---- | -----------
+[`SampleFunc`](#edmkit.ccm.SampleFunc) | SampleFunc is a function that takes (pool, size) and returns a sampled array.
+[`AggregateFunc`](#edmkit.ccm.AggregateFunc) | AggregateFunc is a function that takes an array of values and returns a single value.
+
+### `SampleFunc` {#edmkit.ccm.SampleFunc}
+
+```python
+type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
+```
+
+SampleFunc is a function that takes (pool, size) and returns a sampled array.
+
+### `AggregateFunc` {#edmkit.ccm.AggregateFunc}
+
+```python
+type AggregateFunc = Callable[[np.ndarray], float]
+```
+
+AggregateFunc is a function that takes an array of values and returns a single value.
+
 **Functions:**
 
 Name | Description
@@ -340,27 +363,3 @@ correlations = ccm.with_smap(
 )
 ```
 
-
-
-**Type Aliases:**
-
-Name | Description
----- | -----------
-[`SampleFunc`](#edmkit.ccm.SampleFunc) | SampleFunc is a function that takes (pool, size) and returns a sampled array.
-[`AggregateFunc`](#edmkit.ccm.AggregateFunc) | AggregateFunc is a function that takes an array of values and returns a single value.
-
-### `SampleFunc` {#edmkit.ccm.SampleFunc}
-
-```python
-type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
-```
-
-SampleFunc is a function that takes (pool, size) and returns a sampled array.
-
-### `AggregateFunc` {#edmkit.ccm.AggregateFunc}
-
-```python
-type AggregateFunc = Callable[[np.ndarray], float]
-```
-
-AggregateFunc is a function that takes an array of values and returns a single value.

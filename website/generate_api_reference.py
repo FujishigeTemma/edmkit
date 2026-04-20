@@ -115,7 +115,7 @@ def render_type_aliases(module: Object) -> str:
 
 
 def render_module(module: Object) -> str:
-    """Render a module, with a trailing section for PEP 695 type aliases."""
+    """Render a module, inserting a Type Aliases section where griffe2md would place Attributes."""
     if isinstance(module, Module) and module.modules and export_names(module) is not None:
         base = render_package_exports(module)
     else:
@@ -123,6 +123,12 @@ def render_module(module: Object) -> str:
     aliases_section = render_type_aliases(module)
     if not aliases_section:
         return base
+    # griffe2md historically placed attribute listings between the module
+    # heading/docstring and the first member (Functions table or `### ` heading).
+    for marker in ("**Functions:**", "### "):
+        index = base.find(marker)
+        if index != -1:
+            return base[:index] + aliases_section + "\n\n" + base[index:]
     return f"{base}\n\n{aliases_section}\n"
 
 

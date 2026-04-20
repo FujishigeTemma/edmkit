@@ -7,6 +7,20 @@ sidebar:
 
 ## `metrics`
 
+**Type Aliases:**
+
+Name | Description
+---- | -----------
+[`MetricFunc`](#edmkit.metrics.MetricFunc) | MetricFunc is a function that takes (predictions, observations) and returns a metric value.
+
+### `MetricFunc` {#edmkit.metrics.MetricFunc}
+
+```python
+type MetricFunc = Callable[[np.ndarray, np.ndarray], np.ndarray]
+```
+
+MetricFunc is a function that takes (predictions, observations) and returns a metric value.
+
 **Functions:**
 
 Name | Description
@@ -109,18 +123,3 @@ Type | Description
 ---- | -----------
 <code>[ndarray](#numpy.ndarray)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
 
-
-
-**Type Aliases:**
-
-Name | Description
----- | -----------
-[`MetricFunc`](#edmkit.metrics.MetricFunc) | MetricFunc is a function that takes (predictions, observations) and returns a metric value.
-
-### `MetricFunc` {#edmkit.metrics.MetricFunc}
-
-```python
-type MetricFunc = Callable[[np.ndarray, np.ndarray], np.ndarray]
-```
-
-MetricFunc is a function that takes (predictions, observations) and returns a metric value.
