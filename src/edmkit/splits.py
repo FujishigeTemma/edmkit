@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Callable, NamedTuple, TypeAlias
+from typing import TYPE_CHECKING, Callable, NamedTuple
 
 import numpy as np
 
@@ -10,7 +10,7 @@ class Fold(NamedTuple):
     validation: np.ndarray  # index array
 
 
-SplitFunc: TypeAlias = Callable[[int], list[Fold]]
+type SplitFunc = Callable[[int], list[Fold]]
 
 
 def temporal_fold(

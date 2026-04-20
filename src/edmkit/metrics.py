@@ -1,8 +1,8 @@
-from typing import TYPE_CHECKING, Callable, TypeAlias
+from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
-MetricFunc: TypeAlias = Callable[[np.ndarray, np.ndarray], np.ndarray]
+type MetricFunc = Callable[[np.ndarray, np.ndarray], np.ndarray]
 """MetricFunc is a function that takes (predictions, observations) and returns a metric value."""
 
 

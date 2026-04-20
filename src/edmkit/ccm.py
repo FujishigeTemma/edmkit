@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from functools import partial
-from typing import TypeAlias
 
 import numpy as np
 
@@ -8,9 +7,9 @@ from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 from edmkit.types import PredictFunc
 
-SampleFunc: TypeAlias = Callable[[np.ndarray, int], np.ndarray]
+type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
 """SampleFunc is a function that takes (pool, size) and returns a sampled array."""
-AggregateFunc: TypeAlias = Callable[[np.ndarray], float]
+type AggregateFunc = Callable[[np.ndarray], float]
 """AggregateFunc is a function that takes an array of values and returns a single value."""
 
 
