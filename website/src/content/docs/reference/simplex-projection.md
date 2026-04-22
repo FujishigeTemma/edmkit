@@ -55,7 +55,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `X` | <code>[ndarray](#numpy.ndarray)</code> | The input data of shape (N,) or (N, E) or (B, N, E). | *required*
 `Y` | <code>[ndarray](#numpy.ndarray)</code> | The target data of shape (N,) or (N, E') or (B, N, E'). | *required*
-`theiler_window` | <code>[int](#int)</code> | Theiler window half-width. Library points ``j`` where ``|i - j| <= theiler_window`` are excluded when predicting point ``i``. For lagged embedding, use ``(E - 1) * tau + n_ahead``. | *required*
+`theiler_window` | <code>[int](#int)</code> | Theiler window half-width. Library points ``j`` where ``|i - j| <= theiler_window`` are excluded when predicting point ``i``. For lagged embedding, use ``(E - 1) * tau``. | *required*
 
 **Returns:**
 

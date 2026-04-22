@@ -24,7 +24,7 @@ def loo(
     theiler_window : int
         Theiler window half-width. Library points ``j`` where
         ``|i - j| <= theiler_window`` are excluded when predicting point ``i``.
-        For lagged embedding, use ``(E - 1) * tau + n_ahead``.
+        For lagged embedding, use ``(E - 1) * tau``.
 
     Returns
     -------
