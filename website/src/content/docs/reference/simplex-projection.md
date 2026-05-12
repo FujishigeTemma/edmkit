@@ -9,7 +9,7 @@ sidebar:
 
 Name | Description
 ---- | -----------
-[`knn`](#knn) | Find the k-nearest neighbors of `Q` in `X` using either `usearch` or `scipy.spatial.KDTree` depending on the size and dimensionality of the data.
+[`knn`](#knn) | Find the k-nearest neighbors of `Q` in `X` using `kdtree.KDTree`.
 [`loo`](#loo) | Leave-one-out simplex projection: predict each point in `X` from its neighbors, excluding temporally close points.
 [`simplex_projection`](#simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
 
@@ -19,7 +19,7 @@ Name | Description
 knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]
 ```
 
-Find the k-nearest neighbors of `Q` in `X` using either `usearch` or `scipy.spatial.KDTree` depending on the size and dimensionality of the data.
+Find the k-nearest neighbors of `Q` in `X` using `kdtree.KDTree`.
 
 **Parameters:**
 

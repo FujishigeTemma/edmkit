@@ -26,8 +26,8 @@ edmkit requires Python 3.13 or later.
 edmkit depends on:
 
 - **NumPy** >= 2.4 — core array operations
-- **SciPy** >= 1.17 — KDTree for nearest-neighbor search
-- **usearch** >= 2.23 — fast approximate nearest-neighbor search for high-dimensional data
+- **SciPy** >= 1.17 — pairwise distances for S-Map and DTW
+- **kdtree-rs** >= 0.1 — high-performance KDTree for nearest-neighbor search
 - **tinygrad** >= 0.11 — optional GPU acceleration
 
 ## Your First Analysis

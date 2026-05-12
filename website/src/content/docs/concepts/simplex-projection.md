@@ -57,10 +57,7 @@ predictions = loo(X, Y, theiler_window=5)
 
 ## Nearest-Neighbor Search
 
-The `knn` function handles neighbor finding, automatically choosing the best backend:
-
-- **KDTree** (SciPy) for lower dimensions or smaller datasets
-- **usearch** for high-dimensional or large-scale data (E >= 15 and N >= 10,000)
+The `knn` function handles neighbor finding using [`kdtree-rs`](https://pypi.org/project/kdtree-rs/), a Rust-based KDTree built for free-threaded CPython.
 
 ```python
 from edmkit.simplex_projection import knn

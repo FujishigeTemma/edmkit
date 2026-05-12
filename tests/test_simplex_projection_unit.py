@@ -13,9 +13,9 @@ class TestSimplexProjectionExamples:
 
     def test_knn_returns_expected_neighbors(self):
         x = np.array([[0.0], [2.0], [5.0], [9.0]])
-        q = np.array([[1.0], [8.0]])
+        q = np.array([[1.5], [8.0]])
         distances, indices = knn(x, q, k=2)
-        np.testing.assert_allclose(distances, np.array([[1.0, 1.0], [1.0, 3.0]]))
+        np.testing.assert_allclose(distances, np.array([[0.5, 1.5], [1.0, 3.0]]))
         np.testing.assert_array_equal(indices, np.array([[1, 0], [3, 2]]))
 
     def test_constant_target_is_recovered_exactly(self):
@@ -67,23 +67,6 @@ class TestSimplexProjectionExamples:
         mask = np.ones((2, 10), dtype=bool)
         with pytest.raises(NotImplementedError, match="Tensor-based 3D"):
             simplex_projection(x, y, q, mask=mask, use_tensor=True)
-
-    @pytest.mark.slow
-    def test_knn_usearch_path_returns_close_neighbors(self):
-        from scipy.spatial import KDTree
-
-        rng = np.random.default_rng(42)
-        E, N, M, k = 15, 10_000, 20, 16
-        x = rng.normal(size=(N, E)).astype(np.float32)
-        q = rng.normal(size=(M, E)).astype(np.float32)
-        distances_actual, _ = knn(x, q, k)
-        tree = KDTree(x)
-        distances_exact, _ = tree.query(q, k=k)
-        # usearch uses HNSW (approximate NN) with float32 internally;
-        # distances are sorted per query and within 10% of exact kNN
-        assert distances_actual.shape == distances_exact.shape
-        assert np.all(np.diff(distances_actual, axis=1) >= -1e-6)
-        np.testing.assert_allclose(distances_actual, distances_exact, atol=0, rtol=0.10)
 
     def test_loo_matches_naive_loop(self):
         """loo must match per-sample simplex_projection with manual exclusion."""
