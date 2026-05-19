@@ -18,4 +18,8 @@ class TestScanProperties:
         merged_e = sorted(set([target_e, *extra_e]))
         multi = scan(logistic_map, E=merged_e, tau=[1, 2])
         idx = merged_e.index(target_e)
-        np.testing.assert_allclose(single[0], multi[idx], atol=1e-12, rtol=1e-12)
+        # Other E values can yield more folds, padding multi's last axis with NaN.
+        # Compare only the overlap.
+        k = single.shape[2]
+        np.testing.assert_allclose(single[0], multi[idx, :, :k], atol=1e-12, rtol=1e-12)
+        assert np.isnan(multi[idx, :, k:]).all()

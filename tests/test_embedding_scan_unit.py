@@ -34,21 +34,23 @@ class TestScanExamples:
         assert np.isfinite(scores[0]).any()
         assert np.isnan(scores[1]).all()
 
-    def test_scan_supports_n_ahead_greater_than_one(self, logistic_map: np.ndarray):
-        scores = scan(logistic_map, E=[2, 3], tau=[1], n_ahead=3)
+    def test_scan_supports_caller_shifted_forecast_horizon(self, logistic_map: np.ndarray):
+        n_ahead = 3
+        scores = scan(logistic_map[:-n_ahead], logistic_map[n_ahead:], E=[2, 3], tau=[1])
         assert scores.shape[:2] == (2, 1)
         assert scores.shape[2] >= 1
         assert np.isfinite(scores).any()
 
-    def test_larger_n_ahead_does_not_create_more_folds(self, logistic_map: np.ndarray):
-        one_step = scan(logistic_map, E=[2], tau=[1], n_ahead=1)
-        five_step = scan(logistic_map, E=[2], tau=[1], n_ahead=5)
+    def test_larger_shift_does_not_create_more_folds(self, logistic_map: np.ndarray):
+        one_step = scan(logistic_map[:-1], logistic_map[1:], E=[2], tau=[1])
+        five_step = scan(logistic_map[:-5], logistic_map[5:], E=[2], tau=[1])
         assert one_step.shape[2] >= five_step.shape[2]
         assert np.isfinite(one_step).any()
 
-    def test_scan_returns_all_nan_when_n_ahead_leaves_too_few_usable_points(self):
+    def test_scan_returns_all_nan_when_input_leaves_too_few_usable_points(self):
         x = np.linspace(0.0, 1.0, 30)
-        scores = scan(x, E=[2], tau=[1], n_ahead=28)
+        # After shifting away 28 samples, only 2 remain — fewer than (e-1)*tau lag points.
+        scores = scan(x[:2], x[28:], E=[2], tau=[1])
         assert np.isnan(scores).all()
 
 

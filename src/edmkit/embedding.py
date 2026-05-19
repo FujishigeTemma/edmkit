@@ -77,7 +77,6 @@ def scan(
     *,
     E: list[int],
     tau: list[int],
-    n_ahead: int = 1,
     split: SplitFunc | None = None,
     predict: PredictFunc | None = None,
     metric: MetricFunc | None = None,
@@ -94,8 +93,6 @@ def scan(
         Embedding dimension candidates.
     tau : list[int]
         Time delay candidates.
-    n_ahead : int
-        Prediction horizon (steps ahead).
     split : SplitFunc or None
         Callable ``(n: int) -> list[Fold]``. Defaults to sliding_folds.
     predict : PredictFunc or None
@@ -138,15 +135,15 @@ def scan(
     for e in E:
         k = e + 1
         max_lag = (e - 1) * tau_max
-        n_usable = N - max_lag - n_ahead
+        n_usable = N - max_lag
 
         if n_usable < 2:
             results.append(None)
             continue
 
-        embeddings = [lagged_embed(x, t, e)[-(n_usable + n_ahead) : -n_ahead] for t in tau]
+        embeddings = [lagged_embed(x, t, e)[-n_usable:] for t in tau]
 
-        Y_aligned = Y[max_lag + n_ahead : N]
+        Y_aligned = Y[max_lag:N]
 
         folds = split(n_usable)
         folds = [fold for fold in folds if len(fold.train) >= k]  # ensure at least k points

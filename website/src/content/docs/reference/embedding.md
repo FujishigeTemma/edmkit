@@ -77,7 +77,7 @@ print(E.shape)
 ### `scan`
 
 ```python
-scan(x: np.ndarray, Y: np.ndarray | None = None, *, E: list[int], tau: list[int], n_ahead: int = 1, split: SplitFunc | None = None, predict: PredictFunc | None = None, metric: MetricFunc | None = None) -> np.ndarray
+scan(x: np.ndarray, Y: np.ndarray | None = None, *, E: list[int], tau: list[int], split: SplitFunc | None = None, predict: PredictFunc | None = None, metric: MetricFunc | None = None) -> np.ndarray
 ```
 
 Grid search over (E, tau) with cross-validation.
@@ -90,7 +90,6 @@ Name | Type | Description | Default
 `Y` | <code>([ndarray](#numpy.ndarray) or None, [shape](#shape)([N](#N)) or ([N](#N), [M](#M)))</code> | Prediction target. If None, self-prediction (Y = x). | <code>None</code>
 `E` | <code>[list](#list)[[int](#int)]</code> | Embedding dimension candidates. | *required*
 `tau` | <code>[list](#list)[[int](#int)]</code> | Time delay candidates. | *required*
-`n_ahead` | <code>[int](#int)</code> | Prediction horizon (steps ahead). | <code>1</code>
 `split` | <code>[SplitFunc](#edmkit.splits.SplitFunc) or None</code> | Callable ``(n: int) -> list[Fold]``. Defaults to sliding_folds. | <code>None</code>
 `predict` | <code>[PredictFunc](#edmkit.types.PredictFunc) or None</code> | Prediction function. Defaults to ``simplex_projection``. | <code>None</code>
 `metric` | <code>[MetricFunc](#edmkit.metrics.MetricFunc) or None</code> | Evaluation metric. Defaults to ``mean_rho``. | <code>None</code>
