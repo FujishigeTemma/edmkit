@@ -2,8 +2,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.spatial.distance import cdist
+from tinygrad import Tensor, dtypes
 
-from edmkit.util import pairwise_distance_np
+from edmkit.util import pairwise_distance, pairwise_distance_np
 
 
 def smap(
@@ -33,7 +34,9 @@ def smap(
         Regularization parameter to stabilize the inversion.
     use_tensor : bool, default False
         Whether to use `tinygrad.Tensor` for computation.
-        **This may be slower than the NumPy implementation in most cases for now.**
+        The tensor path computes distances and weighted normal equations on
+        `Tensor` and falls back to NumPy for the small `(E+1) x (E+1)` solve;
+        it is most useful when the library and query sets are large.
 
     Returns
     -------
@@ -85,7 +88,7 @@ def smap(
     print(f"Correlation (theta=0.0): {correlation_global:.3f}")
     ```
     """
-    return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha)
+    return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha, mask=mask)
 
 
 def weights(
@@ -232,6 +235,38 @@ def _numpy(
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
 
 
+def _weights_tensor(
+    D: Tensor,
+    theta: float,
+    *,
+    mask: np.ndarray | None,
+    min_points: int,
+) -> Tensor:
+    """Tensor counterpart of `weights`. Returns weights with masked / non-finite entries zeroed out."""
+    valid = D.isfinite().cast(dtypes.float32)  # (M, N) or (B, M, N)
+    if mask is not None:
+        valid = valid * Tensor(mask.astype(np.float32), dtype=dtypes.float32).unsqueeze(-2)
+
+    n_valid = valid.sum(axis=-1, keepdim=True)  # (M, 1) or (B, M, 1)
+    n_valid_min = int(n_valid.min().numpy())
+    if n_valid_min < min_points:
+        raise ValueError(f"Not enough valid library points to fit S-Map: need at least {min_points}, got {n_valid_min}")
+
+    if theta == 0.0:
+        return valid
+
+    d_sum = (D * valid).sum(axis=-1, keepdim=True)
+    d_mean = (d_sum / n_valid.clip(min_=1.0)).clip(min_=1e-6)
+    return (-theta * D / d_mean).exp() * valid
+
+
+def _intercept_skip_eye(size: int) -> Tensor:
+    """Identity of `size` with the intercept slot zeroed — for Tikhonov regularization that leaves the intercept untouched."""
+    eye = np.eye(size, dtype=np.float32)
+    eye[0, 0] = 0.0
+    return Tensor(eye)
+
+
 def _tensor(
     X: np.ndarray,
     Y: np.ndarray,
@@ -239,40 +274,89 @@ def _tensor(
     *,
     theta: float,
     alpha: float = 1e-10,
+    mask: np.ndarray | None = None,
 ):
     """
-    Perform S-Map (local linear regression) from `X` to `Y`.
+    Perform S-Map (local linear regression) from `X` to `Y` using `tinygrad.Tensor`.
 
-    Parameters
-    ----------
-    X : np.ndarray
-        The input data
-    Y : np.ndarray
-        The target data
-    Q : np.ndarray
-        The query points for which to make predictions.
-    theta : float
-        Locality parameter. (0: global linear, >0: local linear)
-    alpha : float, default 1e-10
-        Regularization parameter to stabilize the inversion.
-
-    Returns
-    -------
-    predictions : np.ndarray
-        The predicted values based on the weighted linear regression.
-
-    Raises
-    ------
-    ValueError
-        - If the input arrays `X` and `Y` do not have the same number of points.
-        - If `theta` is negative.
+    The heavy ops — pairwise distance, weighting, and the weighted normal
+    equations `X^T W X` / `X^T W Y` — run on `Tensor`. The resulting
+    `(E+1, E+1)` per-query system is small, so it is solved on NumPy via
+    `np.linalg.solve`, which is both numerically stable and fast for that size.
     """
     if X.shape[0] != Y.shape[0]:
         raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
     if theta < 0:
         raise ValueError(f"theta must be non-negative, got theta={theta}")
 
-    raise NotImplementedError("Tensor-based S-Map is not implemented yet.")
+    # ensure at least 2D
+    if X.ndim == 1:
+        X = X[:, None]
+    if Y.ndim == 1:
+        Y = Y[:, None]
+    if Q.ndim == 1:
+        Q = Q[:, None]
+
+    # X (N, E), Y (N, E'), Q (M, E)
+    if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
+        N, E = X.shape
+        M = Q.shape[0]
+
+        X_t = Tensor(X, dtype=dtypes.float32)
+        Y_t = Tensor(Y, dtype=dtypes.float32)
+        Q_t = Tensor(Q, dtype=dtypes.float32)
+
+        D = pairwise_distance(Q_t, X_t).sqrt()  # (M, N)
+        W = _weights_tensor(D, theta, mask=mask, min_points=E + 1)  # (M, N)
+
+        # Add intercept term
+        X_aug = Tensor.ones(N, 1, dtype=dtypes.float32).cat(X_t, dim=-1)  # (N, E+1)
+        Q_aug = Tensor.ones(M, 1, dtype=dtypes.float32).cat(Q_t, dim=-1)  # (M, E+1)
+
+        # Weighted normal equations
+        # A^T @ W @ A
+        XTX = Tensor.einsum("pn,ni,nj->pij", W, X_aug, X_aug)  # (M, E+1, E+1)
+        XTY = Tensor.einsum("pn,ni,nj->pij", W, X_aug, Y_t)  # (M, E+1, E')
+
+        # Tikhonov regularization
+        trace = Tensor.einsum("pii->p", XTX).clip(min_=1e-12)  # (M,)
+        XTX = XTX + (alpha * trace).reshape(M, 1, 1) * _intercept_skip_eye(E + 1)
+
+        # Small per-query solves are fastest and most stable on NumPy.
+        C = np.linalg.solve(XTX.numpy(), XTY.numpy())  # (M, E+1, E')
+        predictions = np.einsum("pi,pij->pj", Q_aug.numpy(), C)  # (M, E')
+
+        return predictions.squeeze()  # (M,) or (M, E')
+    # X (B, N, E), Y (B, N, E'), Q (B, M, E)
+    elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
+        B, N, E = X.shape
+        M = Q.shape[1]
+
+        X_t = Tensor(X, dtype=dtypes.float32)
+        Y_t = Tensor(Y, dtype=dtypes.float32)
+        Q_t = Tensor(Q, dtype=dtypes.float32)
+
+        D = pairwise_distance(Q_t, X_t).sqrt()  # (B, M, N)
+        W = _weights_tensor(D, theta, mask=mask, min_points=E + 1)  # (B, M, N)
+
+        # Add intercept term
+        X_aug = Tensor.ones(B, N, 1, dtype=dtypes.float32).cat(X_t, dim=-1)  # (B, N, E+1)
+        Q_aug = Tensor.ones(B, M, 1, dtype=dtypes.float32).cat(Q_t, dim=-1)  # (B, M, E+1)
+
+        # Weighted normal equations: A^T @ W @ A
+        XTX = Tensor.einsum("bpn,bni,bnj->bpij", W, X_aug, X_aug)  # (B, M, E+1, E+1)
+        XTY = Tensor.einsum("bpn,bni,bnj->bpij", W, X_aug, Y_t)  # (B, M, E+1, E')
+
+        # Tikhonov regularization
+        trace = Tensor.einsum("bpii->bp", XTX).clip(min_=1e-12)  # (B, M)
+        XTX = XTX + (alpha * trace).reshape(B, M, 1, 1) * _intercept_skip_eye(E + 1)
+
+        C = np.linalg.solve(XTX.numpy(), XTY.numpy())  # (B, M, E+1, E')
+        predictions = np.einsum("bpi,bpij->bpj", Q_aug.numpy(), C)  # (B, M, E')
+
+        return predictions
+    else:
+        raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
 
 
 if TYPE_CHECKING:

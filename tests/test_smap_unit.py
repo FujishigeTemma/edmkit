@@ -121,9 +121,52 @@ class TestSMapExamples:
         with pytest.raises(ValueError, match="non-negative"):
             smap(x, y, q, theta=-1.0)
 
-    def test_tensor_path_raises_not_implemented(self):
-        x = np.zeros((5, 2))
-        y = np.zeros(5)
-        q = np.zeros((2, 2))
-        with pytest.raises(NotImplementedError, match="Tensor-based S-Map"):
-            smap(x, y, q, theta=1.0, use_tensor=True)
+    @pytest.mark.gpu
+    def test_tensor_path_matches_numpy_path(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=(40, 2)).astype(np.float32)
+        y = rng.normal(size=(40, 1)).astype(np.float32)
+        q = rng.normal(size=(6, 2)).astype(np.float32)
+        expected = smap(x, y, q, theta=2.5, alpha=1e-4, use_tensor=False)
+        actual = smap(x, y, q, theta=2.5, alpha=1e-4, use_tensor=True)
+        np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_path_theta_zero_matches_numpy_path(self):
+        rng = np.random.default_rng(2)
+        x = rng.normal(size=(30, 2)).astype(np.float32)
+        y = rng.normal(size=(30, 1)).astype(np.float32)
+        q = rng.normal(size=(5, 2)).astype(np.float32)
+        expected = smap(x, y, q, theta=0.0, use_tensor=False)
+        actual = smap(x, y, q, theta=0.0, use_tensor=True)
+        np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_path_batch_matches_numpy_path(self):
+        rng = np.random.default_rng(3)
+        x = rng.normal(size=(2, 24, 2)).astype(np.float32)
+        y = rng.normal(size=(2, 24, 1)).astype(np.float32)
+        q = rng.normal(size=(2, 5, 2)).astype(np.float32)
+        expected = smap(x, y, q, theta=1.5, use_tensor=False)
+        actual = smap(x, y, q, theta=1.5, use_tensor=True)
+        np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_path_mask_matches_numpy_path(self):
+        rng = np.random.default_rng(4)
+        x = rng.normal(size=(20, 2)).astype(np.float32)
+        y = rng.normal(size=(20, 1)).astype(np.float32)
+        q = rng.normal(size=(4, 2)).astype(np.float32)
+        mask = np.array([True] * 14 + [False] * 6)
+        expected = smap(x, y, q, theta=2.0, mask=mask, use_tensor=False)
+        actual = smap(x, y, q, theta=2.0, mask=mask, use_tensor=True)
+        np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_path_rejects_too_few_valid_points(self):
+        x = np.arange(10.0, dtype=np.float32).reshape(5, 2)
+        y = np.arange(5.0, dtype=np.float32)[:, None]
+        q = np.array([[0.0, 0.0]], dtype=np.float32)
+        mask = np.array([True, True, False, False, False])
+        with pytest.raises(ValueError, match="Not enough valid"):
+            smap(x, y, q, theta=1.0, mask=mask, use_tensor=True)
