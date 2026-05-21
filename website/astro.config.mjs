@@ -19,10 +19,18 @@ export default defineConfig({
           label: "Concepts",
           items: [
             { label: "What is EDM?", slug: "concepts/edm" },
-            { label: "Embedding", slug: "concepts/embedding" },
-            { label: "Simplex Projection", slug: "concepts/simplex-projection" },
+            { label: "Time-delay embedding", slug: "concepts/embedding" },
+            { label: "Simplex projection", slug: "concepts/simplex-projection" },
             { label: "S-Map", slug: "concepts/smap" },
             { label: "Convergent Cross Mapping", slug: "concepts/ccm" },
+          ],
+        },
+        {
+          label: "Guides",
+          items: [
+            { label: "Choosing E and tau", slug: "guides/choosing-parameters" },
+            { label: "Forecasting a time series", slug: "guides/forecasting" },
+            { label: "Testing causality with CCM", slug: "guides/causality-with-ccm" },
           ],
         },
         {
