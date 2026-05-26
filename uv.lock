@@ -13,7 +13,7 @@ wheels = [
 
 [[package]]
 name = "edmkit"
-version = "0.0.9"
+version = "0.0.10"
 source = { editable = "." }
 dependencies = [
     { name = "kdtree-rs" },
@@ -34,7 +34,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "kdtree-rs", specifier = ">=0.1.0" },
+    { name = "kdtree-rs", specifier = ">=0.2.0" },
     { name = "numpy", specifier = ">=2.4.3" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "tinygrad", specifier = ">=0.11.0" },
@@ -108,23 +108,23 @@ wheels = [
 
 [[package]]
 name = "kdtree-rs"
-version = "0.1.0"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/3c/51fea70f6b052a98418208904ee8e311782df3d361673c155f8da9fcb878/kdtree_rs-0.1.0.tar.gz", hash = "sha256:8ca6328b709d495219c584064546db0512188ae513ee7d13c7e8c29cd4d13024", size = 37150, upload-time = "2026-05-12T07:11:11.541Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/a2/7e390f1fcf6ead3b34334ef7ef91be4ccc774ac0fe8e1fe0d7b92530d8db/kdtree_rs-0.2.0.tar.gz", hash = "sha256:6e494b9bed6cc2eba4c914f14ea4c651712bd8dd44c680202a72cc6a5e010601", size = 37107, upload-time = "2026-05-26T03:59:31.694Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/7c/e9418821ee99deff836ada06774595f5b59234b416241e5f050d7378ae45/kdtree_rs-0.1.0-cp313-cp313t-macosx_10_12_x86_64.whl", hash = "sha256:f95b7acc4aa5073b6f246d4eca8fde725b84854844e4dab79ee33737b30b9d0b", size = 337222, upload-time = "2026-05-12T07:11:02.884Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/04/30d450ddaaf8b45fccc3f04596eb56c790520440e61792d9d81a94b2c87f/kdtree_rs-0.1.0-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:dbd7998524c5955c0647c27f6ebee1a747c39341eac8997a9057f8677a46c37e", size = 331288, upload-time = "2026-05-12T07:11:05.53Z" },
-    { url = "https://files.pythonhosted.org/packages/5a/e3/c2093aa020e3ebf44321fc4f7a1c44cc0cd5934c35a778fa80e8f670ea0b/kdtree_rs-0.1.0-cp313-cp313t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:77f3268efaea62ae325e4befdae2c8c1c55218b42076ffded9ad26852e7d5e66", size = 377395, upload-time = "2026-05-12T07:11:04.272Z" },
-    { url = "https://files.pythonhosted.org/packages/31/61/acf498b5368cd4288eba5ddf02f5b526b2c79c217a789da27ae0d9fbc2fa/kdtree_rs-0.1.0-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0a3170830f1a1857f11d315cf0e49387e0730b6c8c9be6a363d6bd8dfe32cd17", size = 385432, upload-time = "2026-05-12T07:11:00.511Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/24/1b2f3d115422acf66716758428243b4119b401943376d43ecbfb18092c09/kdtree_rs-0.1.0-cp313-cp313t-win_amd64.whl", hash = "sha256:006efdd66abfc3668f4e1015d16bcc91b08cce3ebb92aada843d87e1707fd935", size = 213130, upload-time = "2026-05-12T07:11:12.137Z" },
-    { url = "https://files.pythonhosted.org/packages/ed/0c/7d62efec9a30cefc920abf0b16aef87604f7106a1b43cf61e9eae78622cf/kdtree_rs-0.1.0-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:5e770834538942aa8eb3881a5d6cfdde7bb53d1331f885797df34480d3e6ecab", size = 337938, upload-time = "2026-05-12T07:11:10.254Z" },
-    { url = "https://files.pythonhosted.org/packages/0f/8e/32bf4cf44125d103051b258531a4a07721186b417678fcbf144c3940eb6e/kdtree_rs-0.1.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:388d8c114faf6cd33fba1a5bf3110c6b0644b0e9ebeef82983e8e7823a831410", size = 331091, upload-time = "2026-05-12T07:11:06.573Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/1a/61f1ee00f9b84a906a436f3cdbdc90da0abd6348db4c047f5eb28e250c19/kdtree_rs-0.1.0-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:33bcedf5bd73c128f24c2bf42e597337b5d8cfba1ba4455057f21855ed56e4f1", size = 377226, upload-time = "2026-05-12T07:11:07.611Z" },
-    { url = "https://files.pythonhosted.org/packages/7e/c5/aa6ca9b755a1760ab11aa0db8147a30f076723c408e40ad85e929b827698/kdtree_rs-0.1.0-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:684fbb09736921450226271baa3897a254eef3a3e5fd6dcca2eebb00224f71ed", size = 385680, upload-time = "2026-05-12T07:11:01.92Z" },
-    { url = "https://files.pythonhosted.org/packages/cf/bf/3a9ab0c95ce9147973ae97508341bb2941192ae1a450761aed8c2398e614/kdtree_rs-0.1.0-cp314-cp314t-win_amd64.whl", hash = "sha256:1c3ad2d4d27be60998a56fa17f3f8a3a7e8bbd0c3cde00f91acb642f04b76601", size = 213245, upload-time = "2026-05-12T07:11:08.976Z" },
+    { url = "https://files.pythonhosted.org/packages/96/83/19cc4cea49d37b150244de9da19c0d29d4c554fd23db336dd98cd642f24a/kdtree_rs-0.2.0-cp313-cp313t-macosx_10_12_x86_64.whl", hash = "sha256:8ed8b21fc2c0fa9ceaba5b75f458d0ac343b2d5fabd3dfeca2635e093a2e9fd4", size = 337356, upload-time = "2026-05-26T03:59:37.59Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/e9/3cc3e70a46271a16ed73a655f8f60becd43b7b1c4599bff4786004a6bb3a/kdtree_rs-0.2.0-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:51b2abab41ed6645c96ed57675c9edb1622af45ecc3ac2d53f305842d22e375e", size = 331402, upload-time = "2026-05-26T03:59:40.808Z" },
+    { url = "https://files.pythonhosted.org/packages/09/71/805b7226e5c04ce69228f6849e1fa72ed330e40f341a60d6f33d0f6666ee/kdtree_rs-0.2.0-cp313-cp313t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9591548c34a7fef0ec2a71db0775b0871bb8bb6b53c5f1f1b9770cf48a61d18d", size = 377328, upload-time = "2026-05-26T03:59:34.515Z" },
+    { url = "https://files.pythonhosted.org/packages/72/35/2b47eb72377b3f4f8125ff4cc8accda85014bddd1cdf63e0da97697390e8/kdtree_rs-0.2.0-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:85ac234b1d88b8ee2bd034500f2f43edafadba3770992fd4b316cd87ec5d9a7b", size = 385895, upload-time = "2026-05-26T03:59:28.436Z" },
+    { url = "https://files.pythonhosted.org/packages/33/38/5fb0df3d0a87bf9d9a0db8b8229a2856a4baa48594521c48c22c5cd01bb4/kdtree_rs-0.2.0-cp313-cp313t-win_amd64.whl", hash = "sha256:4f795cc0f9963c2cac6a702e5deab3abdb649ae8fb71ba02a662cf262f516b7a", size = 212988, upload-time = "2026-05-26T03:59:36.065Z" },
+    { url = "https://files.pythonhosted.org/packages/09/f6/13910277a0cd0fd513f6498f0471c5c73b2621a7182d1cd9e3b3ff063c1f/kdtree_rs-0.2.0-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:0a6f8217deb0066ef7a0490c4684eac8054846c4ae971ab15c472b375f969b4c", size = 337886, upload-time = "2026-05-26T03:59:32.866Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/55/4e0c7a3a6b2f0df1d9b6213dc6b47dfbf73b2e16307692096070a620b4eb/kdtree_rs-0.2.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:a1b4cea27878daba8063a4c0216b78b86373d73fed5a26a94adf2811da50c43f", size = 331195, upload-time = "2026-05-26T03:59:39.237Z" },
+    { url = "https://files.pythonhosted.org/packages/86/7e/0e30da6eacab1d48b70b49569040b9be8665de5ae6e720ae3a1af20b195f/kdtree_rs-0.2.0-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ccb245c41db6491fed6de01482f5f161b671e2b2edf253a815736bbfb3b9094f", size = 377971, upload-time = "2026-05-26T03:59:25.417Z" },
+    { url = "https://files.pythonhosted.org/packages/74/43/48009ec236add51d27c65407dc279cfd68f4e7ce573fa786e43473d26c65/kdtree_rs-0.2.0-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e0a380a48f545f3d9ef6405879b408b0e4b727754f0b73cdc50f1d905bec5f3f", size = 385470, upload-time = "2026-05-26T03:59:30.385Z" },
+    { url = "https://files.pythonhosted.org/packages/14/8d/de0a3be8ebfed8df20b5c1edf5225635f30a7a7e1306e50c74f3892f9c3f/kdtree_rs-0.2.0-cp314-cp314t-win_amd64.whl", hash = "sha256:1e41190b0df4fb65c49da49915d7a4021b88625d9fbc89ab57a00203e8501d6b", size = 213152, upload-time = "2026-05-26T03:59:27.096Z" },
 ]
 
 [[package]]
