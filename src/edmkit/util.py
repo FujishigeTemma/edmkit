@@ -1,6 +1,12 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 from scipy.spatial.distance import cdist
-from tinygrad import Tensor
+
+if TYPE_CHECKING:
+    from tinygrad import Tensor
 
 
 def pad(As: list[np.ndarray]):

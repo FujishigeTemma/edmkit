@@ -71,8 +71,8 @@ def loo(
         d_min = np.fmax(distances.min(axis=1, keepdims=True), 1e-6)  # (N, 1)
         weights = np.exp(-distances / d_min)  # (N, k)
 
-        weighted_sum = np.sum(weights[..., None] * Y_neighbors, axis=1)
-        predictions = weighted_sum / np.sum(weights, axis=1, keepdims=True)
+        weighted_sum = np.matmul(weights[:, None, :], Y_neighbors).squeeze(-2)  # (N, E')
+        predictions = weighted_sum / weights.sum(axis=1, keepdims=True)
 
         return predictions.squeeze()  # (N,) or (N, E')
     # X (B, N, E), Y (B, N, E')
@@ -107,8 +107,9 @@ def loo(
         d_min = np.fmax(distances.min(axis=2, keepdims=True), 1e-6)  # (B, N, 1)
         weights = np.exp(-distances / d_min)  # (B, N, k)
 
-        weighted_sum = np.sum(weights[..., None] * Y_neighbors, axis=2)  # (B, N, E')
-        predictions = weighted_sum / np.sum(weights, axis=2, keepdims=True)  # (B, N, E')
+        # matmul avoids the (B, N, k, E') temporary that `weights[..., None] * Y_neighbors` would build
+        weighted_sum = np.matmul(weights[..., None, :], Y_neighbors).squeeze(-2)  # (B, N, E')
+        predictions = weighted_sum / weights.sum(axis=2, keepdims=True)  # (B, N, E')
 
         return predictions
     else:

@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
-from tinygrad import Tensor, dtypes
 
 from edmkit.simplex_projection.knn import knn
 from edmkit.util import pairwise_distance
@@ -113,8 +112,8 @@ def _numpy(
         d_min = np.fmax(distances.min(axis=1, keepdims=True), 1e-6)  # (M, 1)
         weights = np.exp(-distances / d_min)  # (M, k)
 
-        weighted_sum = np.sum(weights[..., None] * Y_neighbors, axis=1)
-        predictions = weighted_sum / np.sum(weights, axis=1, keepdims=True)
+        weighted_sum = np.matmul(weights[:, None, :], Y_neighbors).squeeze(-2)  # (M, E')
+        predictions = weighted_sum / weights.sum(axis=1, keepdims=True)
 
         return predictions.squeeze()  # (M,) or (M, E')
     # X (B, N, E), Y (B, N, E'), Q (B, M, E)
@@ -146,8 +145,8 @@ def _numpy(
         d_min = np.fmax(distances.min(axis=2, keepdims=True), 1e-6)  # (B, M, 1)
         weights = np.exp(-distances / d_min)  # (B, M, k)
 
-        weighted_sum = np.sum(weights[..., None] * Y_neighbors, axis=2)  # (B, M, E')
-        predictions = weighted_sum / np.sum(weights, axis=2, keepdims=True)  # (B, M, E')
+        weighted_sum = np.matmul(weights[..., None, :], Y_neighbors).squeeze(-2)  # (B, M, E')
+        predictions = weighted_sum / weights.sum(axis=2, keepdims=True)  # (B, M, E')
 
         return predictions
     else:
@@ -161,6 +160,10 @@ def _tensor(
     *,
     mask: np.ndarray | None = None,
 ):
+    # Lazy import: tinygrad starts a per-CPU async-executor pool at import time
+    # Loading it only when use_tensor=True keeps the numpy path free of that scheduler pressure.
+    from tinygrad import Tensor, dtypes
+
     if X.ndim == 1:
         X = X[:, None]
     if Y.ndim == 1:
