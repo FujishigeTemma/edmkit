@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.spatial.distance import cdist
 
 from edmkit.util import pairwise_distance_np
 
@@ -176,7 +175,7 @@ def _numpy(
 
     # X (N, E), Y (N, E'), Q (M, E)
     if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
-        D = cdist(Q, X, metric="euclidean")  # (M, N)
+        D = np.sqrt(pairwise_distance_np(Q, X))  # (M, N)
         W = weights(D, theta, mask=mask, min_points=X.shape[1] + 1)
 
         # Add intercept term
