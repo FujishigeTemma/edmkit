@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from tinygrad import Tensor
 
 from edmkit.simplex_projection import knn, loo, simplex_projection
 
@@ -56,17 +57,18 @@ class TestSimplexProjectionExamples:
         x = rng.normal(size=(16, 3)).astype(np.float32)
         y = rng.normal(size=(16, 2)).astype(np.float32)
         q = rng.normal(size=(4, 3)).astype(np.float32)
-        expected = simplex_projection(x, y, q, use_tensor=False)
-        actual = simplex_projection(x, y, q, use_tensor=True)
+        expected = simplex_projection(x, y, q)
+        actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q)).numpy()
         np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
+    @pytest.mark.gpu
     def test_tensor_3d_mask_raises_not_implemented(self):
-        x = np.zeros((2, 10, 3))
-        y = np.zeros((2, 10, 1))
-        q = np.zeros((2, 4, 3))
-        mask = np.ones((2, 10), dtype=bool)
+        x = Tensor(np.zeros((2, 10, 3), dtype=np.float32))
+        y = Tensor(np.zeros((2, 10, 1), dtype=np.float32))
+        q = Tensor(np.zeros((2, 4, 3), dtype=np.float32))
+        mask = Tensor(np.ones((2, 10), dtype=bool))
         with pytest.raises(NotImplementedError, match="Tensor-based 3D"):
-            simplex_projection(x, y, q, mask=mask, use_tensor=True)
+            simplex_projection(x, y, q, mask=mask)
 
     def test_loo_matches_naive_loop(self):
         """loo must match per-sample simplex_projection with manual exclusion."""

@@ -1,39 +1,60 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
 from edmkit.simplex_projection.knn import knn
 from edmkit.util import pairwise_distance
 
+if TYPE_CHECKING:
+    from tinygrad import Tensor
 
+
+@overload
 def simplex_projection(
     X: np.ndarray,
     Y: np.ndarray,
     Q: np.ndarray,
     *,
     mask: np.ndarray | None = None,
-    use_tensor: bool = False,
-) -> np.ndarray:
+) -> np.ndarray: ...
+
+
+@overload
+def simplex_projection(
+    X: Tensor,
+    Y: Tensor,
+    Q: Tensor,
+    *,
+    mask: Tensor | None = None,
+) -> Tensor: ...
+
+
+def simplex_projection(
+    X,
+    Y,
+    Q,
+    *,
+    mask=None,
+):
     """
     Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
 
     Parameters
     ----------
-    X : np.ndarray
+    X : np.ndarray or Tensor
         The input data of shape (N,) or (N, E) or (B, N, E)
-    Y : np.ndarray
+    Y : np.ndarray or Tensor
         The target data of shape (N,) or (N, E') or (B, N, E')
-    Q : np.ndarray
+    Q : np.ndarray or Tensor
         The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`.
-    mask : np.ndarray or None
+    mask : np.ndarray or Tensor or None
         Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`.
-    use_tensor : bool, default False
-        Whether to use `tinygrad.Tensor` for computation.
-        **This may be slower than the NumPy implementation in most cases for now.**
 
     Returns
     -------
-    predictions : np.ndarray
+    predictions : np.ndarray or Tensor
         The predicted values based on the weighted mean of the nearest neighbors in `Y`.
 
     Raises
@@ -75,7 +96,10 @@ def simplex_projection(
     print(f"Correlation: {correlation:.3f}")
     ```
     """
-    return _numpy(X, Y, Q, mask=mask) if not use_tensor else _tensor(X, Y, Q, mask=mask)
+    if isinstance(X, np.ndarray):
+        return _numpy(X, Y, Q, mask=mask)
+
+    return _tensor(X, Y, Q, mask=mask)
 
 
 def _numpy(
@@ -154,14 +178,14 @@ def _numpy(
 
 
 def _tensor(
-    X: np.ndarray,
-    Y: np.ndarray,
-    Q: np.ndarray,
+    X: Tensor,
+    Y: Tensor,
+    Q: Tensor,
     *,
-    mask: np.ndarray | None = None,
+    mask: Tensor | None = None,
 ):
     # Lazy import: tinygrad starts a per-CPU async-executor pool at import time
-    # Loading it only when use_tensor=True keeps the numpy path free of that scheduler pressure.
+    # Loading it only when needed keeps the numpy path free of that scheduler pressure.
     from tinygrad import Tensor, dtypes
 
     if X.ndim == 1:
@@ -180,16 +204,12 @@ def _tensor(
             X = X[mask]
             Y = Y[mask]
 
-        X_tensor = Tensor(X, dtype=dtypes.float32)
-        Y_tensor = Tensor(Y, dtype=dtypes.float32)
-        Q_tensor = Tensor(Q, dtype=dtypes.float32)
+        D = pairwise_distance(Q, X).sqrt()  # (M, N)
 
-        D = pairwise_distance(Q_tensor, X_tensor).sqrt()  # (M, N)
-
-        k: int = X.shape[1] + 1
+        k: int = int(X.shape[1]) + 1
 
         distances, indices = D.topk(k, dim=1, largest=False, sorted_=True)  # (M, k)
-        Y_neighbors = Y_tensor[indices]  # (M, k, E')
+        Y_neighbors = Y[indices]  # (M, k, E')
 
         d_min = distances[:, :1].clip(min_=1e-6)  # (M, 1)
         weights: Tensor = (-distances / d_min).exp()  # (M, k)
@@ -197,20 +217,18 @@ def _tensor(
         weighted_sum: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=1)  # (M, E')
         predictions: Tensor = weighted_sum / weights.sum(axis=1, keepdim=True)  # (M, E')
 
-        return predictions.numpy().squeeze()
+        return predictions.squeeze()
     # X (B, N, E), Y (B, N, E'), Q (B, M, E)
     elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
         if mask is not None:
-            raise NotImplementedError("Tensor-based 3D simplex_projection with mask is not supported. Use use_tensor=False instead.")
-        B, N, E = X.shape
+            raise NotImplementedError("Tensor-based 3D simplex_projection with mask is not supported.")
+        B, N, E = (int(X.shape[0]), int(X.shape[1]), int(X.shape[2]))
         if Y.shape[0] != B or Y.shape[1] != N:
             raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
         if Q.shape[0] != B or Q.shape[2] != E:
             raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
 
-        Y_tensor = Tensor(Y, dtype=dtypes.float32)
-
-        D = pairwise_distance(Tensor(Q, dtype=dtypes.float32), Tensor(X, dtype=dtypes.float32)).sqrt()  # (B, M, N)
+        D = pairwise_distance(Q, X).sqrt()  # (B, M, N)
 
         k: int = E + 1
 
@@ -218,8 +236,8 @@ def _tensor(
 
         offsets = Tensor.arange(B, dtype=dtypes.int32).reshape(B, 1, 1) * N
         flat_indices = (indices + offsets).reshape(B * Q.shape[1], k)
-        Y_flat = Y_tensor.reshape(B * N, Y_tensor.shape[-1])
-        Y_neighbors = Y_flat[flat_indices].reshape(B, Q.shape[1], k, Y_tensor.shape[-1])
+        Y_flat = Y.reshape(B * N, Y.shape[-1])
+        Y_neighbors = Y_flat[flat_indices].reshape(B, Q.shape[1], k, Y.shape[-1])
 
         d_min = distances[:, :, :1].clip(min_=1e-6)  # (B, M, 1)
         weights: Tensor = (-distances / d_min).exp()  # (B, M, k)
@@ -227,7 +245,7 @@ def _tensor(
         weighted_sum: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=2)  # (B, M, E')
         predictions: Tensor = weighted_sum / weights.sum(axis=2, keepdim=True)  # (B, M, E')
 
-        return predictions.numpy()
+        return predictions
     else:
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
 
@@ -235,6 +253,5 @@ def _tensor(
 if TYPE_CHECKING:
     from edmkit.types import PredictFunc
 
-    func: PredictFunc
-
-    func = simplex_projection
+    f: PredictFunc[np.ndarray] = simplex_projection
+    g: PredictFunc[Tensor] = simplex_projection

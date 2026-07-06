@@ -20,12 +20,12 @@ def nonconstant_pairs(draw):
 
 
 class TestPearsonCorrelationProperties:
-    @given(pair=nonconstant_pairs())  # ty: ignore[missing-argument]
+    @given(pair=nonconstant_pairs())
     def test_is_symmetric(self, pair):
         x, y = pair
         np.testing.assert_allclose(pearson_correlation(x, y), pearson_correlation(y, x), atol=1e-12, rtol=1e-12)
 
-    @given(pair=nonconstant_pairs())  # ty: ignore[missing-argument]
+    @given(pair=nonconstant_pairs())
     def test_is_bounded_between_minus_one_and_one(self, pair):
         x, y = pair
         correlation = pearson_correlation(x, y)

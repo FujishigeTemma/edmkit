@@ -291,7 +291,6 @@ def with_simplex_projection(
     Y: np.ndarray,
     lib_sizes: np.ndarray,
     n_samples: int = 100,
-    use_tensor: bool = False,
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
@@ -314,8 +313,6 @@ def with_simplex_projection(
         Array of library sizes to test convergence
     n_samples : int, default 100
         Number of random samples per library size for bootstrapping
-    use_tensor : bool, default False
-        Whether to use tinygrad tensors for computation
     library_pool : np.ndarray, optional
         Indices that can be used to draw library samples. Defaults to the full range.
     prediction_pool : np.ndarray, optional
@@ -377,13 +374,12 @@ def with_simplex_projection(
     )
     ```
     """
-    predict_func = partial(simplex_projection, use_tensor=use_tensor)
 
     return ccm(
         X=X,
         Y=Y,
         lib_sizes=lib_sizes,
-        predict_func=predict_func,
+        predict_func=simplex_projection,
         n_samples=n_samples,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
@@ -399,7 +395,6 @@ def with_smap(
     theta: float,
     alpha: float = 1e-10,
     n_samples: int = 100,
-    use_tensor: bool = False,
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
@@ -426,8 +421,6 @@ def with_smap(
         Regularization parameter for S-Map
     n_samples : int, default 100
         Number of random samples per library size for bootstrapping
-    use_tensor : bool, default False
-        Whether to use tinygrad tensors for computation
     library_pool : np.ndarray, optional
         Indices that can be used to draw library samples. Defaults to the full range.
     prediction_pool : np.ndarray, optional
@@ -490,7 +483,7 @@ def with_smap(
     )
     ```
     """
-    predict_func = partial(smap, theta=theta, alpha=alpha, use_tensor=use_tensor)
+    predict_func = partial(smap, theta=theta, alpha=alpha)
 
     return ccm(
         X=X,

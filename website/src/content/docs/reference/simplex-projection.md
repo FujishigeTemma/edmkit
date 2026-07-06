@@ -74,7 +74,7 @@ Type | Description
 ## `simplex_projection`
 
 ```python
-simplex_projection(X: np.ndarray, Y: np.ndarray, Q: np.ndarray, *, mask: np.ndarray | None = None, use_tensor: bool = False) -> np.ndarray
+simplex_projection(X, Y, Q, *, mask = None)
 ```
 
 Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
@@ -83,17 +83,16 @@ Perform simplex projection from `X` to `Y` using the nearest neighbors of the po
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
-`Y` | <code>[ndarray](#numpy.ndarray)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
-`Q` | <code>[ndarray](#numpy.ndarray)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
-`mask` | <code>[ndarray](#numpy.ndarray) or None</code> | Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`. | <code>None</code>
-`use_tensor` | <code>[bool](#bool)</code> | Whether to use `tinygrad.Tensor` for computation. **This may be slower than the NumPy implementation in most cases for now.** | <code>False</code>
+`X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
+`Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
+`Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
+`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`. | <code>None</code>
 
 **Returns:**
 
 Name | Type | Description
 ---- | ---- | -----------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`.
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`.
 
 **Raises:**
 

@@ -1,10 +1,16 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
 from edmkit.util import pairwise_distance_np
 
+if TYPE_CHECKING:
+    from tinygrad import Tensor
 
+
+@overload
 def smap(
     X: np.ndarray,
     Y: np.ndarray,
@@ -13,30 +19,49 @@ def smap(
     theta: float,
     alpha: float = 1e-10,
     mask: np.ndarray | None = None,
-    use_tensor: bool = False,
-) -> np.ndarray:
+) -> np.ndarray: ...
+
+
+@overload
+def smap(
+    X: Tensor,
+    Y: Tensor,
+    Q: Tensor,
+    *,
+    theta: float,
+    alpha: float = 1e-10,
+    mask: Tensor | None = None,
+) -> Tensor: ...
+
+
+def smap(
+    X,
+    Y,
+    Q,
+    *,
+    theta,
+    alpha=1e-10,
+    mask=None,
+):
     """
     Perform S-Map (local linear regression) from `X` to `Y`.
 
     Parameters
     ----------
-    X : np.ndarray
+    X : np.ndarray or Tensor
         The input data
-    Y : np.ndarray
+    Y : np.ndarray or Tensor
         The target data
-    Q : np.ndarray
+    Q : np.ndarray or Tensor
         The query points for which to make predictions.
     theta : float
         Locality parameter. (0: global linear, >0: local linear)
     alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
-    use_tensor : bool, default False
-        Whether to use `tinygrad.Tensor` for computation.
-        **This may be slower than the NumPy implementation in most cases for now.**
 
     Returns
     -------
-    predictions : np.ndarray
+    predictions : np.ndarray or Tensor
         The predicted values based on the weighted linear regression.
 
     Raises
@@ -84,7 +109,9 @@ def smap(
     print(f"Correlation (theta=0.0): {correlation_global:.3f}")
     ```
     """
-    return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask) if not use_tensor else _tensor(X, Y, Q, theta=theta, alpha=alpha)
+    if isinstance(X, np.ndarray):
+        return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask)
+    return _tensor(X, Y, Q, theta=theta, alpha=alpha)
 
 
 def weights(
@@ -232,9 +259,9 @@ def _numpy(
 
 
 def _tensor(
-    X: np.ndarray,
-    Y: np.ndarray,
-    Q: np.ndarray,
+    X: Tensor,
+    Y: Tensor,
+    Q: Tensor,
     *,
     theta: float,
     alpha: float = 1e-10,
@@ -244,11 +271,11 @@ def _tensor(
 
     Parameters
     ----------
-    X : np.ndarray
+    X : Tensor
         The input data
-    Y : np.ndarray
+    Y : Tensor
         The target data
-    Q : np.ndarray
+    Q : Tensor
         The query points for which to make predictions.
     theta : float
         Locality parameter. (0: global linear, >0: local linear)
@@ -277,7 +304,9 @@ def _tensor(
 if TYPE_CHECKING:
     from functools import partial
 
+    from tinygrad import Tensor
+
     from edmkit.types import PredictFunc
 
-    func: PredictFunc
-    func = partial(smap, theta=4.0)
+    f: PredictFunc[np.ndarray] = partial(smap, theta=4.0)
+    g: PredictFunc[Tensor] = partial(smap, theta=0.0)

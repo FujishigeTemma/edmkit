@@ -207,7 +207,7 @@ Name | Type | Description
 ### `with_simplex_projection`
 
 ```python
-with_simplex_projection(X: np.ndarray, Y: np.ndarray, lib_sizes: np.ndarray, n_samples: int = 100, use_tensor: bool = False, *, library_pool: np.ndarray, prediction_pool: np.ndarray, sample_func: SampleFunc | None = None, aggregate_func: AggregateFunc = np.mean) -> np.ndarray
+with_simplex_projection(X: np.ndarray, Y: np.ndarray, lib_sizes: np.ndarray, n_samples: int = 100, *, library_pool: np.ndarray, prediction_pool: np.ndarray, sample_func: SampleFunc | None = None, aggregate_func: AggregateFunc = np.mean) -> np.ndarray
 ```
 
 Perform Convergent Cross Mapping using simplex projection.
@@ -223,7 +223,6 @@ Name | Type | Description | Default
 `Y` | <code>[ndarray](#numpy.ndarray)</code> | Target time series (potential driver) | *required*
 `lib_sizes` | <code>[ndarray](#numpy.ndarray)</code> | Array of library sizes to test convergence | *required*
 `n_samples` | <code>[int](#int)</code> | Number of random samples per library size for bootstrapping | <code>100</code>
-`use_tensor` | <code>[bool](#bool)</code> | Whether to use tinygrad tensors for computation | <code>False</code>
 `library_pool` | <code>[ndarray](#numpy.ndarray)</code> | Indices that can be used to draw library samples. Defaults to the full range. | *required*
 `prediction_pool` | <code>[ndarray](#numpy.ndarray)</code> | Indices that should be predicted (leave-one-out over this set). Defaults to the full range. | *required*
 `sample_func` | <code>[callable](#callable)</code> | Function responsible for drawing a library sample of a given size. When omitted, a fresh RNG-backed sampler is created per call. | <code>None</code>
@@ -285,7 +284,7 @@ correlations = ccm.with_simplex_projection(
 ### `with_smap`
 
 ```python
-with_smap(X: np.ndarray, Y: np.ndarray, lib_sizes: np.ndarray, theta: float, alpha: float = 1e-10, n_samples: int = 100, use_tensor: bool = False, *, library_pool: np.ndarray, prediction_pool: np.ndarray, sample_func: SampleFunc | None = None, aggregate_func: AggregateFunc = np.mean) -> np.ndarray
+with_smap(X: np.ndarray, Y: np.ndarray, lib_sizes: np.ndarray, theta: float, alpha: float = 1e-10, n_samples: int = 100, *, library_pool: np.ndarray, prediction_pool: np.ndarray, sample_func: SampleFunc | None = None, aggregate_func: AggregateFunc = np.mean) -> np.ndarray
 ```
 
 Perform Convergent Cross Mapping using S-Map (local linear regression).
@@ -303,7 +302,6 @@ Name | Type | Description | Default
 `theta` | <code>[float](#float)</code> | Nonlinearity parameter for S-Map | *required*
 `alpha` | <code>[float](#float)</code> | Regularization parameter for S-Map | <code>1e-10</code>
 `n_samples` | <code>[int](#int)</code> | Number of random samples per library size for bootstrapping | <code>100</code>
-`use_tensor` | <code>[bool](#bool)</code> | Whether to use tinygrad tensors for computation | <code>False</code>
 `library_pool` | <code>[ndarray](#numpy.ndarray)</code> | Indices that can be used to draw library samples. Defaults to the full range. | *required*
 `prediction_pool` | <code>[ndarray](#numpy.ndarray)</code> | Indices that should be predicted (leave-one-out over this set). Defaults to the full range. | *required*
 `sample_func` | <code>[callable](#callable)</code> | Function responsible for drawing a library sample of a given size. When omitted, a fresh RNG-backed sampler is created per call. | <code>None</code>

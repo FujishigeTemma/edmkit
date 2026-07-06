@@ -18,7 +18,7 @@ def point_clouds(draw):
 
 @st.composite
 def translated_clouds(draw):
-    cloud = draw(point_clouds())  # ty: ignore[missing-argument]
+    cloud = draw(point_clouds())
     shift = draw(hnp.arrays(np.float64, (1, cloud.shape[1]), elements=finite_float64))
     return cloud, shift
 
@@ -41,24 +41,24 @@ def nonconstant_series(draw):
 
 
 class TestDistanceProperties:
-    @given(cloud=point_clouds())  # ty: ignore[missing-argument]
+    @given(cloud=point_clouds())
     def test_self_distance_diagonal_is_zero(self, cloud):
         distances = pairwise_distance_np(cloud)
         np.testing.assert_allclose(np.diag(distances), 0.0, atol=1e-10, rtol=1e-10)
 
-    @given(data=translated_clouds())  # ty: ignore[missing-argument]
+    @given(data=translated_clouds())
     def test_translation_does_not_change_distances(self, data):
         cloud, shift = data
         original = pairwise_distance_np(cloud)
         shifted = pairwise_distance_np(cloud + shift)
         np.testing.assert_allclose(shifted, original, atol=1e-10, rtol=1e-10)
 
-    @given(pair=paired_series())  # ty: ignore[missing-argument]
+    @given(pair=paired_series())
     def test_dtw_is_symmetric(self, pair):
         a, b = pair
         np.testing.assert_allclose(dtw(a, b), dtw(b, a), atol=1e-12, rtol=1e-12)
 
-    @given(x=nonconstant_series())  # ty: ignore[missing-argument]
+    @given(x=nonconstant_series())
     def test_autocorrelation_has_unit_lag_zero(self, x):
         result = autocorrelation(x, max_lag=5)
         np.testing.assert_allclose(result[0], 1.0, atol=1e-10, rtol=1e-10)

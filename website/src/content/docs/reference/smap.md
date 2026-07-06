@@ -17,7 +17,7 @@ Name | Description
 ### `smap`
 
 ```python
-smap(X: np.ndarray, Y: np.ndarray, Q: np.ndarray, *, theta: float, alpha: float = 1e-10, mask: np.ndarray | None = None, use_tensor: bool = False) -> np.ndarray
+smap(X, Y, Q, *, theta, alpha = 1e-10, mask = None)
 ```
 
 Perform S-Map (local linear regression) from `X` to `Y`.
@@ -26,18 +26,17 @@ Perform S-Map (local linear regression) from `X` to `Y`.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | The input data | *required*
-`Y` | <code>[ndarray](#numpy.ndarray)</code> | The target data | *required*
-`Q` | <code>[ndarray](#numpy.ndarray)</code> | The query points for which to make predictions. | *required*
+`X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data | *required*
+`Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data | *required*
+`Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points for which to make predictions. | *required*
 `theta` | <code>[float](#float)</code> | Locality parameter. (0: global linear, >0: local linear) | *required*
 `alpha` | <code>[float](#float)</code> | Regularization parameter to stabilize the inversion. | <code>1e-10</code>
-`use_tensor` | <code>[bool](#bool)</code> | Whether to use `tinygrad.Tensor` for computation. **This may be slower than the NumPy implementation in most cases for now.** | <code>False</code>
 
 **Returns:**
 
 Name | Type | Description
 ---- | ---- | -----------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | The predicted values based on the weighted linear regression.
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted linear regression.
 
 **Raises:**
 

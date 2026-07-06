@@ -21,7 +21,7 @@ def simplex_inputs(draw):
 
 
 class TestSimplexProjectionProperties:
-    @given(data=simplex_inputs())  # ty: ignore[missing-argument]
+    @given(data=simplex_inputs())
     def test_permutation_invariance_of_library(self, data):
         x, y, q = data
         x = x.copy()
@@ -32,7 +32,7 @@ class TestSimplexProjectionProperties:
         actual = simplex_projection(x[perm], y[perm], q)
         np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
 
-    @given(data=simplex_inputs())  # ty: ignore[missing-argument]
+    @given(data=simplex_inputs())
     def test_scalar_predictions_stay_inside_target_range(self, data):
         x, y, q = data
         predictions = np.atleast_1d(simplex_projection(x, y, q))
@@ -60,7 +60,7 @@ def theiler_inputs(draw):
 
 
 class TestSimplexProjectionTheilerWindowProperties:
-    @given(data=theiler_inputs())  # ty: ignore[missing-argument]
+    @given(data=theiler_inputs())
     @settings(deadline=5000)
     def test_matches_naive_loop(self, data):
         """theiler_window must match per-sample simplex_projection with manual exclusion."""

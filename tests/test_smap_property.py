@@ -23,7 +23,7 @@ def smap_inputs(draw):
 
 
 class TestSMapProperties:
-    @given(data=smap_inputs())  # ty: ignore[missing-argument]
+    @given(data=smap_inputs())
     def test_batch_path_matches_individual_calls(self, data):
         x, y, q = data
         x_batch = np.stack([x, x + 0.5], axis=0)

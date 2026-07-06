@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from tinygrad import Tensor
 
 from edmkit.smap import smap, weights
 
@@ -121,9 +122,10 @@ class TestSMapExamples:
         with pytest.raises(ValueError, match="non-negative"):
             smap(x, y, q, theta=-1.0)
 
+    @pytest.mark.gpu
     def test_tensor_path_raises_not_implemented(self):
-        x = np.zeros((5, 2))
-        y = np.zeros(5)
-        q = np.zeros((2, 2))
+        x = Tensor(np.zeros((5, 2), dtype=np.float32))
+        y = Tensor(np.zeros(5, dtype=np.float32))
+        q = Tensor(np.zeros((2, 2), dtype=np.float32))
         with pytest.raises(NotImplementedError, match="Tensor-based S-Map"):
-            smap(x, y, q, theta=1.0, use_tensor=True)
+            smap(x, y, q, theta=1.0)
