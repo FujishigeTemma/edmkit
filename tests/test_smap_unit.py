@@ -123,9 +123,42 @@ class TestSMapExamples:
             smap(x, y, q, theta=-1.0)
 
     @pytest.mark.gpu
-    def test_tensor_path_raises_not_implemented(self):
+    def test_tensor_path_matches_numpy_path(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=(30, 3)).astype(np.float32)
+        y = rng.normal(size=(30, 2)).astype(np.float32)
+        q = rng.normal(size=(5, 3)).astype(np.float32)
+        for theta in (0.0, 2.0):
+            expected = smap(x, y, q, theta=theta, alpha=1e-4)
+            actual = smap(Tensor(x), Tensor(y), Tensor(q), theta=theta, alpha=1e-4).numpy()
+            np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_batch_path_matches_numpy_path(self):
+        rng = np.random.default_rng(2)
+        x = rng.normal(size=(2, 20, 2)).astype(np.float32)
+        y = rng.normal(size=(2, 20, 1)).astype(np.float32)
+        q = rng.normal(size=(2, 4, 2)).astype(np.float32)
+        expected = smap(x, y, q, theta=1.5, alpha=1e-4)
+        actual = smap(Tensor(x), Tensor(y), Tensor(q), theta=1.5, alpha=1e-4).numpy()
+        np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_mask_path_matches_numpy_path(self):
+        rng = np.random.default_rng(3)
+        x = rng.normal(size=(25, 2)).astype(np.float32)
+        y = rng.normal(size=25).astype(np.float32)
+        q = rng.normal(size=(4, 2)).astype(np.float32)
+        mask = np.ones(25, dtype=bool)
+        mask[5:12] = False
+        expected = smap(x, y, q, theta=2.0, alpha=1e-4, mask=mask)
+        actual = smap(Tensor(x), Tensor(y), Tensor(q), theta=2.0, alpha=1e-4, mask=Tensor(mask)).numpy()
+        np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+    @pytest.mark.gpu
+    def test_tensor_path_rejects_negative_theta(self):
         x = Tensor(np.zeros((5, 2), dtype=np.float32))
         y = Tensor(np.zeros(5, dtype=np.float32))
         q = Tensor(np.zeros((2, 2), dtype=np.float32))
-        with pytest.raises(NotImplementedError, match="Tensor-based S-Map"):
-            smap(x, y, q, theta=1.0)
+        with pytest.raises(ValueError, match="non-negative"):
+            smap(x, y, q, theta=-1.0)
