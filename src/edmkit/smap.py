@@ -200,62 +200,36 @@ def _numpy(
     if Q.ndim == 1:
         Q = Q[:, None]
 
-    # X (N, E), Y (N, E'), Q (M, E)
-    if X.ndim == 2 and Y.ndim == 2 and Q.ndim == 2:
-        D = np.sqrt(pairwise_distance_np(Q, X))  # (M, N)
-        W = weights(D, theta, mask=mask, min_points=X.shape[1] + 1)
-
-        # Add intercept term
-        X_aug = np.hstack([np.ones((X.shape[0], 1)), X])  # (N, E+1)
-        Q_aug = np.hstack([np.ones((Q.shape[0], 1)), Q])  # (M, E+1)
-
-        # Create weighted design matrices for all query points
-        # A^T @ W @ A
-        XTX = np.einsum("pn,ni,nj->pij", W, X_aug, X_aug)  # (M, E+1, E+1)
-        XTY = np.einsum("pn,ni,nj->pij", W, X_aug, Y)  # (M, E+1, E')
-
-        # Tikhonov regularization
-        eye = np.eye(XTX.shape[1])
-        eye[0, 0] = 0  # Do not regularize intercept term
-        trace = np.maximum(np.trace(XTX, axis1=1, axis2=2), 1e-12)
-        reg_term = (alpha * trace)[:, None, None] * eye
-        XTX = XTX + reg_term
-
-        C = np.linalg.solve(XTX, XTY)  # (M, E+1, E')
-
-        predictions = np.einsum("pi,pij->pj", Q_aug, C)
-
-        return predictions.squeeze()  # (M,) or (M, E')
-    # X (B, N, E), Y (B, N, E'), Q (B, M, E)
-    elif X.ndim == 3 and Y.ndim == 3 and Q.ndim == 3:
-        B, N, E = X.shape
-        M = Q.shape[1]
-
-        D = np.sqrt(pairwise_distance_np(Q, X))  # (B, M, N)
-        W = weights(D, theta, mask=mask, min_points=E + 1)
-
-        # Add intercept term
-        X_aug = np.concatenate([np.ones((B, N, 1)), X], axis=2)  # (B, N, E+1)
-        Q_aug = np.concatenate([np.ones((B, M, 1)), Q], axis=2)  # (B, M, E+1)
-
-        # Weighted design matrices: A^T @ W @ A
-        XTX = np.einsum("bpn,bni,bnj->bpij", W, X_aug, X_aug)  # (B, M, E+1, E+1)
-        XTY = np.einsum("bpn,bni,bnj->bpij", W, X_aug, Y)  # (B, M, E+1, E')
-
-        # Tikhonov regularization
-        eye = np.eye(E + 1)
-        eye[0, 0] = 0
-        trace = np.maximum(np.trace(XTX, axis1=2, axis2=3), 1e-12)  # (B, M)
-        reg_term = (alpha * trace)[..., None, None] * eye  # (B, M, E+1, E+1)
-        XTX = XTX + reg_term
-
-        C = np.linalg.solve(XTX, XTY)  # (B, M, E+1, E')
-
-        predictions = np.einsum("bpi,bpij->bpj", Q_aug, C)  # (B, M, E')
-
-        return predictions
-    else:
+    if not (X.ndim == Y.ndim == Q.ndim and X.ndim in (2, 3)):
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
+
+    E = X.shape[-1]
+
+    D = np.sqrt(pairwise_distance_np(Q, X))  # (M, N) or (B, M, N)
+    W = weights(D, theta, mask=mask, min_points=E + 1)
+
+    # Add intercept term
+    X_aug = np.concatenate([np.ones_like(X[..., :1]), X], axis=-1)  # (N, E+1) or (B, N, E+1)
+    Q_aug = np.concatenate([np.ones_like(Q[..., :1]), Q], axis=-1)  # (M, E+1) or (B, M, E+1)
+
+    # Weighted design matrices for all query points: A^T @ W @ A
+    XTX = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, X_aug)  # (M, E+1, E+1) or (B, M, E+1, E+1)
+    XTY = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, Y)  # (M, E+1, E') or (B, M, E+1, E')
+
+    # Tikhonov regularization
+    eye = np.eye(E + 1)
+    eye[0, 0] = 0  # Do not regularize intercept term
+    trace = np.maximum(np.trace(XTX, axis1=-2, axis2=-1), 1e-12)  # (M,) or (B, M)
+    reg_term = (alpha * trace)[..., None, None] * eye
+    XTX = XTX + reg_term
+
+    C = np.linalg.solve(XTX, XTY)  # (M, E+1, E') or (B, M, E+1, E')
+
+    predictions = np.einsum("...pi,...pij->...pj", Q_aug, C)  # (M, E') or (B, M, E')
+
+    if X.ndim == 2:
+        return predictions.squeeze()  # (M,) or (M, E')
+    return predictions
 
 
 def _tensor(

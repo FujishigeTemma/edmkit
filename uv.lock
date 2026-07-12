@@ -41,7 +41,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.5.1" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "tinygrad", specifier = ">=0.13.0" },
-    { name = "tinysolve", specifier = ">=0.1.0" },
+    { name = "tinysolve", specifier = ">=0.2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -394,14 +394,14 @@ wheels = [
 
 [[package]]
 name = "tinysolve"
-version = "0.1.0"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "tinygrad" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/68/ef/afdaece9a1a19e259e611aba07b9bb47a462eeb4bf6ecdeabeee816eb7bd/tinysolve-0.1.0.tar.gz", hash = "sha256:5e05fb7880a6841e99bbccebb3016e38d86e3361f551a89a32b999dcafb50c16", size = 5066, upload-time = "2026-07-08T09:28:08.393Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/c7/9383d62e28425c6a4464107f3a1655398f4785f97e4af85ea6b6d6be1ebd/tinysolve-0.2.0.tar.gz", hash = "sha256:6cbec12d0846ba5991019aecfc7679a764705e2ad03cd4e909a06ef9c408587a", size = 5849, upload-time = "2026-07-10T06:26:46.137Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/59/f2f5908cea80d017924ba9792a9ede73f273f3afbb4e24c5c9a87f0df023/tinysolve-0.1.0-py3-none-any.whl", hash = "sha256:4b60f04184b791d15adff7bbb42a16baacdf032da435b9b84203bbed7f2c6865", size = 6022, upload-time = "2026-07-08T09:28:07.624Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/ca/93cb1aa343236c4bf0c5c376701cf8889435fc5f2cde0afeb99746a70ad9/tinysolve-0.2.0-py3-none-any.whl", hash = "sha256:b6497270f006214c39c9b70e9cb4934dff157ea9d240bf2b88ceef279186b491", size = 6552, upload-time = "2026-07-10T06:26:45.165Z" },
 ]
 
 [[package]]

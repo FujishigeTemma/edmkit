@@ -10,7 +10,7 @@ dependencies = [
     "numpy>=2.5.1",
     "scipy>=1.17.1",
     "tinygrad>=0.13.0",
-    "tinysolve>=0.1.0",
+    "tinysolve>=0.2.0",
 ]
 
 [dependency-groups]
