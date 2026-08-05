@@ -121,7 +121,7 @@ def pairwise_distance_np(A: np.ndarray, B: np.ndarray | None = None) -> np.ndarr
 
     D: np.ndarray = A_sq + B_sq - 2 * np.matmul(A, B.swapaxes(-1, -2))
 
-    return np.clip(D, a_min=0, a_max=None)
+    return np.clip(D, 0, None)
 
 
 def dtw(A: np.ndarray, B: np.ndarray):

@@ -166,6 +166,18 @@ def check_tensor(spec: ProblemSpec) -> None:
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
 
+def check_tensor_gradient(spec: ProblemSpec) -> None:
+    from tinygrad import Tensor
+
+    problem = make_problem(spec)
+    x, y, q = (array.astype(np.float32) for array in (problem.x, problem.y, problem.q))
+    q[..., :2, :] = x[..., :2, :]  # coincident query and library points produce zero distances
+    X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
+    gradients = smap(X, Y, Q, theta=problem.theta, alpha=problem.alpha).sum().gradient(X, Y, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
+
+
 def call_smap(problem: Problem) -> None:
     smap(problem.x, problem.y, problem.q, theta=problem.theta, alpha=problem.alpha, mask=problem.mask)
 
@@ -242,6 +254,12 @@ VALID = [
         id="weights-local-masked",
     ),
     *(pytest.param(partial(check_tensor, spec), id=f"tensor-{name}", marks=pytest.mark.gpu) for name, spec in VALID_SPECS.items()),
+    pytest.param(
+        partial(check_tensor_gradient, ProblemSpec(6, False, 1, False, 1.5, 1e-4)), id="tensor-gradient-coincident-2d", marks=pytest.mark.gpu
+    ),
+    pytest.param(
+        partial(check_tensor_gradient, ProblemSpec(7, True, 2, False, 1.5, 1e-4)), id="tensor-gradient-coincident-batched-3d", marks=pytest.mark.gpu
+    ),
 ]
 
 

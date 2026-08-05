@@ -299,7 +299,8 @@ def _tensor(
 
     E = int(X.shape[-1])
 
-    D = pairwise_distance(Q, X).sqrt()  # (M, N) or (B, M, N)
+    # clamp to avoid NaN gradient
+    D = pairwise_distance(Q, X).clamp(min_=1e-12).sqrt()  # (M, N) or (B, M, N)
 
     # Exponential weights, scaled by the mean distance over valid library points
     if theta == 0.0:
@@ -310,8 +311,8 @@ def _tensor(
         else:
             valid = mask.unsqueeze(-2).cast(D.dtype)  # (1, N) or (B, 1, N)
             n_valid = valid.sum(axis=-1, keepdim=True)  # (1, 1) or (B, 1, 1)
-            d_mean = (D * valid).sum(axis=-1, keepdim=True) / n_valid.clip(min_=1)
-        W = (-theta * D / d_mean.clip(min_=1e-6)).exp()
+            d_mean = (D * valid).sum(axis=-1, keepdim=True) / n_valid.clamp(min_=1)
+        W = (-theta * D / d_mean.clamp(min_=1e-6)).exp()
 
     # Zero out masked-out library points
     if mask is not None:
@@ -328,7 +329,7 @@ def _tensor(
 
     # Tikhonov regularization
     eye = Tensor.eye(E + 1, dtype=X.dtype, device=X.device)
-    trace = (XTX * eye).sum(axis=(-2, -1)).clip(min_=1e-12)  # (M,) or (B, M)
+    trace = (XTX * eye).sum(axis=(-2, -1)).clamp(min_=1e-12)  # (M,) or (B, M)
     eye = (Tensor.arange(E + 1, device=X.device) > 0).where(eye, 0)  # Do not regularize intercept term
     reg_term = (alpha * trace).unsqueeze(-1).unsqueeze(-1) * eye
     XTX = XTX + reg_term

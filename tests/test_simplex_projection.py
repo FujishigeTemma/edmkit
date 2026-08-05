@@ -9,8 +9,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
+from scipy.special import expit
 
-from edmkit.simplex_projection import knn, loo, simplex_projection
+from edmkit.simplex_projection import knn, loo, simplex_projection, soft_simplex_projection
 
 
 class Problem(NamedTuple):
@@ -87,6 +88,28 @@ def simplex_reference(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndar
     return np.einsum("mk,mkt->mt", weights, y[indices]) / weights.sum(axis=1, keepdims=True)
 
 
+def soft_simplex_reference(
+    x: np.ndarray,
+    y: np.ndarray,
+    q: np.ndarray,
+    mask: np.ndarray | None = None,
+    *,
+    softness: float = 0.02,
+) -> np.ndarray:
+    """Brute-force soft simplex projection returning the canonical ``(M, targets)`` shape."""
+    y = y[:, None] if y.ndim == 1 else y
+    if mask is not None:
+        x, y = x[mask], y[mask]
+
+    distances = np.maximum(np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1), 1e-6)
+    k = x.shape[1] + 1
+    neighbors = np.sort(distances, axis=1)[:, : k + 1]
+    scale = neighbors[:, :1]
+    radius = (neighbors[:, k - 1 : k] + neighbors[:, k : k + 1]) / 2
+    weights = np.exp(-distances / scale) * expit((radius - distances) / (softness * radius))
+    return weights @ y / weights.sum(axis=1, keepdims=True)
+
+
 def check_problem(problem: Problem) -> None:
     actual = simplex_projection(problem.x, problem.y, problem.q, mask=problem.mask)
     if problem.x.ndim == 2:
@@ -104,6 +127,46 @@ def check_problem(problem: Problem) -> None:
 
 def check_simplex(spec: ProblemSpec) -> None:
     check_problem(make_problem(spec))
+
+
+def check_soft_simplex(spec: ProblemSpec, *, softness: float = 0.02) -> None:
+    problem = make_problem(spec)
+    actual = soft_simplex_projection(problem.x, problem.y, problem.q, mask=problem.mask, softness=softness)
+    if problem.x.ndim == 2:
+        expected = soft_simplex_reference(problem.x, problem.y, problem.q, problem.mask, softness=softness).squeeze()
+    else:
+        expected = np.stack(
+            [
+                soft_simplex_reference(x, y, q, None if problem.mask is None else problem.mask[batch], softness=softness)
+                for batch, (x, y, q) in enumerate(zip(problem.x, problem.y, problem.q))
+            ]
+        )
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+
+
+def check_soft_simplex_constant_target() -> None:
+    rng = np.random.default_rng(30)
+    x = rng.normal(size=(8, 2))
+    q = rng.normal(size=(3, 2))
+    y = np.tile([3.5, -2.0], (len(x), 1))
+    actual = soft_simplex_projection(x, y, q, softness=0.5)
+    np.testing.assert_allclose(actual, np.tile([3.5, -2.0], (len(q), 1)), atol=1e-12, rtol=1e-12)
+
+
+def check_soft_simplex_hard_limit() -> None:
+    problem = make_problem(ProblemSpec(31, False, 2, False))
+    expected = simplex_projection(problem.x, problem.y, problem.q)
+    actual = soft_simplex_projection(problem.x, problem.y, problem.q, softness=1e-8)
+    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+
+
+def check_soft_simplex_mask_filtering() -> None:
+    problem = make_problem(ProblemSpec(32, False, 2, True))
+    assert problem.mask is not None
+    expected = soft_simplex_projection(problem.x[problem.mask], problem.y[problem.mask], problem.q, softness=0.1)
+    actual = soft_simplex_projection(problem.x, problem.y, problem.q, mask=problem.mask, softness=0.1)
+    np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
 
 def check_expected(x: np.ndarray, y: np.ndarray, q: np.ndarray, expected: np.ndarray | float) -> None:
@@ -142,31 +205,63 @@ def check_tensor(spec: ProblemSpec) -> None:
 
     problem = make_problem(spec)
     x, y, q = (array.astype(np.float32) for array in (problem.x, problem.y, problem.q))
-    expected = simplex_projection(x, y, q)
-    actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q)).numpy()
+    expected = simplex_projection(x, y, q, mask=problem.mask)
+    mask = None if problem.mask is None else Tensor(problem.mask)
+    actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q), mask=mask).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+
+def check_tensor_gradient(spec: ProblemSpec) -> None:
+    from tinygrad import Tensor
+
+    problem = make_problem(spec)
+    x, y, q = (array.astype(np.float32) for array in (problem.x, problem.y, problem.q))
+    q[..., :2, :] = x[..., :2, :]  # coincident query and library points produce zero distances
+    X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
+    gradients = simplex_projection(X, Y, Q).sum().gradient(X, Y, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
+
+
+def check_soft_tensor(spec: ProblemSpec) -> None:
+    from tinygrad import Tensor
+
+    problem = make_problem(spec)
+    x, y, q = (array.astype(np.float32) for array in (problem.x, problem.y, problem.q))
+    expected = soft_simplex_projection(x, y, q, mask=problem.mask, softness=0.1)
+    mask = None if problem.mask is None else Tensor(problem.mask)
+    actual = soft_simplex_projection(Tensor(x), Tensor(y), Tensor(q), mask=mask, softness=0.1).numpy()
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
+
+
+def check_soft_tensor_gradient(spec: ProblemSpec) -> None:
+    from tinygrad import Tensor
+
+    problem = make_problem(spec)
+    x, y, q = (array.astype(np.float32) for array in (problem.x, problem.y, problem.q))
+    q[..., :2, :] = x[..., :2, :]
+    X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
+    gradients = soft_simplex_projection(X, Y, Q, softness=0.1).sum().gradient(X, Y, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
 
 
 def call_simplex(problem: Problem) -> None:
     simplex_projection(problem.x, problem.y, problem.q, mask=problem.mask)
 
 
+def call_soft_simplex(problem: Problem) -> None:
+    soft_simplex_projection(problem.x, problem.y, problem.q, mask=problem.mask)
+
+
+def call_soft_simplex_with_softness(problem: Problem, softness: float) -> None:
+    soft_simplex_projection(problem.x, problem.y, problem.q, mask=problem.mask, softness=softness)
+
+
 def call_loo(case: LooCase) -> None:
     loo(case.x, case.y, theiler_window=case.theiler_window)
-
-
-def call_tensor_mask(spec: ProblemSpec) -> None:
-    from tinygrad import Tensor
-
-    problem = make_problem(spec)
-    assert problem.mask is not None
-    simplex_projection(
-        Tensor(problem.x.astype(np.float32)),
-        Tensor(problem.y.astype(np.float32)),
-        Tensor(problem.q.astype(np.float32)),
-        mask=Tensor(problem.mask),
-    )
 
 
 @st.composite
@@ -222,6 +317,11 @@ VALID = [
     pytest.param(partial(check_simplex, ProblemSpec(2, True, 1, False)), id="simplex-scalar-batched-3d"),
     pytest.param(partial(check_simplex, ProblemSpec(3, True, 2, True)), id="simplex-masked-multitarget-batched-3d"),
     pytest.param(partial(check_expected, IDENTITY_X, IDENTITY_Y, IDENTITY_X[:1], np.array(IDENTITY_Y[0])), id="simplex-self-query-single-output"),
+    pytest.param(partial(check_soft_simplex, ProblemSpec(4, False, 1, False), softness=0.15), id="soft-simplex-scalar-2d"),
+    pytest.param(partial(check_soft_simplex, ProblemSpec(5, True, 2, True), softness=0.15), id="soft-simplex-masked-multitarget-batched-3d"),
+    pytest.param(check_soft_simplex_constant_target, id="soft-simplex-constant-target"),
+    pytest.param(check_soft_simplex_hard_limit, id="soft-simplex-hard-limit"),
+    pytest.param(check_soft_simplex_mask_filtering, id="soft-simplex-mask-matches-filtered-library"),
     pytest.param(
         partial(
             check_knn,
@@ -241,6 +341,14 @@ VALID = [
     pytest.param(partial(check_tensor, ProblemSpec(21, False, 2, False)), id="tensor-multitarget-2d", marks=pytest.mark.gpu),
     pytest.param(partial(check_tensor, ProblemSpec(22, True, 1, False)), id="tensor-scalar-batched-3d", marks=pytest.mark.gpu),
     pytest.param(partial(check_tensor, ProblemSpec(23, True, 2, False)), id="tensor-multitarget-batched-3d", marks=pytest.mark.gpu),
+    pytest.param(partial(check_tensor, ProblemSpec(24, False, 2, True)), id="tensor-masked-2d", marks=pytest.mark.gpu),
+    pytest.param(partial(check_tensor, ProblemSpec(25, True, 2, True)), id="tensor-masked-batched-3d", marks=pytest.mark.gpu),
+    pytest.param(partial(check_tensor_gradient, ProblemSpec(26, False, 1, False)), id="tensor-gradient-coincident-2d", marks=pytest.mark.gpu),
+    pytest.param(partial(check_tensor_gradient, ProblemSpec(27, True, 2, False)), id="tensor-gradient-coincident-batched-3d", marks=pytest.mark.gpu),
+    pytest.param(partial(check_soft_tensor, ProblemSpec(28, True, 2, True)), id="soft-tensor-masked-multitarget-batched-3d", marks=pytest.mark.gpu),
+    pytest.param(
+        partial(check_soft_tensor_gradient, ProblemSpec(29, True, 2, False)), id="soft-tensor-gradient-coincident-batched-3d", marks=pytest.mark.gpu
+    ),
 ]
 
 
@@ -283,6 +391,24 @@ ERRORS = [
         id="simplex-too-few-unmasked-neighbors",
     ),
     pytest.param(
+        partial(call_soft_simplex, Problem(np.zeros((3, 2)), np.zeros(3), np.zeros((1, 2)), None)),
+        ValueError,
+        "Not enough points in X to find 4 neighbors, got N=3",
+        id="soft-simplex-insufficient-library",
+    ),
+    pytest.param(
+        partial(call_soft_simplex_with_softness, Problem(np.zeros((4, 2)), np.zeros(4), np.zeros((1, 2)), None), 0.0),
+        ValueError,
+        "softness must be positive, got softness=0.0",
+        id="soft-simplex-zero-softness",
+    ),
+    pytest.param(
+        partial(call_soft_simplex_with_softness, Problem(np.zeros((4, 2)), np.zeros(4), np.zeros((1, 2)), None), -0.1),
+        ValueError,
+        "softness must be positive, got softness=-0.1",
+        id="soft-simplex-negative-softness",
+    ),
+    pytest.param(
         partial(call_loo, LooCase(np.zeros((10, 2)), np.zeros(9), 1)),
         ValueError,
         None,
@@ -293,13 +419,6 @@ ERRORS = [
         ValueError,
         None,
         id="loo-insufficient-library",
-    ),
-    pytest.param(
-        partial(call_tensor_mask, ProblemSpec(30, True, 1, True)),
-        NotImplementedError,
-        "3D",
-        id="tensor-batched-mask",
-        marks=pytest.mark.gpu,
     ),
 ]
 
