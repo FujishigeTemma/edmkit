@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import partial
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 import numpy as np
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from edmkit.ccm import bootstrap, ccm, make_sample_func, pearson_correlation, with_simplex_projection, with_smap
+from edmkit.ccm import AggregateFunc, bootstrap, ccm, make_sample_func, pearson_correlation, with_simplex_projection, with_smap
 from edmkit.embedding import lagged_embed
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
@@ -17,7 +17,6 @@ from edmkit.types import PredictFunc
 
 
 type Check = Callable[[], None]
-type Call = Callable[[], object]
 type WrapperFunc = Callable[..., np.ndarray]
 
 
@@ -29,26 +28,60 @@ class Wiring(NamedTuple):
     lib_sizes: np.ndarray
 
 
-class WrapperCase(NamedTuple):
-    wrapper: WrapperFunc
-    predictor: PredictFunc
+class PearsonCorrelationProblem(NamedTuple):
+    x: np.ndarray
+    y: np.ndarray
+    scale: float
+    shift: float
+
+
+class PearsonCorrelationCase(NamedTuple):
+    x: np.ndarray
+    y: np.ndarray
+
+
+class MakeSampleFuncCase(NamedTuple):
+    seed: int
+    pool: np.ndarray
+    sizes: tuple[int, ...]
+
+
+class BootstrapCase(NamedTuple):
+    x: np.ndarray
+    y: np.ndarray
+    predict: PredictFunc | None
+    n_samples: int
+    batch_size: int | None
+
+
+class CCMCase(NamedTuple):
+    seed: int
+    n_samples: int
+    batch_size: int | None
+    aggregate_func: Callable[..., np.ndarray] | None
 
 
 def corrcoef_rows(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     vector = x.ndim == 1
     x, y = np.atleast_2d(x), np.atleast_2d(y)
-    correlations = np.asarray([np.corrcoef(xi, yi)[0, 1] for xi, yi in zip(x, y)])
+    correlations = np.asarray([correlation(xi, yi) for xi, yi in zip(x, y)])
     return correlations.squeeze() if vector or len(correlations) == 1 else correlations
 
 
-def check_correlation(x: np.ndarray, y: np.ndarray, expected: np.ndarray | float | None = None) -> None:
+def correlation(x: np.ndarray, y: np.ndarray) -> float:
+    x, y = x - x.mean(), y - y.mean()
+    denominator = np.linalg.norm(x) * np.linalg.norm(y)
+    return 0.0 if denominator == 0 else float(x @ y / denominator)
+
+
+def check_pearson_correlation(x: np.ndarray, y: np.ndarray) -> None:
     actual = np.asarray(pearson_correlation(x, y))
-    expected = np.asarray(corrcoef_rows(x, y) if expected is None else expected)
+    expected = np.asarray(corrcoef_rows(x, y))
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12, strict=True)
 
 
-def check_correlation_invariants(x: np.ndarray, y: np.ndarray, scale: float, shift: float) -> None:
+def check_pearson_correlation_invariants(x: np.ndarray, y: np.ndarray, scale: float, shift: float) -> None:
     actual = np.asarray(pearson_correlation(x, y))
     expected = np.asarray(corrcoef_rows(x, y))
     assert actual.shape == expected.shape
@@ -84,34 +117,31 @@ def expected_wiring_samples(seed: int, n_samples: int) -> np.ndarray:
     return np.asarray(columns).T
 
 
-def run_bootstrap(*, seed: int, n_samples: int, batch_size: int | None) -> np.ndarray:
-    return bootstrap(
-        WIRING.x,
-        WIRING.y,
+def check_make_sample_func(seed: int, pool: np.ndarray, sizes: tuple[int, ...]) -> None:
+    actual_sample, expected_sample = make_sample_func(seed), np.random.default_rng(seed)
+    for size in sizes:
+        np.testing.assert_array_equal(actual_sample(pool, size), expected_sample.choice(pool, size=size, replace=True))
+
+
+def check_bootstrap(x: np.ndarray, y: np.ndarray, predict: PredictFunc | None, n_samples: int, batch_size: int | None) -> None:
+    predict = cast(PredictFunc, predict)
+    actual = bootstrap(
+        x,
+        y,
         WIRING.lib_sizes,
-        signed_linear_predictor,
+        predict,
         n_samples=n_samples,
         library_pool=WIRING.library_pool,
         prediction_pool=WIRING.prediction_pool,
-        sample_func=make_sample_func(seed),
+        sample_func=make_sample_func(19),
         batch_size=batch_size,
     )
+    expected = expected_wiring_samples(19, n_samples)
+    assert actual.shape == expected.shape
+    np.testing.assert_array_equal(actual, expected)
 
 
-def check_sampling_bootstrap_and_aggregation() -> None:
-    seed = 7
-    actual_sample, expected_sample = make_sample_func(seed), np.random.default_rng(seed)
-    for size in (1, 5, 12):
-        np.testing.assert_array_equal(actual_sample(WIRING.library_pool, size), expected_sample.choice(WIRING.library_pool, size=size, replace=True))
-
-    seed, n_samples = 19, 7
-    expected = expected_wiring_samples(seed, n_samples)
-    for batch_size in (None, 2):
-        actual = run_bootstrap(seed=seed, n_samples=n_samples, batch_size=batch_size)
-        assert actual.shape == expected.shape
-        np.testing.assert_array_equal(actual, expected)
-
-    seed, n_samples, batch_size = 23, 7, 3
+def check_ccm(seed: int, n_samples: int, batch_size: int | None, aggregate_func: Callable[..., np.ndarray] | None) -> None:
     expected = np.median(expected_wiring_samples(seed, n_samples), axis=0)
     actual = ccm(
         WIRING.x,
@@ -122,19 +152,19 @@ def check_sampling_bootstrap_and_aggregation() -> None:
         library_pool=WIRING.library_pool,
         prediction_pool=WIRING.prediction_pool,
         sample_func=make_sample_func(seed),
-        aggregate_func=np.median,
+        aggregate_func=cast(AggregateFunc, aggregate_func),
         batch_size=batch_size,
     )
     np.testing.assert_array_equal(actual, expected)
 
 
-def check_wrapper(case: WrapperCase) -> None:
+def check_wrapper(wrapper: WrapperFunc, predictor: PredictFunc) -> None:
     rng = np.random.default_rng(3)
     x = rng.normal(size=(32, 2))
     y = 0.5 * x[:, 0] - x[:, 1] ** 2
     sizes = np.array([8, 16])
     library_pool, prediction_pool = np.arange(22), np.arange(22, 32)
-    actual = case.wrapper(
+    actual = wrapper(
         x,
         y,
         sizes,
@@ -147,7 +177,7 @@ def check_wrapper(case: WrapperCase) -> None:
         x,
         y,
         sizes,
-        case.predictor,
+        predictor,
         n_samples=3,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
@@ -207,11 +237,11 @@ def check_independent(length: int, n_samples: int, seed: int, upper_bound: float
 
 
 @st.composite
-def correlation_problems(draw):
+def pearson_correlation_problems(draw):
     seed = draw(st.integers(0, 2**32 - 1))
     batch, length = draw(st.integers(1, 4)), draw(st.integers(3, 30))
     rng = np.random.default_rng(seed)
-    return (
+    return PearsonCorrelationProblem(
         rng.standard_normal((batch, length)),
         rng.standard_normal((batch, length)),
         draw(st.floats(0.1, 10.0, allow_nan=False, allow_infinity=False)),
@@ -219,79 +249,112 @@ def correlation_problems(draw):
     )
 
 
-VALID: dict[str, Check] = {
-    "correlation-positive": partial(check_correlation, np.array([1.0, 2.0, 4.0, 8.0]), np.array([3.0, 5.0, 9.0, 17.0])),
-    "correlation-negative": partial(check_correlation, np.array([-2.0, -1.0, 1.0, 4.0]), np.array([7.0, 5.0, 1.0, -5.0])),
-    "correlation-batched": partial(
-        check_correlation,
+@given(problem=pearson_correlation_problems())
+def test_pearson_correlation_compatibility(problem: PearsonCorrelationProblem) -> None:
+    check_pearson_correlation_invariants(*problem)
+
+
+PEARSON_CORRELATION_VALID = {
+    "positive": PearsonCorrelationCase(np.array([1.0, 2.0, 4.0, 8.0]), np.array([3.0, 5.0, 9.0, 17.0])),
+    "negative": PearsonCorrelationCase(np.array([-2.0, -1.0, 1.0, 4.0]), np.array([7.0, 5.0, 1.0, -5.0])),
+    "batched": PearsonCorrelationCase(
         np.array([[1.0, 3.0, 2.0, 5.0], [-2.0, 0.0, 4.0, 3.0]]),
         np.array([[4.0, -1.0, 2.0, 0.0], [3.0, 2.0, -1.0, 5.0]]),
     ),
-    "correlation-constant": partial(check_correlation, np.ones(5), np.arange(5.0), 0.0),
-    "sampling-bootstrap-and-median": check_sampling_bootstrap_and_aggregation,
-    "simplex-wrapper": partial(check_wrapper, WrapperCase(with_simplex_projection, simplex_projection)),
-    "smap-wrapper": partial(
-        check_wrapper,
-        WrapperCase(partial(with_smap, theta=2.0, alpha=1e-4), partial(smap, theta=2.0, alpha=1e-4)),
-    ),
+    "constant": PearsonCorrelationCase(np.ones(5), np.arange(5.0)),
+}
+
+MAKE_SAMPLE_FUNC_VALID = {
+    "seeded": MakeSampleFuncCase(7, WIRING.library_pool, (1, 5, 12)),
+}
+
+BOOTSTRAP_VALID = {
+    "unbatched": BootstrapCase(WIRING.x, WIRING.y, signed_linear_predictor, 7, None),
+    "batched": BootstrapCase(WIRING.x, WIRING.y, signed_linear_predictor, 7, 2),
+}
+
+BOOTSTRAP_INVALID = {
+    "mismatched-lengths": BootstrapCase(WIRING.x[:-1], WIRING.y, signed_linear_predictor, 100, None),
+    "noncallable-predictor": BootstrapCase(WIRING.x, WIRING.y, None, 100, None),
+    "nonpositive-samples": BootstrapCase(WIRING.x, WIRING.y, signed_linear_predictor, 0, None),
+}
+
+CCM_VALID = {
+    "median": CCMCase(23, 7, 3, np.median),
+}
+
+CCM_INVALID = {
+    "noncallable-aggregator": CCMCase(23, 7, 3, None),
+}
+
+WITH_SIMPLEX_PROJECTION_VALID: dict[str, Check] = {
+    "wrapper": partial(check_wrapper, with_simplex_projection, simplex_projection),
     "coupled-direction": partial(check_coupled, length=500, n_samples=8, seed=42, minimum_gap=0.25),
     "independent-null-control": partial(check_independent, length=1050, n_samples=20, seed=7, upper_bound=0.2),
 }
 
-
-INVALID: dict[str, Call] = {
-    "mismatched-lengths": partial(
-        bootstrap,
-        WIRING.x[:-1],
-        WIRING.y,
-        WIRING.lib_sizes,
-        signed_linear_predictor,
-        library_pool=WIRING.library_pool,
-        prediction_pool=WIRING.prediction_pool,
-    ),
-    "noncallable-predictor": partial(
-        bootstrap,
-        WIRING.x,
-        WIRING.y,
-        WIRING.lib_sizes,
-        None,  # ty: ignore[invalid-argument-type]
-        library_pool=WIRING.library_pool,
-        prediction_pool=WIRING.prediction_pool,
-    ),
-    "nonpositive-samples": partial(
-        bootstrap,
-        WIRING.x,
-        WIRING.y,
-        WIRING.lib_sizes,
-        signed_linear_predictor,
-        n_samples=0,
-        library_pool=WIRING.library_pool,
-        prediction_pool=WIRING.prediction_pool,
-    ),
-    "noncallable-aggregator": partial(
-        ccm,
-        WIRING.x,
-        WIRING.y,
-        WIRING.lib_sizes,
-        signed_linear_predictor,
-        library_pool=WIRING.library_pool,
-        prediction_pool=WIRING.prediction_pool,
-        aggregate_func=None,  # ty: ignore[invalid-argument-type]
-    ),
+WITH_SMAP_VALID: dict[str, Check] = {
+    "wrapper": partial(check_wrapper, partial(with_smap, theta=2.0, alpha=1e-4), partial(smap, theta=2.0, alpha=1e-4)),
 }
 
 
-@given(problem=correlation_problems())
-def test_compatibility(problem: tuple[np.ndarray, np.ndarray, float, float]) -> None:
-    check_correlation_invariants(*problem)
+@pytest.mark.parametrize("case", PEARSON_CORRELATION_VALID.values(), ids=PEARSON_CORRELATION_VALID.keys())
+def test_pearson_correlation_valid(case: PearsonCorrelationCase) -> None:
+    check_pearson_correlation(*case)
 
 
-@pytest.mark.parametrize("check", VALID.values(), ids=VALID.keys())
-def test_valid(check: Check) -> None:
+@pytest.mark.parametrize("case", MAKE_SAMPLE_FUNC_VALID.values(), ids=MAKE_SAMPLE_FUNC_VALID.keys())
+def test_make_sample_func_valid(case: MakeSampleFuncCase) -> None:
+    check_make_sample_func(*case)
+
+
+@pytest.mark.parametrize("case", BOOTSTRAP_VALID.values(), ids=BOOTSTRAP_VALID.keys())
+def test_bootstrap_valid(case: BootstrapCase) -> None:
+    check_bootstrap(*case)
+
+
+@pytest.mark.parametrize("case", BOOTSTRAP_INVALID.values(), ids=BOOTSTRAP_INVALID.keys())
+def test_bootstrap_invalid(case: BootstrapCase) -> None:
+    with pytest.raises(ValueError):
+        bootstrap(
+            case.x,
+            case.y,
+            WIRING.lib_sizes,
+            case.predict,  # ty: ignore[invalid-argument-type]
+            n_samples=case.n_samples,
+            batch_size=case.batch_size,
+            library_pool=WIRING.library_pool,
+            prediction_pool=WIRING.prediction_pool,
+        )
+
+
+@pytest.mark.parametrize("case", CCM_VALID.values(), ids=CCM_VALID.keys())
+def test_ccm_valid(case: CCMCase) -> None:
+    check_ccm(*case)
+
+
+@pytest.mark.parametrize("case", CCM_INVALID.values(), ids=CCM_INVALID.keys())
+def test_ccm_invalid(case: CCMCase) -> None:
+    with pytest.raises(ValueError):
+        ccm(
+            WIRING.x,
+            WIRING.y,
+            WIRING.lib_sizes,
+            signed_linear_predictor,
+            library_pool=WIRING.library_pool,
+            prediction_pool=WIRING.prediction_pool,
+            n_samples=case.n_samples,
+            sample_func=make_sample_func(case.seed),
+            batch_size=case.batch_size,
+            aggregate_func=case.aggregate_func,  # ty: ignore[invalid-argument-type]
+        )
+
+
+@pytest.mark.parametrize("check", WITH_SIMPLEX_PROJECTION_VALID.values(), ids=WITH_SIMPLEX_PROJECTION_VALID.keys())
+def test_with_simplex_projection_valid(check: Check) -> None:
     check()
 
 
-@pytest.mark.parametrize("call", INVALID.values(), ids=INVALID.keys())
-def test_invalid(call: Call) -> None:
-    with pytest.raises(ValueError):
-        call()
+@pytest.mark.parametrize("check", WITH_SMAP_VALID.values(), ids=WITH_SMAP_VALID.keys())
+def test_with_smap_valid(check: Check) -> None:
+    check()

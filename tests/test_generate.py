@@ -1,5 +1,3 @@
-from collections.abc import Callable
-from functools import partial
 from typing import NamedTuple
 
 import numpy as np
@@ -8,87 +6,131 @@ import pytest
 from edmkit.generate import double_pendulum, lorenz, mackey_glass, to_xy
 
 
-class Trajectory(NamedTuple):
-    run: Callable[[], tuple[np.ndarray, np.ndarray]]
-    time: np.ndarray
-    shape: tuple[int, ...]
-    initial: np.ndarray | float
-    step_index: int
-    step: np.ndarray | float
-    history: np.ndarray | None = None
+class LorenzCase(NamedTuple):
+    sigma: float
+    rho: float
+    beta: float
+    X0: np.ndarray
+    dt: float
+    t_max: int
 
 
-LORENZ_X0 = np.array([1.0, 2.0, 3.0])
-LORENZ_DT = 0.01
-
-MG_X0 = 0.9
-MG_DT = 1.0
-
-PENDULUM_THETA = 0.4
-PENDULUM_DT = 0.01
-PENDULUM_X0 = np.array([PENDULUM_THETA, PENDULUM_THETA, 0.0, 0.0])
-
-TRAJECTORIES: dict[str, Trajectory] = {
-    "lorenz-euler-step": Trajectory(
-        partial(lorenz, sigma=10.0, rho=28.0, beta=8.0 / 3.0, X0=LORENZ_X0, dt=LORENZ_DT, t_max=1),
-        np.arange(0, 1, LORENZ_DT),
-        (100, 3),
-        LORENZ_X0,
-        1,
-        LORENZ_X0 + LORENZ_DT * np.array([10.0, 23.0, -6.0]),
-    ),
-    "mackey-glass-delay-step": Trajectory(
-        partial(mackey_glass, tau=2.0, n=10, beta=0.2, gamma=0.1, x0=MG_X0, dt=MG_DT, t_max=6),
-        np.arange(0, 6, MG_DT),
-        (6,),
-        MG_X0,
-        2,
-        MG_X0 + MG_DT * (0.2 * MG_X0 / (1.0 + MG_X0**10) - 0.1 * MG_X0),
-        np.full(2, MG_X0),
-    ),
-    "double-pendulum-euler-step": Trajectory(
-        partial(double_pendulum, m1=1.2, m2=0.8, L1=2.0, L2=3.0, g=9.81, X0=PENDULUM_X0, dt=PENDULUM_DT, t_max=1),
-        np.arange(0, 1, PENDULUM_DT),
-        (100, 4),
-        PENDULUM_X0,
-        1,
-        PENDULUM_X0 + PENDULUM_DT * np.array([0.0, 0.0, -9.81 * np.sin(PENDULUM_THETA) / 2.0, 0.0]),
-    ),
-}
+class MackeyGlassCase(NamedTuple):
+    tau: float
+    n: int
+    beta: float
+    gamma: float
+    x0: float
+    dt: float
+    t_max: int
 
 
-@pytest.mark.parametrize("case", TRAJECTORIES.values(), ids=TRAJECTORIES.keys())
-def test_trajectory(case: Trajectory) -> None:
-    time, state = case.run()
-
-    np.testing.assert_array_equal(time, case.time)
-    assert state.shape == case.shape
-    np.testing.assert_allclose(state[0], case.initial)
-    if case.history is not None:
-        np.testing.assert_allclose(state[: len(case.history)], case.history)
-    np.testing.assert_allclose(state[case.step_index], case.step)
-    assert np.isfinite(state).all()
+class DoublePendulumCase(NamedTuple):
+    m1: float
+    m2: float
+    L1: float
+    L2: float
+    g: float
+    X0: np.ndarray
+    dt: float
+    t_max: int
 
 
-class Geometry(NamedTuple):
+class ToXYCase(NamedTuple):
     L1: float
     L2: float
     theta1: np.ndarray
     theta2: np.ndarray
 
 
-GEOMETRIES: dict[str, Geometry] = {
-    "pendulum-link-lengths": Geometry(
-        2.0,
-        3.0,
-        np.array([0.0, np.pi / 3, -np.pi / 2]),
-        np.array([np.pi / 4, np.pi / 6, np.pi]),
-    )
+LORENZ_X0 = np.array([1.0, 2.0, 3.0])
+LORENZ_DT = 0.01
+MACKEY_GLASS_X0 = 0.9
+MACKEY_GLASS_DT = 1.0
+DOUBLE_PENDULUM_THETA = 0.4
+DOUBLE_PENDULUM_DT = 0.01
+DOUBLE_PENDULUM_X0 = np.array([DOUBLE_PENDULUM_THETA, DOUBLE_PENDULUM_THETA, 0.0, 0.0])
+
+
+def check_trajectory(
+    actual: tuple[np.ndarray, np.ndarray],
+    *,
+    time: np.ndarray,
+    shape: tuple[int, ...],
+    initial: np.ndarray | float,
+    step_index: int,
+    step: np.ndarray | float,
+    history: np.ndarray | None = None,
+) -> None:
+    actual_time, state = actual
+    np.testing.assert_array_equal(actual_time, time)
+    assert state.shape == shape
+    np.testing.assert_allclose(state[0], initial)
+    if history is not None:
+        np.testing.assert_allclose(state[: len(history)], history)
+    np.testing.assert_allclose(state[step_index], step)
+    assert np.isfinite(state).all()
+
+
+LORENZ_VALID = {
+    "default": LorenzCase(10.0, 28.0, 8.0 / 3.0, LORENZ_X0, LORENZ_DT, 1),
+}
+
+MACKEY_GLASS_VALID = {
+    "delayed": MackeyGlassCase(2.0, 10, 0.2, 0.1, MACKEY_GLASS_X0, MACKEY_GLASS_DT, 6),
+}
+
+DOUBLE_PENDULUM_VALID = {
+    "equal-angle": DoublePendulumCase(1.2, 0.8, 2.0, 3.0, 9.81, DOUBLE_PENDULUM_X0, DOUBLE_PENDULUM_DT, 1),
+}
+
+TO_XY_VALID = {
+    "segment-lengths": ToXYCase(2.0, 3.0, np.array([0.0, np.pi / 3, -np.pi / 2]), np.array([np.pi / 4, np.pi / 6, np.pi])),
 }
 
 
-@pytest.mark.parametrize("case", GEOMETRIES.values(), ids=GEOMETRIES.keys())
-def test_to_xy(case: Geometry) -> None:
-    x1, y1, x2, y2 = to_xy(case.L1, case.L2, case.theta1, case.theta2)
+@pytest.mark.parametrize("case", LORENZ_VALID.values(), ids=LORENZ_VALID.keys())
+def test_lorenz_valid(case: LorenzCase) -> None:
+    actual = lorenz(*case)
+    check_trajectory(
+        actual,
+        time=np.arange(0, case.t_max, case.dt),
+        shape=(100, 3),
+        initial=case.X0,
+        step_index=1,
+        step=case.X0 + case.dt * np.array([10.0, 23.0, -6.0]),
+    )
+
+
+@pytest.mark.parametrize("case", MACKEY_GLASS_VALID.values(), ids=MACKEY_GLASS_VALID.keys())
+def test_mackey_glass_valid(case: MackeyGlassCase) -> None:
+    actual = mackey_glass(*case)
+    check_trajectory(
+        actual,
+        time=np.arange(0, case.t_max, case.dt),
+        shape=(6,),
+        initial=case.x0,
+        step_index=2,
+        step=case.x0 + case.dt * (case.beta * case.x0 / (1.0 + case.x0**case.n) - case.gamma * case.x0),
+        history=np.full(2, case.x0),
+    )
+
+
+@pytest.mark.parametrize("case", DOUBLE_PENDULUM_VALID.values(), ids=DOUBLE_PENDULUM_VALID.keys())
+def test_double_pendulum_valid(case: DoublePendulumCase) -> None:
+    actual = double_pendulum(*case)
+    check_trajectory(
+        actual,
+        time=np.arange(0, case.t_max, case.dt),
+        shape=(100, 4),
+        initial=case.X0,
+        step_index=1,
+        step=case.X0 + case.dt * np.array([0.0, 0.0, -case.g * np.sin(DOUBLE_PENDULUM_THETA) / case.L1, 0.0]),
+    )
+
+
+@pytest.mark.parametrize("case", TO_XY_VALID.values(), ids=TO_XY_VALID.keys())
+def test_to_xy_valid(case: ToXYCase) -> None:
+    x1, y1, x2, y2 = to_xy(*case)
     np.testing.assert_allclose(np.hypot(x1, y1), case.L1)
     np.testing.assert_allclose(np.hypot(x2 - x1, y2 - y1), case.L2)
