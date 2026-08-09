@@ -6,6 +6,8 @@ import numpy as np
 
 from edmkit.util import pairwise_distance_np
 
+__all__ = ["smap"]
+
 if TYPE_CHECKING:
     from tinygrad import Tensor
 

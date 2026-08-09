@@ -25,19 +25,10 @@ MetricFunc is a function that takes (predictions, observations) and returns a me
 
 Name | Description
 ---- | -----------
-[`validate_and_promote`](#edmkit.metrics.validate_and_promote) | Validate shape match and promote 1D to 2D.
 [`rhos`](#edmkit.metrics.rhos) | Pearson correlation per dimension.
 [`mean_rho`](#edmkit.metrics.mean_rho) | Mean Pearson correlation.
 [`rmse`](#edmkit.metrics.rmse) | Root Mean Squared Error.
 [`mae`](#edmkit.metrics.mae) | Mean Absolute Error.
-
-### `validate_and_promote`
-
-```python
-validate_and_promote(predictions: np.ndarray, observations: np.ndarray) -> tuple[np.ndarray, np.ndarray]
-```
-
-Validate shape match and promote 1D to 2D.
 
 ### `rhos`
 

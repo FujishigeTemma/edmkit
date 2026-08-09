@@ -7,6 +7,16 @@ from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 from edmkit.types import PredictFunc
 
+__all__ = [
+    "SampleFunc",
+    "AggregateFunc",
+    "make_sample_func",
+    "bootstrap",
+    "ccm",
+    "with_simplex_projection",
+    "with_smap",
+]
+
 type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
 """SampleFunc is a function that takes (pool, size) and returns a sampled array."""
 type AggregateFunc = Callable[[np.ndarray], float]

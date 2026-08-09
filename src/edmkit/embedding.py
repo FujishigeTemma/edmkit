@@ -8,6 +8,8 @@ from edmkit.simplex_projection import simplex_projection
 from edmkit.splits import SplitFunc, sliding_folds
 from edmkit.types import PredictFunc
 
+__all__ = ["lagged_embed", "scan", "select"]
+
 
 def lagged_embed(x: np.ndarray, tau: int, e: int):
     """Lagged embedding of a time series `x`.

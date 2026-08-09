@@ -37,7 +37,6 @@ Name | Description
 [`make_sample_func`](#edmkit.ccm.make_sample_func) | Create a sample function with its own independent RNG.
 [`bootstrap`](#edmkit.ccm.bootstrap) | Perform Convergent Cross Mapping and return per-sample correlations.
 [`ccm`](#edmkit.ccm.ccm) | Perform Convergent Cross Mapping using a custom prediction function.
-[`pearson_correlation`](#edmkit.ccm.pearson_correlation) | Compute vectorized Pearson correlation between X and Y.
 [`with_simplex_projection`](#edmkit.ccm.with_simplex_projection) | Perform Convergent Cross Mapping using simplex projection.
 [`with_smap`](#edmkit.ccm.with_smap) | Perform Convergent Cross Mapping using S-Map (local linear regression).
 
@@ -182,27 +181,6 @@ correlations = ccm(
     prediction_pool=prediction_pool,
 )
 ```
-
-### `pearson_correlation`
-
-```python
-pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray
-```
-
-Compute vectorized Pearson correlation between X and Y.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | 1D or 2D array of shape (L,) or (B, L) | *required*
-`Y` | <code>[ndarray](#numpy.ndarray)</code> | 1D or 2D array of shape (L,) or (B, L) | *required*
-
-**Returns:**
-
-Name | Type | Description
----- | ---- | -----------
-`correlation` | <code>[ndarray](#numpy.ndarray)</code> | Pearson correlation coefficient(s) between X and Y. Shape (B,) if inputs are 2D, else scalar.
 
 ### `with_simplex_projection`
 

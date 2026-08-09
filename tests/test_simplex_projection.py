@@ -62,14 +62,15 @@ class LOOCase(NamedTuple):
     theiler_window: int
 
 
-def simplex_projection_reference(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
+def simplex_projection_reference(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None = None, mask: np.ndarray | None = None) -> np.ndarray:
     """Brute-force simplex projection returning the canonical ``(M, targets)`` shape."""
     y = y[:, None] if y.ndim == 1 else y
     if mask is not None:
         x, y = x[mask], y[mask]
 
     distances = np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1)
-    indices = np.argsort(distances, axis=1, kind="stable")[:, : x.shape[1] + 1]
+    k = x.shape[1] + 1 if k is None else k
+    indices = np.argsort(distances, axis=1, kind="stable")[:, :k]
     nearest = np.take_along_axis(distances, indices, axis=1)
     scale = np.maximum(nearest[:, :1], 1e-6)
     weights = np.exp(-nearest / scale)
@@ -80,8 +81,8 @@ def soft_simplex_projection_reference(
     x: np.ndarray,
     y: np.ndarray,
     q: np.ndarray,
+    k: int | None = None,
     mask: np.ndarray | None = None,
-    *,
     softness: float = 0.02,
 ) -> np.ndarray:
     """Brute-force soft simplex projection returning the canonical ``(M, targets)`` shape."""
@@ -90,7 +91,7 @@ def soft_simplex_projection_reference(
         x, y = x[mask], y[mask]
 
     distances = np.maximum(np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1), 1e-6)
-    k = x.shape[1] + 1
+    k = x.shape[1] + 1 if k is None else k
     neighbors = np.sort(distances, axis=1)[:, : k + 1]
     scale = neighbors[:, :1]
     radius = (neighbors[:, k - 1 : k] + neighbors[:, k : k + 1]) / 2
@@ -98,26 +99,36 @@ def soft_simplex_projection_reference(
     return weights @ y / weights.sum(axis=1, keepdims=True)
 
 
-def check_simplex_projection(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None) -> None:
-    actual = simplex_projection(x, y, q, mask=mask)
+def check_simplex_projection(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None = None, mask: np.ndarray | None = None) -> None:
+    actual = simplex_projection(x, y, q, k=k, mask=mask)
     if x.ndim == 2:
-        expected = simplex_projection_reference(x, y, q, mask).squeeze()
+        expected = simplex_projection_reference(x, y, q, k=k, mask=mask).squeeze()
     else:
         expected = np.stack(
-            [simplex_projection_reference(xi, yi, qi, None if mask is None else mask[batch]) for batch, (xi, yi, qi) in enumerate(zip(x, y, q))]
+            [
+                simplex_projection_reference(xi, yi, qi, k=k, mask=None if mask is None else mask[batch])
+                for batch, (xi, yi, qi) in enumerate(zip(x, y, q))
+            ]
         )
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
 
 
-def check_soft_simplex_projection(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None, softness: float) -> None:
-    actual = soft_simplex_projection(x, y, q, mask=mask, softness=softness)
+def check_soft_simplex_projection(
+    x: np.ndarray,
+    y: np.ndarray,
+    q: np.ndarray,
+    k: int | None = None,
+    mask: np.ndarray | None = None,
+    softness: float = 0.02,
+) -> None:
+    actual = soft_simplex_projection(x, y, q, k=k, mask=mask, softness=softness)
     if x.ndim == 2:
-        expected = soft_simplex_projection_reference(x, y, q, mask, softness=softness).squeeze()
+        expected = soft_simplex_projection_reference(x, y, q, k=k, mask=mask, softness=softness).squeeze()
     else:
         expected = np.stack(
             [
-                soft_simplex_projection_reference(xi, yi, qi, None if mask is None else mask[batch], softness=softness)
+                soft_simplex_projection_reference(xi, yi, qi, k=k, mask=None if mask is None else mask[batch], softness=softness)
                 for batch, (xi, yi, qi) in enumerate(zip(x, y, q))
             ]
         )
@@ -135,7 +146,7 @@ def loo_reference(x: np.ndarray, y: np.ndarray, theiler_window: int) -> np.ndarr
     predictions = []
     for i in range(len(x)):
         mask = np.abs(np.arange(len(x)) - i) > theiler_window
-        predictions.append(simplex_projection_reference(x, y, x[i : i + 1], mask)[0])
+        predictions.append(simplex_projection_reference(x, y, x[i : i + 1], mask=mask)[0])
     return np.asarray(predictions)
 
 
@@ -149,47 +160,63 @@ def check_loo(x: np.ndarray, y: np.ndarray, theiler_window: int) -> None:
     np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
 
 
-def check_simplex_projection_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None) -> None:
+def check_simplex_projection_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None = None, mask: np.ndarray | None = None) -> None:
     from tinygrad import Tensor
 
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    expected = simplex_projection(x, y, q, mask=mask)
+    expected = simplex_projection(x, y, q, k=k, mask=mask)
     tensor_mask = None if mask is None else Tensor(mask)
-    actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q), mask=tensor_mask).numpy()
+    actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q), k=k, mask=tensor_mask).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
 
-def check_simplex_projection_tensor_gradient(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None) -> None:
+def check_simplex_projection_tensor_gradient(
+    x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None = None, mask: np.ndarray | None = None
+) -> None:
     from tinygrad import Tensor
 
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
     coincident = min(q.shape[-2], 2)
     q[..., :coincident, :] = x[..., :coincident, :]  # coincident query and library points produce zero distances
     X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
-    gradients = simplex_projection(X, Y, Q).sum().gradient(X, Y, Q)
+    gradients = simplex_projection(X, Y, Q, k=k).sum().gradient(X, Y, Q)
     for gradient in gradients:
         assert np.isfinite(gradient.numpy()).all()
 
 
-def check_soft_simplex_projection_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None, softness: float) -> None:
+def check_soft_simplex_projection_tensor(
+    x: np.ndarray,
+    y: np.ndarray,
+    q: np.ndarray,
+    k: int | None = None,
+    mask: np.ndarray | None = None,
+    softness: float = 0.02,
+) -> None:
     from tinygrad import Tensor
 
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    expected = soft_simplex_projection(x, y, q, mask=mask, softness=softness)
+    expected = soft_simplex_projection(x, y, q, k=k, mask=mask, softness=softness)
     tensor_mask = None if mask is None else Tensor(mask)
-    actual = soft_simplex_projection(Tensor(x), Tensor(y), Tensor(q), mask=tensor_mask, softness=softness).numpy()
+    actual = soft_simplex_projection(Tensor(x), Tensor(y), Tensor(q), k=k, mask=tensor_mask, softness=softness).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
 
 
-def check_soft_simplex_projection_tensor_gradient(x: np.ndarray, y: np.ndarray, q: np.ndarray, mask: np.ndarray | None, softness: float) -> None:
+def check_soft_simplex_projection_tensor_gradient(
+    x: np.ndarray,
+    y: np.ndarray,
+    q: np.ndarray,
+    k: int | None = None,
+    mask: np.ndarray | None = None,
+    softness: float = 0.02,
+) -> None:
     from tinygrad import Tensor
 
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
     q[..., :2, :] = x[..., :2, :]
     X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
-    gradients = soft_simplex_projection(X, Y, Q, softness=softness).sum().gradient(X, Y, Q)
+    gradients = soft_simplex_projection(X, Y, Q, k=k, softness=softness).sum().gradient(X, Y, Q)
     for gradient in gradients:
         assert np.isfinite(gradient.numpy()).all()
 
@@ -324,13 +351,34 @@ SIMPLEX_PROJECTION_INVALID = {
 
 @given(problem=simplex_projection_problems())
 def test_simplex_projection_compatibility(problem: SimplexProjectionProblem) -> None:
-    check_simplex_projection(*problem)
+    check_simplex_projection(problem.x, problem.y, problem.q, k=None, mask=problem.mask)
 
 
 @pytest.mark.parametrize("mode", SIMPLEX_PROJECTION_MODES.values(), ids=SIMPLEX_PROJECTION_MODES.keys())
 @pytest.mark.parametrize("case", SIMPLEX_PROJECTION_VALID.values(), ids=SIMPLEX_PROJECTION_VALID.keys())
 def test_simplex_projection_valid(case: SimplexProjectionCase, mode) -> None:
-    mode(*case)
+    mode(case.x, case.y, case.q, k=None, mask=case.mask)
+
+
+@pytest.mark.parametrize("mode", SIMPLEX_PROJECTION_MODES.values(), ids=SIMPLEX_PROJECTION_MODES.keys())
+@pytest.mark.parametrize("k", [1, 5])
+def test_simplex_projection_custom_k(k: int, mode) -> None:
+    case = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]
+    mode(case.x, case.y, case.q, k=k, mask=case.mask)
+
+
+def test_simplex_projection_none_k_preserves_default() -> None:
+    case = SIMPLEX_PROJECTION_VALID["scalar-2d"]
+    default = simplex_projection(case.x, case.y, case.q, mask=case.mask)
+    explicit_none = simplex_projection(case.x, case.y, case.q, k=None, mask=case.mask)
+    np.testing.assert_array_equal(explicit_none, default)
+
+
+@pytest.mark.parametrize("k", [0, -1])
+def test_simplex_projection_invalid_k(k: int) -> None:
+    case = SIMPLEX_PROJECTION_VALID["scalar-2d"]
+    with pytest.raises(ValueError, match="k must be positive"):
+        simplex_projection(case.x, case.y, case.q, k=k, mask=case.mask)
 
 
 @pytest.mark.parametrize("case", SIMPLEX_PROJECTION_INVALID.values(), ids=SIMPLEX_PROJECTION_INVALID.keys())
@@ -392,13 +440,34 @@ SOFT_SIMPLEX_PROJECTION_INVALID = {
 
 @given(problem=soft_simplex_projection_problems())
 def test_soft_simplex_projection_compatibility(problem: SoftSimplexProjectionProblem) -> None:
-    check_soft_simplex_projection(*problem)
+    check_soft_simplex_projection(problem.x, problem.y, problem.q, k=None, mask=problem.mask, softness=problem.softness)
 
 
 @pytest.mark.parametrize("mode", SOFT_SIMPLEX_PROJECTION_MODES.values(), ids=SOFT_SIMPLEX_PROJECTION_MODES.keys())
 @pytest.mark.parametrize("case", SOFT_SIMPLEX_PROJECTION_VALID.values(), ids=SOFT_SIMPLEX_PROJECTION_VALID.keys())
 def test_soft_simplex_projection_valid(case: SoftSimplexProjectionCase, mode) -> None:
-    mode(*case)
+    mode(case.x, case.y, case.q, k=None, mask=case.mask, softness=case.softness)
+
+
+@pytest.mark.parametrize("mode", SOFT_SIMPLEX_PROJECTION_MODES.values(), ids=SOFT_SIMPLEX_PROJECTION_MODES.keys())
+@pytest.mark.parametrize("k", [1, 5])
+def test_soft_simplex_projection_custom_k(k: int, mode) -> None:
+    case = SOFT_SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]
+    mode(case.x, case.y, case.q, k=k, mask=case.mask, softness=case.softness)
+
+
+def test_soft_simplex_projection_none_k_preserves_default() -> None:
+    case = SOFT_SIMPLEX_PROJECTION_VALID["scalar-2d"]
+    default = soft_simplex_projection(case.x, case.y, case.q, mask=case.mask, softness=case.softness)
+    explicit_none = soft_simplex_projection(case.x, case.y, case.q, k=None, mask=case.mask, softness=case.softness)
+    np.testing.assert_array_equal(explicit_none, default)
+
+
+@pytest.mark.parametrize("k", [0, -1])
+def test_soft_simplex_projection_invalid_k(k: int) -> None:
+    case = SOFT_SIMPLEX_PROJECTION_VALID["scalar-2d"]
+    with pytest.raises(ValueError, match="k must be positive"):
+        soft_simplex_projection(case.x, case.y, case.q, k=k, mask=case.mask, softness=case.softness)
 
 
 @pytest.mark.parametrize("case", SOFT_SIMPLEX_PROJECTION_INVALID.values(), ids=SOFT_SIMPLEX_PROJECTION_INVALID.keys())

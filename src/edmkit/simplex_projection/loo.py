@@ -2,6 +2,8 @@ import numpy as np
 
 from edmkit.simplex_projection.knn import knn
 
+__all__ = ["loo"]
+
 
 def loo(
     X: np.ndarray,

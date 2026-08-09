@@ -9,34 +9,9 @@ sidebar:
 
 Name | Description
 ---- | -----------
-[`knn`](#knn) | Find the k-nearest neighbors of `Q` in `X` using `kdtree.KDTree`.
 [`loo`](#loo) | Leave-one-out simplex projection: predict each point in `X` from its neighbors, excluding temporally close points.
 [`simplex_projection`](#simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
-
-## `knn`
-
-```python
-knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]
-```
-
-Find the k-nearest neighbors of `Q` in `X` using `kdtree.KDTree`.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | The input data (N, E) | *required*
-`Q` | <code>[ndarray](#numpy.ndarray)</code> | The query points (M, E) | *required*
-`k` | <code>[int](#int)</code> | The number of nearest neighbors to find (typically E+1 for simplex projection). | *required*
-
-**Returns:**
-
-Name | Type | Description
----- | ---- | -----------
-`distances` | <code>[ndarray](#numpy.ndarray)</code> | The distances from each query point in `Q` to its k nearest neighbors in `X` (M, k)
-`indices` | <code>[ndarray](#numpy.ndarray)</code> | The indices of the k nearest neighbors in `X` for each query point in `Q` (M, k)
-
-
+[`soft_simplex_projection`](#soft_simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`, with a soft boundary between neighbors and non-neighbors.
 
 ## `loo`
 
@@ -74,7 +49,7 @@ Type | Description
 ## `simplex_projection`
 
 ```python
-simplex_projection(X, Y, Q, *, mask = None)
+simplex_projection(X, Y, Q, *, k = None, mask = None)
 ```
 
 Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
@@ -86,6 +61,7 @@ Name | Type | Description | Default
 `X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
 `Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
+`k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
 `mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`. | <code>None</code>
 
 **Returns:**
@@ -98,7 +74,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If the input arrays `X` and `Y` do not have the same number of points.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points.
 
 **Examples:**
 
@@ -129,6 +105,74 @@ Q = embedding[lib_size - shift : -Tp]
 actual = x[lib_size + Tp :]
 
 predictions = simplex_projection(X, Y, Q)
+
+correlation = np.corrcoef(predictions, actual)[0, 1]
+print(f"Correlation: {correlation:.3f}")
+```
+
+
+
+## `soft_simplex_projection`
+
+```python
+soft_simplex_projection(X, Y, Q, *, k = None, mask = None, softness = 0.02)
+```
+
+Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`, with a soft boundary between neighbors and non-neighbors.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
+`Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
+`Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
+`k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
+`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`. | <code>None</code>
+`softness` | <code>[float](#float)</code> | Width of the boundary between neighbors and non-neighbors, as a fraction of the neighborhood radius. For distinct boundary distances: ``soft_simplex_projection(X, Y, Q, softness) -> simplex_projection(X, Y, Q) as softness -> 0`` | <code>0.02</code>
+
+**Returns:**
+
+Name | Type | Description
+---- | ---- | -----------
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`.
+
+**Raises:**
+
+Type | Description
+---- | -----------
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If `X` does not contain at least `k + 1` points.
+
+**Examples:**
+
+```python
+import numpy as np
+from tinygrad import Tensor
+
+from edmkit.embedding import lagged_embed
+from edmkit.simplex_projection import soft_simplex_projection
+
+# Generate a simple time series (logistic map)
+N = 300
+x = np.zeros(N, dtype=np.float32)
+x[0] = 0.4
+for i in range(1, N):
+    x[i] = 3.9 * x[i - 1] * (1 - x[i - 1])
+
+tau = 2
+E = 3
+
+embedding = lagged_embed(x, tau=tau, e=E)
+shift = tau * (E - 1)
+
+lib_size = 200
+Tp = 1
+X = Tensor(embedding[:lib_size - shift])
+Y = Tensor(x[shift + Tp : lib_size + Tp])
+Q = Tensor(embedding[lib_size - shift : -Tp])
+actual = x[lib_size + Tp :]
+
+predictions = soft_simplex_projection(X, Y, Q).numpy()
 
 correlation = np.corrcoef(predictions, actual)[0, 1]
 print(f"Correlation: {correlation:.3f}")

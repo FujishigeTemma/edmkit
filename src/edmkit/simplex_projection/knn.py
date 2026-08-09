@@ -1,6 +1,8 @@
 import numpy as np
 from kdtree import KDTree
 
+__all__: list[str] = []
+
 
 def knn(X: np.ndarray, Q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
     """Find the k-nearest neighbors of `Q` in `X` using `kdtree.KDTree`.

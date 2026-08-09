@@ -7,6 +7,8 @@ import numpy as np
 from edmkit.simplex_projection.knn import knn
 from edmkit.util import pairwise_distance
 
+__all__ = ["simplex_projection"]
+
 if TYPE_CHECKING:
     from tinygrad import Tensor
 
@@ -17,6 +19,7 @@ def simplex_projection(
     Y: np.ndarray,
     Q: np.ndarray,
     *,
+    k: int | None = None,
     mask: np.ndarray | None = None,
 ) -> np.ndarray: ...
 
@@ -27,6 +30,7 @@ def simplex_projection(
     Y: Tensor,
     Q: Tensor,
     *,
+    k: int | None = None,
     mask: Tensor | None = None,
 ) -> Tensor: ...
 
@@ -36,6 +40,7 @@ def simplex_projection(
     Y,
     Q,
     *,
+    k=None,
     mask=None,
 ):
     """
@@ -49,6 +54,8 @@ def simplex_projection(
         The target data of shape (N,) or (N, E') or (B, N, E')
     Q : np.ndarray or Tensor
         The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`.
+    k : int or None, default None
+        The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`.
     mask : np.ndarray or Tensor or None
         Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`.
 
@@ -60,6 +67,7 @@ def simplex_projection(
     Raises
     ------
     ValueError
+        - If `k` is not positive.
         - If the input arrays `X` and `Y` do not have the same number of points.
 
     Examples
@@ -97,9 +105,9 @@ def simplex_projection(
     ```
     """
     if isinstance(X, np.ndarray):
-        return _numpy(X, Y, Q, mask=mask)
+        return _numpy(X, Y, Q, k=k, mask=mask)
 
-    return _tensor(X, Y, Q, mask=mask)
+    return _tensor(X, Y, Q, k=k, mask=mask)
 
 
 def _numpy(
@@ -107,6 +115,7 @@ def _numpy(
     Y: np.ndarray,
     Q: np.ndarray,
     *,
+    k: int | None = None,
     mask: np.ndarray | None = None,
 ):
     # ensure at least 2D
@@ -133,7 +142,9 @@ def _numpy(
 
     B, _, E = X.shape
     M = Q.shape[1]
-    k: int = E + 1
+    k = E + 1 if k is None else k
+    if k <= 0:
+        raise ValueError(f"k must be positive, got k={k}")
 
     distances = np.empty((B, M, k))
     indices = np.empty((B, M, k), dtype=np.intp)
@@ -165,6 +176,7 @@ def _tensor(
     Y: Tensor,
     Q: Tensor,
     *,
+    k: int | None = None,
     mask: Tensor | None = None,
 ):
     # Lazy import: tinygrad starts a per-CPU async-executor pool at import time
@@ -195,7 +207,9 @@ def _tensor(
 
     B, N, E = (int(X.shape[0]), int(X.shape[1]), int(X.shape[2]))
     M = int(Q.shape[1])
-    k: int = E + 1
+    k = E + 1 if k is None else k
+    if k <= 0:
+        raise ValueError(f"k must be positive, got k={k}")
 
     # clamp to avoid NaN gradient
     D = pairwise_distance(Q, X).clamp(min_=1e-12).sqrt()  # (B, M, N)

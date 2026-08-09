@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 
+__all__ = ["MetricFunc", "rhos", "mean_rho", "rmse", "mae"]
+
 type MetricFunc = Callable[[np.ndarray, np.ndarray], np.ndarray]
 """MetricFunc is a function that takes (predictions, observations) and returns a metric value."""
 

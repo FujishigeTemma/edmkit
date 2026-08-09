@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Protocol, overload
 
 import numpy as np
 
+__all__ = ["PredictFunc"]
+
 if TYPE_CHECKING:
     from tinygrad import Tensor
 

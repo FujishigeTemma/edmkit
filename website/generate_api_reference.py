@@ -116,7 +116,8 @@ def render_type_aliases(module: Object) -> str:
 
 def render_module(module: Object) -> str:
     """Render a module, inserting a Type Aliases section where griffe2md would place Attributes."""
-    if isinstance(module, Module) and module.modules and export_names(module) is not None:
+    is_package = isinstance(module, Module) and isinstance(module.filepath, Path) and module.filepath.name == "__init__.py"
+    if is_package and export_names(module) is not None:
         base = render_package_exports(module)
     else:
         base = render_object_docs(module, CONFIG)

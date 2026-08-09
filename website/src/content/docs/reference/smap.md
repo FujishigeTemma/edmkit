@@ -12,7 +12,6 @@ sidebar:
 Name | Description
 ---- | -----------
 [`smap`](#edmkit.smap.smap) | Perform S-Map (local linear regression) from `X` to `Y`.
-[`weights`](#edmkit.smap.weights) | Compute S-Map exponential weights, zeroing out masked library points.
 
 ### `smap`
 
@@ -82,21 +81,4 @@ predictions_global = smap(X, Y, Q, theta=0.0)
 correlation_global = np.corrcoef(predictions_global, actual)[0, 1]
 print(f"Correlation (theta=0.0): {correlation_global:.3f}")
 ```
-
-### `weights`
-
-```python
-weights(D: np.ndarray, theta: float, *, mask: np.ndarray | None = None, min_points: int) -> np.ndarray
-```
-
-Compute S-Map exponential weights, zeroing out masked library points.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`D` | <code>[ndarray](#numpy.ndarray)</code> | Distance matrix — (M, N) or (B, M, N). | *required*
-`theta` | <code>[float](#float)</code> | Locality parameter. | *required*
-`mask` | <code>[ndarray](#numpy.ndarray) \| None</code> | Boolean mask over the library axis — (N,) or (B, N). | <code>None</code>
-`min_points` | <code>[int](#int)</code> | Minimum number of valid library points required. | *required*
 

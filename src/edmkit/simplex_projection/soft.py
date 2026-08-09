@@ -7,6 +7,8 @@ from scipy.special import expit
 
 from edmkit.util import pairwise_distance, pairwise_distance_np
 
+__all__ = ["soft_simplex_projection"]
+
 if TYPE_CHECKING:
     from tinygrad import Tensor
 
@@ -17,6 +19,7 @@ def soft_simplex_projection(
     Y: np.ndarray,
     Q: np.ndarray,
     *,
+    k: int | None = None,
     mask: np.ndarray | None = None,
     softness: float = 0.02,
 ) -> np.ndarray: ...
@@ -28,6 +31,7 @@ def soft_simplex_projection(
     Y: Tensor,
     Q: Tensor,
     *,
+    k: int | None = None,
     mask: Tensor | None = None,
     softness: float = 0.02,
 ) -> Tensor: ...
@@ -38,6 +42,7 @@ def soft_simplex_projection(
     Y,
     Q,
     *,
+    k=None,
     mask=None,
     softness=0.02,
 ):
@@ -52,6 +57,8 @@ def soft_simplex_projection(
         The target data of shape (N,) or (N, E') or (B, N, E')
     Q : np.ndarray or Tensor
         The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`.
+    k : int or None, default None
+        The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`.
     mask : np.ndarray or Tensor or None
         Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`.
     softness : float, default 0.02
@@ -67,9 +74,10 @@ def soft_simplex_projection(
     Raises
     ------
     ValueError
+        - If `k` is not positive.
         - If `softness` is not positive.
         - If the input arrays `X` and `Y` do not have the same number of points.
-        - If `X` does not contain at least `E + 2` points.
+        - If `X` does not contain at least `k + 1` points.
 
     Examples
     --------
@@ -107,9 +115,9 @@ def soft_simplex_projection(
     ```
     """
     if isinstance(X, np.ndarray):
-        return _numpy(X, Y, Q, mask=mask, softness=softness)
+        return _numpy(X, Y, Q, k=k, mask=mask, softness=softness)
 
-    return _tensor(X, Y, Q, mask=mask, softness=softness)
+    return _tensor(X, Y, Q, k=k, mask=mask, softness=softness)
 
 
 def _numpy(
@@ -117,6 +125,7 @@ def _numpy(
     Y: np.ndarray,
     Q: np.ndarray,
     *,
+    k: int | None = None,
     mask: np.ndarray | None = None,
     softness: float = 0.02,
 ) -> np.ndarray:
@@ -146,7 +155,9 @@ def _numpy(
             mask = mask[None]
 
     _, N, E = X.shape
-    k: int = E + 1
+    k = E + 1 if k is None else k
+    if k <= 0:
+        raise ValueError(f"k must be positive, got k={k}")
     if N < k + 1:
         raise ValueError(f"Not enough points in X to find {k + 1} neighbors, got N={N}")
 
@@ -181,6 +192,7 @@ def _tensor(
     Y: Tensor,
     Q: Tensor,
     *,
+    k: int | None = None,
     mask: Tensor | None = None,
     softness: float = 0.02,
 ) -> Tensor:
@@ -211,7 +223,9 @@ def _tensor(
 
     N = int(X.shape[1])
     E = int(X.shape[2])
-    k: int = E + 1
+    k = E + 1 if k is None else k
+    if k <= 0:
+        raise ValueError(f"k must be positive, got k={k}")
     if N < k + 1:
         raise ValueError(f"Not enough points in X to find {k + 1} neighbors, got N={N}")
 

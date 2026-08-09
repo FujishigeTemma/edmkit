@@ -1,5 +1,7 @@
 import numpy as np
 
+__all__ = ["mackey_glass"]
+
 
 def mackey_glass(tau: float, n: int, beta: float, gamma: float, x0: float, dt: float, t_max: int):
     """Generate a Mackey-Glass chaotic time series via forward Euler integration.
