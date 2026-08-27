@@ -38,12 +38,12 @@ If the system is linear, raising `theta` cannot improve skill. If it is nonlinea
 Evaluate the same forecast at several `theta` values and compare `rho(theta)`.
 
 ```python
-from edmkit.metrics import mean_rho
+from edmkit.metrics import pearson_correlation
 from edmkit.smap import smap
 
 for theta in [0, 0.1, 0.3, 1, 2, 4, 8]:
     prediction = smap(library, target, query, theta=theta)
-    print(f"theta={theta:>4}: rho={mean_rho(prediction, truth):.3f}")
+    print(f"theta={theta:>4}: rho={pearson_correlation(prediction, truth):.3f}")
 ```
 
 If `rho(0)` is already best, the data look linear. If `rho` keeps climbing with `theta`, the system has nonlinear dynamics and local methods carry real predictive content.

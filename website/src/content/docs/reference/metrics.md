@@ -5,77 +5,61 @@ sidebar:
   order: 5
 ---
 
-## `metrics`
-
-**Type Aliases:**
-
-Name | Description
----- | -----------
-[`MetricFunc`](#edmkit.metrics.MetricFunc) | MetricFunc is a function that takes (predictions, observations) and returns a metric value.
-
-### `MetricFunc` {#edmkit.metrics.MetricFunc}
-
-```python
-type MetricFunc = Callable[[np.ndarray, np.ndarray], np.ndarray]
-```
-
-MetricFunc is a function that takes (predictions, observations) and returns a metric value.
-
 **Functions:**
 
 Name | Description
 ---- | -----------
-[`rhos`](#edmkit.metrics.rhos) | Pearson correlation per dimension.
-[`mean_rho`](#edmkit.metrics.mean_rho) | Mean Pearson correlation.
-[`rmse`](#edmkit.metrics.rmse) | Root Mean Squared Error.
-[`mae`](#edmkit.metrics.mae) | Mean Absolute Error.
+[`MetricFunc`](#MetricFunc) | Metric function protocol.
+[`pearson_correlation`](#pearson_correlation) | Mean Pearson correlation over the target dimensions.
+[`rmse`](#rmse) | Root Mean Squared Error.
+[`mae`](#mae) | Mean Absolute Error.
 
-### `rhos`
+## `MetricFunc`
+
+Bases: <code>[Protocol](#typing.Protocol)</code>
+
+Metric function protocol.
+
+Accepts predictions and observations of the same shape and returns a metric value.
+
+
+
+## `pearson_correlation`
 
 ```python
-rhos(predictions: np.ndarray, observations: np.ndarray) -> np.ndarray
+pearson_correlation(predictions, observations)
 ```
 
-Pearson correlation per dimension.
+Mean Pearson correlation over the target dimensions.
+
+The correlation is computed per target dimension along the sample axis,
+then averaged over the dimensions.
 
 **Parameters:**
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
-`observations` | <code>[ndarray](#numpy.ndarray)</code> | Same shape as predictions. | *required*
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
+`observations` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | Same shape as `predictions`. | *required*
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | ``(1,)`` for 1D input, ``(D,)`` for 2D, ``(B, D)`` for 3D.
+<code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
 
-### `mean_rho`
-
-```python
-mean_rho(predictions: np.ndarray, observations: np.ndarray) -> np.ndarray
-```
-
-Mean Pearson correlation.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
-`observations` | <code>[ndarray](#numpy.ndarray)</code> | Same shape as predictions. | *required*
-
-**Returns:**
+**Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
+<code>[ValueError](#ValueError)</code> | - If `predictions` and `observations` have different shapes. - If the inputs are not 1D, 2D, or 3D.
 
-### `rmse`
+
+
+## `rmse`
 
 ```python
-rmse(predictions: np.ndarray, observations: np.ndarray) -> np.ndarray
+rmse(predictions, observations)
 ```
 
 Root Mean Squared Error.
@@ -84,19 +68,27 @@ Root Mean Squared Error.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
-`observations` | <code>[ndarray](#numpy.ndarray)</code> | Same shape as *predictions*. | *required*
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
+`observations` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | Same shape as `predictions`. | *required*
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
+<code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
 
-### `mae`
+**Raises:**
+
+Type | Description
+---- | -----------
+<code>[ValueError](#ValueError)</code> | - If `predictions` and `observations` have different shapes. - If the inputs are not 1D, 2D, or 3D.
+
+
+
+## `mae`
 
 ```python
-mae(predictions: np.ndarray, observations: np.ndarray) -> np.ndarray
+mae(predictions, observations)
 ```
 
 Mean Absolute Error.
@@ -105,12 +97,18 @@ Mean Absolute Error.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
-`observations` | <code>[ndarray](#numpy.ndarray)</code> | Same shape as predictions. | *required*
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | ``(N,)``, ``(N, D)``, or ``(B, N, D)``. | *required*
+`observations` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | Same shape as `predictions`. | *required*
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
+<code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | ``()`` for 1D/2D input, ``(B,)`` for 3D input.
+
+**Raises:**
+
+Type | Description
+---- | -----------
+<code>[ValueError](#ValueError)</code> | - If `predictions` and `observations` have different shapes. - If the inputs are not 1D, 2D, or 3D.
 

@@ -238,5 +238,4 @@ def _tensor(
 if TYPE_CHECKING:
     from edmkit.types import PredictFunc
 
-    f: PredictFunc[np.ndarray] = simplex_projection
-    g: PredictFunc[Tensor] = simplex_projection
+    func: PredictFunc = simplex_projection

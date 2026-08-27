@@ -92,7 +92,7 @@ Name | Type | Description | Default
 `tau` | <code>[list](#list)[[int](#int)]</code> | Time delay candidates. | *required*
 `split` | <code>[SplitFunc](#edmkit.splits.SplitFunc) or None</code> | Callable ``(n: int) -> list[Fold]``. Defaults to sliding_folds. | <code>None</code>
 `predict` | <code>[PredictFunc](#edmkit.types.PredictFunc) or None</code> | Prediction function. Defaults to ``simplex_projection``. | <code>None</code>
-`metric` | <code>[MetricFunc](#edmkit.metrics.MetricFunc) or None</code> | Evaluation metric. Defaults to ``mean_rho``. | <code>None</code>
+`metric` | <code>[MetricFunc](#edmkit.metrics.MetricFunc) or None</code> | Evaluation metric. Defaults to ``pearson_correlation``. | <code>None</code>
 
 **Returns:**
 

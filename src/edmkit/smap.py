@@ -348,9 +348,6 @@ def _tensor(
 if TYPE_CHECKING:
     from functools import partial
 
-    from tinygrad import Tensor
-
     from edmkit.types import PredictFunc
 
-    f: PredictFunc[np.ndarray] = partial(smap, theta=4.0)
-    g: PredictFunc[Tensor] = partial(smap, theta=0.0)
+    func: PredictFunc = partial(smap, theta=4.0)

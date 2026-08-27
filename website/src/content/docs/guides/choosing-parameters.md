@@ -62,7 +62,7 @@ Use `candidate_tau` to size `tau_grid`.
 | --- | --- | --- |
 | `split` | `sliding_folds`, `N/5` train, `N/10` validation | Trend or regime shifts — use `expanding_folds` to grow the training set. |
 | `predict` | `simplex_projection` | Picking parameters for an S-Map workflow — pass `partial(smap, theta=...)`. |
-| `metric` | `mean_rho` | Multidimensional target or you prefer absolute error — pass `rmse` or `mae`. |
+| `metric` | `pearson_correlation` | Multidimensional target or you prefer absolute error — pass `rmse` or `mae`. |
 
 Switching to expanding-window CV with RMSE for a noisy non-stationary series:
 
@@ -99,11 +99,11 @@ scores = scan(
 ```python
 from edmkit.simplex_projection import loo
 from edmkit.embedding import lagged_embed
-from edmkit.metrics import mean_rho
+from edmkit.metrics import pearson_correlation
 
 embedded = lagged_embed(x, tau=tau, e=E)
 prediction = loo(embedded, embedded[:, 0], theiler_window=(E - 1) * tau)
-print(mean_rho(prediction, embedded[:, 0]))
+print(pearson_correlation(prediction, embedded[:, 0]))
 ```
 
 - **Permuted baseline.** Shuffle `x` and re-run `scan`. The best `rho` on the shuffle is the noise floor; your real choice should beat it by a clear margin.

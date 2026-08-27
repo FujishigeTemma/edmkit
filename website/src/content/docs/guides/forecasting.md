@@ -76,17 +76,17 @@ Random splits leak across train and test through overlapping embeddings. Stick w
 ## Predict and evaluate
 
 ```python
-from edmkit.metrics import mae, mean_rho, rmse
+from edmkit.metrics import mae, pearson_correlation, rmse
 from edmkit.simplex_projection import simplex_projection
 
 prediction = simplex_projection(library, target, query)
 
-print(f"rho:  {mean_rho(prediction, truth):.3f}")
+print(f"rho:  {pearson_correlation(prediction, truth):.3f}")
 print(f"rmse: {rmse(prediction, truth):.3f}")
 print(f"mae:  {mae(prediction, truth):.3f}")
 ```
 
-Report at least one correlation-like metric (`mean_rho`) and one error-scale metric (`rmse` or `mae`). Correlation tells you about shape; error tells you about magnitude.
+Report at least one correlation-like metric (`pearson_correlation`) and one error-scale metric (`rmse` or `mae`). Correlation tells you about shape; error tells you about magnitude.
 
 ## Leave-one-out with a Theiler window
 
@@ -98,7 +98,7 @@ from edmkit.simplex_projection import loo
 target_all = x[shift + 1 : shift + len(embedded) + 1]
 prediction_all = loo(embedded[:-1], target_all, theiler_window=(E - 1) * tau)
 
-print(f"LOO rho:  {mean_rho(prediction_all, target_all):.3f}")
+print(f"LOO rho:  {pearson_correlation(prediction_all, target_all):.3f}")
 ```
 
 `loo` is the right tool for diagnostics — picking `E` from a short series, comparing `theta`, or a quick baseline. Keep a held-out evaluation when you need a number no parameter choice has seen.
@@ -112,7 +112,7 @@ from edmkit.smap import smap
 
 for theta in [0, 0.1, 0.3, 1, 2, 4, 8]:
     prediction_theta = smap(library, target, query, theta=theta)
-    print(f"theta={theta:>4}: rho={mean_rho(prediction_theta, truth):.3f}")
+    print(f"theta={theta:>4}: rho={pearson_correlation(prediction_theta, truth):.3f}")
 ```
 
 Expected pattern on a chaotic Lorenz trace: modest `rho(0)`, climbing through `theta=1` to `3`, then plateauing.

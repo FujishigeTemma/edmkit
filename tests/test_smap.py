@@ -28,6 +28,13 @@ class SmapCase(NamedTuple):
     mask: np.ndarray | None
 
 
+class WeightsProblem(NamedTuple):
+    distances: np.ndarray
+    theta: float
+    mask: np.ndarray | None
+    min_points: int
+
+
 class WeightsCase(NamedTuple):
     distances: np.ndarray
     theta: float
@@ -35,7 +42,7 @@ class WeightsCase(NamedTuple):
     min_points: int
 
 
-def weighted_lstsq_reference(
+def smap_reference(
     x: np.ndarray,
     y: np.ndarray,
     q: np.ndarray,
@@ -76,7 +83,7 @@ def weighted_lstsq_reference(
 def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
     actual = smap(x, y, q, theta=theta, alpha=alpha, mask=mask)
     if x.ndim == 2:
-        expected = weighted_lstsq_reference(
+        expected = smap_reference(
             x,
             y,
             q,
@@ -87,7 +94,7 @@ def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha:
     else:
         expected = np.stack(
             [
-                weighted_lstsq_reference(
+                smap_reference(
                     xi,
                     yi,
                     qi,
@@ -274,6 +281,38 @@ SMAP_INVALID = {
 def test_smap_invalid(case: SmapCase) -> None:
     with pytest.raises(ValueError):
         smap(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
+
+
+@st.composite
+def weights_problems(draw):
+    n = draw(st.integers(3, 12))
+    m = draw(st.integers(1, 4))
+    min_points = draw(st.integers(1, n))
+    batched = draw(st.booleans())
+    masked = draw(st.booleans())
+    rng = np.random.default_rng(draw(st.integers(0, 2**32 - 1)))
+    if batched:
+        b = draw(st.integers(1, 3))
+        distances = rng.uniform(0.0, 10.0, size=(b, m, n))
+        mask = np.ones((b, n), dtype=bool) if masked else None
+        if mask is not None:
+            for batch in range(b):
+                n_remove = draw(st.integers(0, n - min_points))
+                if n_remove:
+                    mask[batch, rng.permutation(n)[:n_remove]] = False
+    else:
+        distances = rng.uniform(0.0, 10.0, size=(m, n))
+        mask = np.ones(n, dtype=bool) if masked else None
+        if mask is not None:
+            n_remove = draw(st.integers(0, n - min_points))
+            if n_remove:
+                mask[rng.permutation(n)[:n_remove]] = False
+    return WeightsProblem(distances, draw(st.sampled_from((0.0, 0.5, 2.5))), mask, min_points)
+
+
+@given(problem=weights_problems())
+def test_weights_compatibility(problem: WeightsProblem) -> None:
+    check_weights(*problem)
 
 
 WEIGHTS_VALID = {

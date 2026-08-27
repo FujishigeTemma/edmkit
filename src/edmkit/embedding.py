@@ -3,7 +3,7 @@ from itertools import product
 
 import numpy as np
 
-from edmkit.metrics import MetricFunc, mean_rho
+from edmkit.metrics import MetricFunc, pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 from edmkit.splits import SplitFunc, sliding_folds
 from edmkit.types import PredictFunc
@@ -100,7 +100,7 @@ def scan(
     predict : PredictFunc or None
         Prediction function. Defaults to ``simplex_projection``.
     metric : MetricFunc or None
-        Evaluation metric. Defaults to ``mean_rho``.
+        Evaluation metric. Defaults to ``pearson_correlation``.
 
     Returns
     -------
@@ -116,7 +116,7 @@ def scan(
     if predict is None:
         predict = simplex_projection
     if metric is None:
-        metric = mean_rho
+        metric = pearson_correlation
     if split is None:
         split = partial(
             sliding_folds,

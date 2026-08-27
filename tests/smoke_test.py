@@ -1,11 +1,11 @@
 import numpy as np
 
 from edmkit import generate
-from edmkit.ccm import with_simplex_projection
+from edmkit.ccm import ccm
 from edmkit.embedding import lagged_embed
+from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
-
 
 if __name__ == "__main__":
     from tinygrad import Tensor
@@ -26,10 +26,12 @@ if __name__ == "__main__":
     assert np.isfinite(tensor_prediction.numpy()).all()
 
     n = len(embedding)
-    correlations = with_simplex_projection(
+    correlations = ccm(
         embedding,
         x[1:],
         np.array([10, 20]),
+        simplex_projection,
+        pearson_correlation,
         n_samples=3,
         library_pool=np.arange(n // 2),
         prediction_pool=np.arange(n // 2, n),

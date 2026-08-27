@@ -1,10 +1,8 @@
 from collections.abc import Callable
-from functools import partial
 
 import numpy as np
 
-from edmkit.simplex_projection import simplex_projection
-from edmkit.smap import smap
+from edmkit.metrics import MetricFunc
 from edmkit.types import PredictFunc
 
 __all__ = [
@@ -13,8 +11,6 @@ __all__ = [
     "make_sample_func",
     "bootstrap",
     "ccm",
-    "with_simplex_projection",
-    "with_smap",
 ]
 
 type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
@@ -38,15 +34,16 @@ def bootstrap(
     Y: np.ndarray,
     lib_sizes: np.ndarray,
     predict_func: PredictFunc,
+    metric_func: MetricFunc,
     n_samples: int = 20,
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
     sample_func: SampleFunc | None = None,
-    batch_size: int | None = 10,
+    batch_size: int | None = 20,
 ) -> np.ndarray:
     """
-    Perform Convergent Cross Mapping and return per-sample correlations.
+    Perform Convergent Cross Mapping and return per-sample scores.
 
     Same as :func:`ccm` but returns the raw per-sample scores instead of
     aggregating them.
@@ -54,13 +51,16 @@ def bootstrap(
     Parameters
     ----------
     X : np.ndarray
-        Library time series (potential response)
+        Library delay vectors of shape ``(T,)`` or ``(T, E)`` (potential response).
     Y : np.ndarray
-        Target time series (potential driver)
+        Target values of shape ``(T,)`` or ``(T, E')`` (potential driver).
+        A 2D `Y` cross-maps to a delay vector; the metric scores all columns jointly.
     lib_sizes : np.ndarray
         Array of library sizes to test convergence.
     predict_func : PredictFunc
         Prediction function with signature (X, Y, Q) -> predictions.
+    metric_func : MetricFunc
+        Metric function with signature (predictions, observations) -> metric value.
     n_samples : int, default 20
         Number of random samples per library size for bootstrapping.
     library_pool : np.ndarray
@@ -70,13 +70,13 @@ def bootstrap(
     sample_func : SampleFunc or None, default None
         Function responsible for drawing a library sample of a given size.
         When None, a fresh RNG-backed sampler is created per call.
-    batch_size : int or None, default 10
+    batch_size : int or None, default 20
         If specified, predictions are made in batches to limit memory usage.
 
     Returns
     -------
     samples : np.ndarray
-        Per-sample correlation coefficients of shape ``(n_samples, len(lib_sizes))``.
+        Per-sample skill scores of shape ``(n_samples, len(lib_sizes))``.
     """
     if sample_func is None:
         sample_func = make_sample_func()
@@ -117,7 +117,7 @@ def bootstrap(
             predictions = predict_func(lib_X, lib_Y, Q[:batch])
 
             offset = n_samples - remaining
-            samples[offset : offset + batch, i] = pearson_correlation(predictions, actual[:batch])
+            samples[offset : offset + batch, i] = metric_func(predictions, actual[:batch])
             remaining -= batch
 
     return samples
@@ -128,13 +128,14 @@ def ccm(
     Y: np.ndarray,
     lib_sizes: np.ndarray,
     predict_func: PredictFunc,
+    metric_func: MetricFunc,
     n_samples: int = 20,
     *,
     library_pool: np.ndarray,
     prediction_pool: np.ndarray,
     sample_func: SampleFunc | None = None,
     aggregate_func: AggregateFunc = np.mean,
-    batch_size: int | None = 10,
+    batch_size: int | None = 20,
 ) -> np.ndarray:
     """
     Perform Convergent Cross Mapping using a custom prediction function.
@@ -146,14 +147,17 @@ def ccm(
     Parameters
     ----------
     X : np.ndarray
-        Library time series (potential response)
+        Library delay vectors of shape ``(T,)`` or ``(T, E)`` (potential response).
     Y : np.ndarray
-        Target time series (potential driver)
+        Target values of shape ``(T,)`` or ``(T, E')`` (potential driver).
+        A 2D `Y` cross-maps to a delay vector; the metric scores all columns jointly.
     lib_sizes : np.ndarray
         Array of library sizes to test convergence.
     predict_func : PredictFunc
         Prediction function with signature (X, Y, Q) -> predictions.
         Can be `simplex_projection`, `smap` with partial application, or a custom function.
+    metric_func : MetricFunc
+        Metric function with signature (predictions, observations) -> metric value.
     n_samples : int, default 100
         Number of random samples per library size for bootstrapping.
     library_pool : np.ndarray
@@ -165,8 +169,8 @@ def ccm(
         It receives ``(pool, size)`` and returns an array of indices.
         When None, a fresh RNG-backed sampler is created per call.
     aggregate_func : AggregateFunc, default np.mean
-        Reducer applied to the correlation samples for each library size.
-    batch_size : int or None, default None
+        Reducer applied to the skill samples for each library size.
+    batch_size : int or None, default 20
         If not specified, batch_size == n_samples.
         If specified, predictions are made in batches to limit memory usage.
     Returns
@@ -197,8 +201,11 @@ def ccm(
 
     import numpy as np
 
-    from edmkit.ccm import ccm, simplex_projection, smap
+    from edmkit.ccm import ccm
     from edmkit.embedding import lagged_embed
+    from edmkit.metrics import pearson_correlation
+    from edmkit.simplex_projection import simplex_projection
+    from edmkit.smap import smap
 
     # Generate coupled logistic maps (X drives Y)
     N = 1000
@@ -230,6 +237,7 @@ def ccm(
         X_aligned,
         lib_sizes=lib_sizes,
         predict_func=simplex_projection,
+        metric_func=pearson_correlation,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
     )
@@ -240,6 +248,7 @@ def ccm(
         X_aligned,
         lib_sizes=lib_sizes,
         predict_func=partial(smap, theta=2.0, alpha=1e-10),
+        metric_func=pearson_correlation,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
     )
@@ -253,6 +262,7 @@ def ccm(
         Y,
         lib_sizes,
         predict_func,
+        metric_func,
         n_samples,
         library_pool=library_pool,
         prediction_pool=prediction_pool,
@@ -261,248 +271,3 @@ def ccm(
     )
 
     return np.array([aggregate_func(samples[:, i]) for i in range(samples.shape[1])])
-
-
-def pearson_correlation(X: np.ndarray, Y: np.ndarray) -> np.ndarray:
-    """
-    Compute vectorized Pearson correlation between X and Y.
-
-    Parameters
-    ----------
-    X : np.ndarray
-        1D or 2D array of shape (L,) or (B, L)
-    Y : np.ndarray
-        1D or 2D array of shape (L,) or (B, L)
-
-    Returns
-    -------
-    correlation : np.ndarray
-        Pearson correlation coefficient(s) between X and Y. Shape (B,) if inputs are 2D, else scalar.
-    """
-    if X.ndim == 1:
-        X = X[None, :]
-    if Y.ndim == 1:
-        Y = Y[None, :]
-
-    mean_X = X.mean(axis=1, keepdims=True)
-    mean_Y = Y.mean(axis=1, keepdims=True)
-    cov = ((X - mean_X) * (Y - mean_Y)).mean(axis=1)
-    std_X = X.std(axis=1)
-    std_Y = Y.std(axis=1)
-    denom = std_X * std_Y
-    safe_denom = np.where(denom > 0, denom, 1.0)
-    correlation = np.where(denom > 0, cov / safe_denom, 0.0)
-
-    return correlation.squeeze()
-
-
-def with_simplex_projection(
-    X: np.ndarray,
-    Y: np.ndarray,
-    lib_sizes: np.ndarray,
-    n_samples: int = 100,
-    *,
-    library_pool: np.ndarray,
-    prediction_pool: np.ndarray,
-    sample_func: SampleFunc | None = None,
-    aggregate_func: AggregateFunc = np.mean,
-) -> np.ndarray:
-    """
-    Perform Convergent Cross Mapping using simplex projection.
-
-    This is a convenience wrapper around the general ccm function using
-    simplex_projection as the prediction method.
-
-    Parameters
-    ----------
-    X : np.ndarray
-        Library time series (potential response)
-    Y : np.ndarray
-        Target time series (potential driver)
-    lib_sizes : np.ndarray
-        Array of library sizes to test convergence
-    n_samples : int, default 100
-        Number of random samples per library size for bootstrapping
-    library_pool : np.ndarray, optional
-        Indices that can be used to draw library samples. Defaults to the full range.
-    prediction_pool : np.ndarray, optional
-        Indices that should be predicted (leave-one-out over this set). Defaults to the full range.
-    sample_func : callable, optional
-        Function responsible for drawing a library sample of a given size.
-        When omitted, a fresh RNG-backed sampler is created per call.
-    aggregate_func : callable, optional
-        Reducer applied to the correlation samples for each library size.
-        Falls back to `np.mean` when omitted.
-    Returns
-    -------
-    correlations : np.ndarray
-        Mean correlation coefficient for each library size
-
-    Raises
-    ------
-    ValueError
-        - If the underlying ccm call detects invalid arguments
-
-    Examples
-    --------
-    ```python
-    import numpy as np
-
-    from edmkit import ccm
-    from edmkit.embedding import lagged_embed
-
-    # Generate coupled logistic maps (X drives Y)
-    N = 1000
-    rx, ry, Bxy = 3.8, 3.5, 0.02
-    X = np.zeros(N)
-    Y = np.zeros(N)
-    X[0], Y[0] = 0.4, 0.2
-    for i in range(1, N):
-        X[i] = X[i - 1] * (rx - rx * X[i - 1])
-        Y[i] = Y[i - 1] * (ry - ry * Y[i - 1]) + Bxy * X[i - 1]
-
-    tau = 1
-    E = 2
-
-    # To test X -> Y causality, cross-map from Y's attractor to X
-    Y_embedding = lagged_embed(Y, tau=tau, e=E)
-    shift = tau * (E - 1)
-    X_aligned = X[shift:]
-
-    library_pool = np.arange(Y_embedding.shape[0] // 2)
-    prediction_pool = np.arange(Y_embedding.shape[0] // 2, Y_embedding.shape[0])
-
-    # logarithmic within range 10 to max library size
-    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=5, dtype=int)
-
-    correlations = ccm.with_simplex_projection(
-        Y_embedding,
-        X_aligned,
-        lib_sizes=lib_sizes,
-        library_pool=library_pool,
-        prediction_pool=prediction_pool,
-    )
-    ```
-    """
-
-    return ccm(
-        X=X,
-        Y=Y,
-        lib_sizes=lib_sizes,
-        predict_func=simplex_projection,
-        n_samples=n_samples,
-        library_pool=library_pool,
-        prediction_pool=prediction_pool,
-        sample_func=sample_func,
-        aggregate_func=aggregate_func,
-    )
-
-
-def with_smap(
-    X: np.ndarray,
-    Y: np.ndarray,
-    lib_sizes: np.ndarray,
-    theta: float,
-    alpha: float = 1e-10,
-    n_samples: int = 100,
-    *,
-    library_pool: np.ndarray,
-    prediction_pool: np.ndarray,
-    sample_func: SampleFunc | None = None,
-    aggregate_func: AggregateFunc = np.mean,
-) -> np.ndarray:
-    """
-    Perform Convergent Cross Mapping using S-Map (local linear regression).
-
-    This is a convenience wrapper around the general ccm function using
-    smap as the prediction method.
-
-    Parameters
-    ----------
-    X : np.ndarray
-        Library time series (potential response)
-    Y : np.ndarray
-        Target time series (potential driver)
-    lib_sizes : np.ndarray
-        Array of library sizes to test convergence
-    theta : float
-        Nonlinearity parameter for S-Map
-    alpha : float, default 1e-10
-        Regularization parameter for S-Map
-    n_samples : int, default 100
-        Number of random samples per library size for bootstrapping
-    library_pool : np.ndarray, optional
-        Indices that can be used to draw library samples. Defaults to the full range.
-    prediction_pool : np.ndarray, optional
-        Indices that should be predicted (leave-one-out over this set). Defaults to the full range.
-    sample_func : callable, optional
-        Function responsible for drawing a library sample of a given size.
-        When omitted, a fresh RNG-backed sampler is created per call.
-    aggregate_func : callable, optional
-        Reducer applied to the correlation samples for each library size.
-        Falls back to `np.mean` when omitted.
-    Returns
-    -------
-    correlations : np.ndarray
-        Mean correlation coefficient for each library size
-
-    Raises
-    ------
-    ValueError
-        - If the underlying ccm call detects invalid arguments
-
-    Examples
-    --------
-    ```python
-    import numpy as np
-
-    from edmkit import ccm
-    from edmkit.embedding import lagged_embed
-
-    # Generate coupled logistic maps (X drives Y)
-    N = 1000
-    rx, ry, Bxy = 3.8, 3.5, 0.02
-    X = np.zeros(N)
-    Y = np.zeros(N)
-    X[0], Y[0] = 0.4, 0.2
-    for i in range(1, N):
-        X[i] = X[i - 1] * (rx - rx * X[i - 1])
-        Y[i] = Y[i - 1] * (ry - ry * Y[i - 1]) + Bxy * X[i - 1]
-
-    tau = 1
-    E = 2
-
-    # To test X -> Y causality, cross-map from Y's attractor to X
-    Y_embedding = lagged_embed(Y, tau=tau, e=E)
-    shift = tau * (E - 1)
-    X_aligned = X[shift:]
-
-    library_pool = np.arange(Y_embedding.shape[0] // 2)
-    prediction_pool = np.arange(Y_embedding.shape[0] // 2, Y_embedding.shape[0])
-
-    # logarithmic within range 10 to max library size
-    lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=5, dtype=int)
-
-    correlations = ccm.with_smap(
-        Y_embedding,
-        X_aligned,
-        lib_sizes=lib_sizes,
-        theta=2.0,
-        library_pool=library_pool,
-        prediction_pool=prediction_pool,
-    )
-    ```
-    """
-    predict_func = partial(smap, theta=theta, alpha=alpha)
-
-    return ccm(
-        X=X,
-        Y=Y,
-        lib_sizes=lib_sizes,
-        predict_func=predict_func,
-        n_samples=n_samples,
-        library_pool=library_pool,
-        prediction_pool=prediction_pool,
-        sample_func=sample_func,
-        aggregate_func=aggregate_func,
-    )

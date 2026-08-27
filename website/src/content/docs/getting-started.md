@@ -29,7 +29,7 @@ The Lorenz system is deterministic but chaotic — hard for parametric models, i
 import numpy as np
 from edmkit.embedding import lagged_embed, scan, select
 from edmkit.generate import lorenz
-from edmkit.metrics import mean_rho
+from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 
 # 1. Generate a Lorenz trajectory and keep only the x component.
@@ -60,7 +60,7 @@ truth = x[shift + half + 1 : shift + n_pairs + 1]
 
 # 5. Predict and evaluate.
 prediction = simplex_projection(library, target, query)
-print(f"Test rho: {mean_rho(prediction, truth):.3f}")
+print(f"Test rho: {pearson_correlation(prediction, truth):.3f}")
 ```
 
 Expect a held-out correlation above 0.9 at this series length. The same pipeline works for any scalar series — see the [forecasting guide](/edmkit/guides/forecasting/) for cross-validated variants.
