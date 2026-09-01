@@ -2,7 +2,7 @@
 title: util
 description: Utility functions for distance computation, padding, and more.
 sidebar:
-  order: 8
+  order: 9
 ---
 
 ## `util`

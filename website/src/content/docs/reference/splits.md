@@ -2,7 +2,7 @@
 title: splits
 description: Time-series cross-validation strategies.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 ## `splits`

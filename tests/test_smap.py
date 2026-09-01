@@ -8,6 +8,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from edmkit.smap import smap, weights
+from edmkit.theiler_window import theiler_window
 
 
 class SmapProblem(NamedTuple):
@@ -51,10 +52,10 @@ def smap_reference(
     alpha: float,
     mask: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Independent S-Map reference returning the canonical ``(M, targets)`` shape."""
+    """Independent S-Map reference returning the canonical ``(M, targets)`` shape; `mask` is per-query with shape (M, N)."""
     y = y[:, None] if y.ndim == 1 else y
     if mask is not None:
-        x, y = x[mask], y[mask]
+        return np.concatenate([smap_reference(x[keep], y[keep], q[query : query + 1], theta=theta, alpha=alpha) for query, keep in enumerate(mask)])
 
     x_aug = np.column_stack([np.ones(len(x)), x])
     q_aug = np.column_stack([np.ones(len(q)), q])
@@ -110,7 +111,7 @@ def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha:
 
 
 def weights_reference(distances: np.ndarray, theta: float, mask: np.ndarray | None, min_points: int) -> np.ndarray:
-    valid = np.isfinite(distances) if mask is None else np.isfinite(distances) & mask[..., None, :]
+    valid = np.isfinite(distances) if mask is None else np.isfinite(distances) & mask
     counts = valid.sum(axis=-1, keepdims=True)
     assert int(counts.min()) >= min_points
     if theta == 0.0:
@@ -168,18 +169,20 @@ def smap_problems(draw):
         x = rng.normal(size=(batches, n, e))
         y = rng.normal(size=(batches, n, targets))
         q = rng.normal(size=(batches, m, e))
-        mask = np.ones((batches, n), dtype=bool) if masked else None
+        mask = np.ones((batches, m, n), dtype=bool) if masked else None
         if mask is not None:
             for batch in range(batches):
                 n_remove = min(batch + 1, n - (e + 1))
-                mask[batch, rng.permutation(n)[:n_remove]] = False
+                for query in range(m):
+                    mask[batch, query, rng.permutation(n)[:n_remove]] = False
     else:
         x = rng.normal(size=(n, e))
         y = rng.normal(size=(n, targets))
         q = rng.normal(size=(m, e))
-        mask = np.ones(n, dtype=bool) if masked else None
+        mask = np.ones((m, n), dtype=bool) if masked else None
         if mask is not None:
-            mask[rng.permutation(n)[:2]] = False
+            for query in range(m):
+                mask[query, rng.permutation(n)[:2]] = False
         if targets == 1:
             y = y[:, 0]
     return SmapProblem(
@@ -228,7 +231,7 @@ SMAP_VALID = {
         np.random.default_rng(11).normal(size=(4, 2)),
         1.0,
         0.25,
-        np.array([True] * 14 + [False] * 2),
+        np.array([[True] * 14 + [False] * 2] * 3 + [[False] * 2 + [True] * 14]),
     ),
     "local-scalar-batched-3d": SmapCase(
         np.random.default_rng(12).normal(size=(2, 16, 2)),
@@ -244,7 +247,20 @@ SMAP_VALID = {
         np.random.default_rng(17).normal(size=(2, 4, 2)),
         2.0,
         0.1,
-        np.array([[True] * 15 + [False], [True] * 14 + [False] * 2]),
+        np.stack(
+            [
+                np.array([[True] * 15 + [False]] * 3 + [[False] + [True] * 15]),
+                np.array([[True] * 14 + [False] * 2] * 3 + [[False] * 2 + [True] * 14]),
+            ]
+        ),
+    ),
+    "theiler-self-query-2d": SmapCase(
+        np.random.default_rng(18).normal(size=(20, 2)),
+        np.random.default_rng(19).normal(size=20),
+        np.random.default_rng(18).normal(size=(20, 2)),
+        1.5,
+        1e-4,
+        theiler_window(np.arange(20), np.arange(20), 2),
     ),
 }
 
@@ -272,7 +288,15 @@ SMAP_INVALID = {
         np.array([[0.0, 0.0]]),
         1.0,
         0.0,
-        np.array([True, True, False, False, False]),
+        np.array([[True, True, False, False, False]]),
+    ),
+    "mask-not-per-query": SmapCase(
+        np.zeros((5, 2)),
+        np.zeros(5),
+        np.zeros((2, 2)),
+        1.0,
+        0.0,
+        np.ones(5, dtype=bool),
     ),
 }
 
@@ -294,19 +318,21 @@ def weights_problems(draw):
     if batched:
         b = draw(st.integers(1, 3))
         distances = rng.uniform(0.0, 10.0, size=(b, m, n))
-        mask = np.ones((b, n), dtype=bool) if masked else None
+        mask = np.ones((b, m, n), dtype=bool) if masked else None
         if mask is not None:
             for batch in range(b):
                 n_remove = draw(st.integers(0, n - min_points))
-                if n_remove:
-                    mask[batch, rng.permutation(n)[:n_remove]] = False
+                for query in range(m):
+                    if n_remove:
+                        mask[batch, query, rng.permutation(n)[:n_remove]] = False
     else:
         distances = rng.uniform(0.0, 10.0, size=(m, n))
-        mask = np.ones(n, dtype=bool) if masked else None
+        mask = np.ones((m, n), dtype=bool) if masked else None
         if mask is not None:
             n_remove = draw(st.integers(0, n - min_points))
-            if n_remove:
-                mask[rng.permutation(n)[:n_remove]] = False
+            for query in range(m):
+                if n_remove:
+                    mask[query, rng.permutation(n)[:n_remove]] = False
     return WeightsProblem(distances, draw(st.sampled_from((0.0, 0.5, 2.5))), mask, min_points)
 
 
@@ -320,7 +346,7 @@ WEIGHTS_VALID = {
     "local-masked": WeightsCase(
         np.array([[0.0, 1.0, 2.0]]),
         2.0,
-        np.array([True, True, False]),
+        np.array([[True, True, False]]),
         2,
     ),
 }

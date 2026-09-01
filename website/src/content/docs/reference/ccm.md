@@ -2,7 +2,7 @@
 title: ccm
 description: Convergent Cross Mapping for causal inference.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 ## `ccm`

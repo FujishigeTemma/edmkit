@@ -30,6 +30,7 @@ Name | Type | Description | Default
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points for which to make predictions. | *required*
 `theta` | <code>[float](#float)</code> | Locality parameter. (0: global linear, >0: local linear) | *required*
 `alpha` | <code>[float](#float)</code> | Regularization parameter to stabilize the inversion. | <code>1e-10</code>
+`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include in the regression. | <code>None</code>
 
 **Returns:**
 
@@ -41,7 +42,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If the input arrays `X` and `Y` do not have the same number of points. - If `theta` is negative.
+<code>[ValueError](#ValueError)</code> | - If the input arrays `X` and `Y` do not have the same number of points. - If `theta` is negative. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than E + 1 library points are unmasked for some query.
 
 **Examples:**
 

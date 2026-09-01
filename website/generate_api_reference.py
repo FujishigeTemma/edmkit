@@ -20,13 +20,14 @@ class ModuleMeta(NamedTuple):
 
 MODULES: dict[str, ModuleMeta] = {
     "embedding": ModuleMeta("Time-delay embedding and parameter selection.", 1),
-    "simplex_projection": ModuleMeta("Simplex projection, Theiler window masks, and k-nearest neighbors.", 2),
+    "simplex_projection": ModuleMeta("Simplex projection and k-nearest neighbors.", 2),
     "smap": ModuleMeta("S-Map local linear prediction.", 3),
-    "ccm": ModuleMeta("Convergent Cross Mapping for causal inference.", 4),
-    "metrics": ModuleMeta("Prediction evaluation metrics.", 5),
-    "splits": ModuleMeta("Time-series cross-validation strategies.", 6),
-    "generate": ModuleMeta("Synthetic chaotic time series generators.", 7),
-    "util": ModuleMeta("Utility functions for distance computation, padding, and more.", 8),
+    "theiler_window": ModuleMeta("Per-query masks that exclude temporally close library points.", 4),
+    "ccm": ModuleMeta("Convergent Cross Mapping for causal inference.", 5),
+    "metrics": ModuleMeta("Prediction evaluation metrics.", 6),
+    "splits": ModuleMeta("Time-series cross-validation strategies.", 7),
+    "generate": ModuleMeta("Synthetic chaotic time series generators.", 8),
+    "util": ModuleMeta("Utility functions for distance computation, padding, and more.", 9),
 }
 
 CONFIG: ConfigDict = {

@@ -8,7 +8,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from scipy.special import expit
 
-from edmkit.simplex_projection import knn, simplex_projection, soft_simplex_projection, theiler_window
+from edmkit.simplex_projection import knn, simplex_projection, soft_simplex_projection
+from edmkit.theiler_window import theiler_window
 
 
 class SimplexProjectionProblem(NamedTuple):
@@ -80,10 +81,12 @@ def soft_simplex_projection_reference(
     mask: np.ndarray | None = None,
     softness: float = 0.02,
 ) -> np.ndarray:
-    """Brute-force soft simplex projection returning the canonical ``(M, targets)`` shape."""
+    """Brute-force soft simplex projection returning the canonical ``(M, targets)`` shape; `mask` is per-query with shape (M, N)."""
     y = y[:, None] if y.ndim == 1 else y
     if mask is not None:
-        x, y = x[mask], y[mask]
+        return np.concatenate(
+            [soft_simplex_projection_reference(x[keep], y[keep], q[query : query + 1], k=k, softness=softness) for query, keep in enumerate(mask)]
+        )
 
     distances = np.maximum(np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1), 1e-6)
     k = x.shape[1] + 1 if k is None else k
@@ -258,7 +261,7 @@ def soft_simplex_projection_problems(draw):
     targets = draw(st.integers(1, 3))
     batched = draw(st.booleans())
     masked = draw(st.booleans())
-    # a masked or batched library always retains at least e + 2 unmasked points (see masking below),
+    # every query always retains at least e + 2 unmasked library points (see masking below),
     # so any k up to e + 1 leaves the required k + 1 neighbors available.
     k = draw(st.one_of(st.none(), st.integers(1, e + 1)))
     rng = np.random.default_rng(draw(st.integers(0, 2**32 - 1)))
@@ -266,18 +269,20 @@ def soft_simplex_projection_problems(draw):
         x = rng.normal(size=(batches, n, e))
         y = rng.normal(size=(batches, n, targets))
         q = rng.normal(size=(batches, m, e))
-        mask = np.ones((batches, n), dtype=bool) if masked else None
+        mask = np.ones((batches, m, n), dtype=bool) if masked else None
         if mask is not None:
             for batch in range(batches):
                 n_remove = min(batch + 1, n - (e + 2))
-                mask[batch, rng.permutation(n)[:n_remove]] = False
+                for query in range(m):
+                    mask[batch, query, rng.permutation(n)[:n_remove]] = False
     else:
         x = rng.normal(size=(n, e))
         y = rng.normal(size=(n, targets))
         q = rng.normal(size=(m, e))
-        mask = np.ones(n, dtype=bool) if masked else None
+        mask = np.ones((m, n), dtype=bool) if masked else None
         if mask is not None:
-            mask[rng.permutation(n)[:2]] = False
+            for query in range(m):
+                mask[query, rng.permutation(n)[:2]] = False
         if targets == 1:
             y = y[:, 0]
     return SoftSimplexProjectionProblem(x, y, q, k, mask, 0.02)
@@ -433,7 +438,12 @@ SOFT_SIMPLEX_PROJECTION_VALID = {
         np.random.default_rng(16).normal(size=(2, 12, 2)),
         np.random.default_rng(17).normal(size=(2, 4, 2)),
         None,
-        np.array([[True] * 11 + [False], [True] * 10 + [False] * 2]),
+        np.stack(
+            [
+                np.array([[True] * 11 + [False]] * 3 + [[False] + [True] * 11]),
+                np.array([[True] * 10 + [False] * 2] * 3 + [[False] * 2 + [True] * 10]),
+            ]
+        ),
         0.02,
     ),
     "constant-target": SoftSimplexProjectionCase(
@@ -457,8 +467,16 @@ SOFT_SIMPLEX_PROJECTION_VALID = {
         np.random.default_rng(36).normal(size=(12, 2)),
         np.random.default_rng(37).normal(size=(4, 2)),
         None,
-        np.array([True] * 10 + [False] * 2),
+        np.array([[True] * 10 + [False] * 2] * 3 + [[False] * 2 + [True] * 10]),
         0.1,
+    ),
+    "theiler-self-query-2d": SoftSimplexProjectionCase(
+        np.random.default_rng(41).normal(size=(20, 2)),
+        np.random.default_rng(42).normal(size=20),
+        np.random.default_rng(41).normal(size=(20, 2)),
+        None,
+        theiler_window(np.arange(20), np.arange(20), 2),
+        0.02,
     ),
 }
 SOFT_SIMPLEX_PROJECTION_VALID["custom-k-one"] = SOFT_SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=1)
@@ -472,6 +490,14 @@ SOFT_SIMPLEX_PROJECTION_MODES = {
 
 SOFT_SIMPLEX_PROJECTION_INVALID = {
     "insufficient-library": SoftSimplexProjectionCase(np.zeros((3, 2)), np.zeros(3), np.zeros((1, 2)), None, None, 0.02),
+    "mask-not-per-query": SoftSimplexProjectionCase(
+        np.zeros((12, 2)),
+        np.zeros(12),
+        np.zeros((4, 2)),
+        None,
+        np.ones(12, dtype=bool),
+        0.02,
+    ),
     "zero-softness": SoftSimplexProjectionCase(np.zeros((4, 2)), np.zeros(4), np.zeros((1, 2)), None, None, 0.0),
     "negative-softness": SoftSimplexProjectionCase(np.zeros((4, 2)), np.zeros(4), np.zeros((1, 2)), None, None, -0.1),
     "zero-k": SoftSimplexProjectionCase(

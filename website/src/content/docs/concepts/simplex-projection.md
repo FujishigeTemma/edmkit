@@ -10,7 +10,7 @@ Simplex projection is the simplest EDM predictor. For each query in the embedded
 Given library embeddings `X` of shape `(N, E)`, targets `Y` of shape `(N,)` or `(N, D)`, and one query `q`:
 
 1. Find the `k = E + 1` nearest neighbors `x_{i_1}, ..., x_{i_k}` of `q` in `X`, with Euclidean distances `d_1 <= ... <= d_k`.
-2. Form weights `w_j = exp(-d_j / max(d_1, eps))`. The closest neighbor gets `1`; the rest decay exponentially.
+2. Form weights `w_j = exp(-d_j / max(d_1, eps))`. The closest neighbor gets `exp(-1)`; farther neighbors decay exponentially from there.
 3. Predict `y_hat = sum_j w_j * y_{i_j} / sum_j w_j`.
 
 Two design choices:
@@ -20,7 +20,7 @@ Two design choices:
 
 ## Why this picks `E`
 
-Plot held-out `rho(E)` against `E`. The curve rises until `E` matches the attractor's effective dimensionality, then plateaus or declines as higher `E` only adds noise to the neighbor search. The peak is the recommended `E`. `edmkit.embedding.scan` and `select` package this as a grid search.
+Plot held-out `rho(E)` against `E`. The curve rises until `E` matches the attractor's effective dimensionality, then plateaus or declines as higher `E` only adds noise to the neighbor search. The peak is the recommended `E`. `edmkit.embedding.scan` and `select` package this as a grid search — see [Choosing E and tau](/edmkit/guides/choosing-parameters/).
 
 ## Using `simplex_projection`
 
@@ -50,17 +50,22 @@ For several independent simplex problems at once (e.g. `scan` over many `(E, tau
 predictions = simplex_projection(X, Y, Q)   # (B, M, D)
 ```
 
-Batched calls share allocation overhead and dispatch into the same KDTree, so they're much faster than a Python loop. This is what makes `scan` tractable.
+Batched calls share validation and allocation overhead across the batch, so they're faster than calling the function once per problem. This is what makes `scan` tractable.
 
-## Excluding library points: `mask` and `loo`
+## Excluding library points with `mask`
 
-- `mask` is a boolean array of shape `(N,)` or `(B, N)` that hides library points from the neighbor search. Use it for train/validation separation inside a batched call.
-- `loo(X, Y, theiler_window=...)` performs leave-one-out simplex projection across `X`, excluding library points within `theiler_window` time steps of the query. For a lagged embedding, set the window to `(E - 1) * tau` so overlapping embeddings cannot trivially predict each other.
+- `mask` is a boolean array of shape `(M, N)` or `(B, M, N)`: `True` at `[i, j]` keeps library point `j` visible to query `i`, `False` hides it from the neighbor search. Use it for train/validation separation inside a batched call, or to give each query its own library view.
+- `theiler_window(times, times, width=...)` builds the mask for the most common case: it hides library points within `width` time steps of each query. Querying the library with itself under this mask gives leave-one-out prediction; for a lagged embedding, set `width` to `(E - 1) * tau` so overlapping embeddings cannot trivially predict each other.
 
 ```python
-from edmkit.simplex_projection import loo
+import numpy as np
 
-predictions = loo(embedded, target, theiler_window=(E - 1) * tau)
+from edmkit.theiler_window import theiler_window
+
+# X: (N, E) lagged embedding, Y: (N,) targets
+times = np.arange(len(X))
+mask = theiler_window(times, times, width=(E - 1) * tau)
+predictions = simplex_projection(X, Y, X, mask=mask)
 ```
 
 Forgetting the Theiler window is a common reason reported correlations look "too good to be true" — overlapping embeddings act as near-duplicates.

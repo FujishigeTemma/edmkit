@@ -2,7 +2,7 @@
 title: metrics
 description: Prediction evaluation metrics.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 **Functions:**

@@ -2,7 +2,7 @@
 title: generate
 description: Synthetic chaotic time series generators.
 sidebar:
-  order: 7
+  order: 8
 ---
 
 **Functions:**

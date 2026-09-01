@@ -60,7 +60,7 @@ def soft_simplex_projection(
     k : int or None, default None
         The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`.
     mask : np.ndarray or Tensor or None
-        Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`.
+        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors.
     softness : float, default 0.02
         Width of the boundary between neighbors and non-neighbors, as a fraction of the neighborhood radius.
         For distinct boundary distances:
@@ -78,6 +78,7 @@ def soft_simplex_projection(
         - If `softness` is not positive.
         - If the input arrays `X` and `Y` do not have the same number of points.
         - If `X` does not contain at least `k + 1` points.
+        - If `mask` does not have shape (M, N) or (B, M, N).
 
     Examples
     --------
@@ -146,6 +147,8 @@ def _numpy(
         raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
+    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
+        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     # treat the unbatched case as a single batch
     batched = X.ndim == 3
@@ -166,7 +169,7 @@ def _numpy(
 
     if mask is not None:
         # a finite sentinel instead of inf to avoid NaN
-        D = np.where(mask[:, None, :], D, D.max(axis=-1, keepdims=True) * 2 + 1)
+        D = np.where(mask, D, D.max(axis=-1, keepdims=True) * 2 + 1)
 
     neighbors = np.sort(np.partition(D, k, axis=-1)[..., : k + 1], axis=-1)  # (B, M, k + 1)
 
@@ -178,7 +181,7 @@ def _numpy(
 
     weights = np.exp(-D / d_min) * expit((radius - D) / (softness * radius))  # (B, M, N)
     if mask is not None:
-        weights = np.where(mask[:, None, :], weights, 0.0)
+        weights = np.where(mask, weights, 0.0)
 
     predictions = np.matmul(weights, Y) / weights.sum(axis=-1, keepdims=True)  # (B, M, E')
 
@@ -213,6 +216,8 @@ def _tensor(
         raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
+    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
+        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     # treat the unbatched case as a single batch
     batched = X.ndim == 3
@@ -234,7 +239,7 @@ def _tensor(
 
     if mask is not None:
         # a finite sentinel instead of inf to avoid NaN
-        D = mask.unsqueeze(-2).where(D, D.max(axis=-1, keepdim=True) * 2 + 1)
+        D = mask.where(D, D.max(axis=-1, keepdim=True) * 2 + 1)
 
     neighbors = D.topk(k + 1, dim=-1, largest=False, sorted_=True)[0]  # (B, M, k + 1)
 
@@ -247,7 +252,7 @@ def _tensor(
     gate = ((radius - D) / (softness * radius)).sigmoid()  # (B, M, N)
     weights = (-D / d_min).exp() * gate  # (B, M, N)
     if mask is not None:
-        weights = mask.unsqueeze(-2).where(weights, 0)
+        weights = mask.where(weights, 0)
 
     predictions: Tensor = weights.matmul(Y) / weights.sum(axis=-1, keepdim=True)  # (B, M, E')
 

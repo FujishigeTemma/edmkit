@@ -60,6 +60,8 @@ def smap(
         Locality parameter. (0: global linear, >0: local linear)
     alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
+    mask : np.ndarray or Tensor or None
+        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include in the regression.
 
     Returns
     -------
@@ -71,6 +73,8 @@ def smap(
     ValueError
         - If the input arrays `X` and `Y` do not have the same number of points.
         - If `theta` is negative.
+        - If `mask` does not have shape (M, N) or (B, M, N).
+        - If fewer than E + 1 library points are unmasked for some query.
 
     Examples
     --------
@@ -132,11 +136,11 @@ def weights(
     theta : float
         Locality parameter.
     mask : np.ndarray | None
-        Boolean mask over the library axis — (N,) or (B, N).
+        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query row of `D`, which library points to include.
     min_points : int
-        Minimum number of valid library points required.
+        Minimum number of valid library points required per query.
     """
-    valid = np.isfinite(D) if mask is None else np.isfinite(D) & mask[..., None, :]  # mask[..., None, :].shape == (1, N) or (B, 1, N)
+    valid = np.isfinite(D) if mask is None else np.isfinite(D) & mask
 
     n_valid = valid.sum(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
     if int(n_valid.min()) < min_points:
@@ -204,6 +208,8 @@ def _numpy(
 
     if not (X.ndim == Y.ndim == Q.ndim and X.ndim in (2, 3)):
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
+    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
+        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     E = X.shape[-1]
 
@@ -262,7 +268,7 @@ def _tensor(
     alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
     mask : Tensor | None
-        Boolean mask over the library axis — (N,) or (B, N). Masked-out points get zero weight.
+        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include in the regression.
 
     Returns
     -------
@@ -298,6 +304,8 @@ def _tensor(
 
     if not (X.ndim == Y.ndim == Q.ndim and X.ndim in (2, 3)):
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D tensors, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
+    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
+        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     E = int(X.shape[-1])
 
@@ -311,14 +319,14 @@ def _tensor(
         if mask is None:
             d_mean = D.mean(axis=-1, keepdim=True)  # (M, 1) or (B, M, 1)
         else:
-            valid = mask.unsqueeze(-2).cast(D.dtype)  # (1, N) or (B, 1, N)
-            n_valid = valid.sum(axis=-1, keepdim=True)  # (1, 1) or (B, 1, 1)
+            valid = mask.cast(D.dtype)  # (M, N) or (B, M, N)
+            n_valid = valid.sum(axis=-1, keepdim=True)  # (M, 1) or (B, M, 1)
             d_mean = (D * valid).sum(axis=-1, keepdim=True) / n_valid.clamp(min_=1)
         W = (-theta * D / d_mean.clamp(min_=1e-6)).exp()
 
     # Zero out masked-out library points
     if mask is not None:
-        W = mask.unsqueeze(-2).where(W, 0)
+        W = mask.where(W, 0)
 
     # Add intercept term
     X_aug = Tensor.ones_like(X[..., :1]).cat(X, dim=-1)  # (N, E+1) or (B, N, E+1)

@@ -11,8 +11,8 @@ def theiler_window(
     """
     Build a per-query mask that excludes temporally close library points.
 
-    Passing the result to `simplex_projection(X, Y, Q, mask=...)` gives leave-one-out
-    prediction with Theiler window exclusion when `Q` is `X` and `t1` is `t2`.
+    Passing the result as `mask` to `simplex_projection`, `soft_simplex_projection`, or `smap`
+    gives leave-one-out prediction with Theiler window exclusion when `Q` is `X` and `t1` is `t2`.
 
     Parameters
     ----------

@@ -71,7 +71,7 @@ query = embedded[n_train:n_pairs]
 truth = x[shift + n_train + 1 : shift + n_pairs + 1]
 ```
 
-Random splits leak across train and test through overlapping embeddings. Stick with temporal splits, or use `loo` with a Theiler window when the data is too short for a held-out tail.
+Random splits leak across train and test through overlapping embeddings. Stick with temporal splits, or use leave-one-out with a Theiler window (below) when the data is too short for a held-out tail.
 
 ## Predict and evaluate
 
@@ -90,18 +90,24 @@ Report at least one correlation-like metric (`pearson_correlation`) and one erro
 
 ## Leave-one-out with a Theiler window
 
-For short series, a held-out tail wastes data. `loo` reuses every point as both library and query, excluding library points within `(E - 1) * tau` time steps of each query.
+For short series, a held-out tail wastes data. Leave-one-out reuses every point as both library and query: query the library with itself, and pass a mask built by `theiler_window` so each query cannot see library points within `(E - 1) * tau` time steps of itself.
 
 ```python
-from edmkit.simplex_projection import loo
+from edmkit.theiler_window import theiler_window
 
-target_all = x[shift + 1 : shift + len(embedded) + 1]
-prediction_all = loo(embedded[:-1], target_all, theiler_window=(E - 1) * tau)
+library_all = embedded[:-1]
+target_all = x[shift + 1 :]    # same length as library_all: every point has a 1-step-ahead target
+
+times = np.arange(len(library_all))
+mask = theiler_window(times, times, width=(E - 1) * tau)
+prediction_all = simplex_projection(library_all, target_all, library_all, mask=mask)
 
 print(f"LOO rho:  {pearson_correlation(prediction_all, target_all):.3f}")
 ```
 
-`loo` is the right tool for diagnostics — picking `E` from a short series, comparing `theta`, or a quick baseline. Keep a held-out evaluation when you need a number no parameter choice has seen.
+Every query still needs `E + 1` library points outside its window, so a very short series may force a smaller `width` or `E`.
+
+Leave-one-out is the right tool for diagnostics — picking `E` from a short series, comparing `theta`, or a quick baseline. Keep a held-out evaluation when you need a number no parameter choice has seen.
 
 ## Check that the system is nonlinear
 
@@ -121,7 +127,7 @@ Expected pattern on a chaotic Lorenz trace: modest `rho(0)`, climbing through `t
 
 - **Misaligned target.** `embedded[i]` corresponds to time `shift + i` in `x`. Off by `(E - 1) * tau` ruins the forecast — always derive the target from `shift`.
 - **Train/test overlap.** Splitting after embedding can leave overlapping coordinates at the boundary. Drop the last `(E - 1) * tau` rows of the training library to remove the overlap.
-- **Reporting LOO as a generalization score.** `loo` is a diagnostic. The Theiler window prevents trivial leakage but does not match a held-out tail.
+- **Reporting leave-one-out as a generalization score.** Leave-one-out is a diagnostic. The Theiler window prevents trivial leakage but does not match a held-out tail.
 - **Forgetting to scale.** Distances are raw Euclidean. Normalize first if coordinates live on different scales (common for multivariate inputs).
 
 ## Where to go next

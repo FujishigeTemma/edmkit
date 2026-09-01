@@ -62,7 +62,7 @@ Use `candidate_tau` to size `tau_grid`.
 | --- | --- | --- |
 | `split` | `sliding_folds`, `N/5` train, `N/10` validation | Trend or regime shifts — use `expanding_folds` to grow the training set. |
 | `predict` | `simplex_projection` | Picking parameters for an S-Map workflow — pass `partial(smap, theta=...)`. |
-| `metric` | `pearson_correlation` | Multidimensional target or you prefer absolute error — pass `rmse` or `mae`. |
+| `metric` | `pearson_correlation` | Multidimensional target or you prefer absolute error — pass a sign-flipped `rmse` or `mae`. |
 
 Switching to expanding-window CV with RMSE for a noisy non-stationary series:
 
@@ -85,25 +85,35 @@ scores = scan(
     E=list(range(1, 11)),
     tau=[1, 2, 4, 8],
     split=split,
-    metric=rmse,
+    metric=lambda prediction, truth: -rmse(prediction, truth),
 )
 ```
 
-`select` always maximizes. For an error metric (smaller is better), wrap it to flip the sign before passing to `scan`.
+`select` always maximizes, which is why the error metric is sign-flipped: smaller RMSE must score higher.
 
 ## When the chosen `(E, tau)` looks suspicious
 
 - **Embed and look.** Plot the first two coordinates of `lagged_embed(x, tau=tau, e=2)`. A low-dimensional system shows structure (loop, butterfly, sheet), not a featureless cloud or diagonal.
-- **Run `loo` with a Theiler window.** If held-out correlation drops sharply once temporal neighbors are excluded, the original CV was leaking through overlapping embeddings.
+- **Run leave-one-out with a Theiler window.** If held-out correlation drops sharply once temporal neighbors are excluded, the original CV was leaking through overlapping embeddings. Query the library with itself on a one-step-ahead target, masking library points within `(E - 1) * tau` time steps of each query.
 
 ```python
-from edmkit.simplex_projection import loo
+import numpy as np
+
 from edmkit.embedding import lagged_embed
 from edmkit.metrics import pearson_correlation
+from edmkit.simplex_projection import simplex_projection
+from edmkit.theiler_window import theiler_window
 
 embedded = lagged_embed(x, tau=tau, e=E)
-prediction = loo(embedded, embedded[:, 0], theiler_window=(E - 1) * tau)
-print(pearson_correlation(prediction, embedded[:, 0]))
+shift = (E - 1) * tau
+
+library = embedded[:-1]
+target = x[shift + 1 :]    # same length as library: every point has a 1-step-ahead target
+
+times = np.arange(len(library))
+mask = theiler_window(times, times, width=(E - 1) * tau)
+prediction = simplex_projection(library, target, library, mask=mask)
+print(pearson_correlation(prediction, target))
 ```
 
 - **Permuted baseline.** Shuffle `x` and re-run `scan`. The best `rho` on the shuffle is the noise floor; your real choice should beat it by a clear margin.
