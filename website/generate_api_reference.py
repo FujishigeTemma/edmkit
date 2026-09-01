@@ -20,7 +20,7 @@ class ModuleMeta(NamedTuple):
 
 MODULES: dict[str, ModuleMeta] = {
     "embedding": ModuleMeta("Time-delay embedding and parameter selection.", 1),
-    "simplex_projection": ModuleMeta("Simplex projection, leave-one-out, and k-nearest neighbors.", 2),
+    "simplex_projection": ModuleMeta("Simplex projection, Theiler window masks, and k-nearest neighbors.", 2),
     "smap": ModuleMeta("S-Map local linear prediction.", 3),
     "ccm": ModuleMeta("Convergent Cross Mapping for causal inference.", 4),
     "metrics": ModuleMeta("Prediction evaluation metrics.", 5),

@@ -4,12 +4,11 @@ from typing import NamedTuple
 
 import numpy as np
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
-from hypothesis.extra import numpy as hnp
 from scipy.special import expit
 
-from edmkit.simplex_projection import knn, loo, simplex_projection, soft_simplex_projection
+from edmkit.simplex_projection import knn, simplex_projection, soft_simplex_projection, theiler_window
 
 
 class SimplexProjectionProblem(NamedTuple):
@@ -58,25 +57,13 @@ class KNNCase(NamedTuple):
     k: int
 
 
-class LOOProblem(NamedTuple):
-    x: np.ndarray
-    y: np.ndarray
-    theiler_window: int
-
-
-class LOOCase(NamedTuple):
-    x: np.ndarray
-    y: np.ndarray
-    theiler_window: int
-
-
 def simplex_projection_reference(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None = None, mask: np.ndarray | None = None) -> np.ndarray:
-    """Brute-force simplex projection returning the canonical ``(M, targets)`` shape."""
+    """Brute-force simplex projection returning the canonical ``(M, targets)`` shape; `mask` is per-query with shape (M, N)."""
     y = y[:, None] if y.ndim == 1 else y
-    if mask is not None:
-        x, y = x[mask], y[mask]
 
     distances = np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1)
+    if mask is not None:
+        distances[~mask] = np.inf
     k = x.shape[1] + 1 if k is None else k
     indices = np.argsort(distances, axis=1, kind="stable")[:, :k]
     nearest = np.take_along_axis(distances, indices, axis=1)
@@ -113,14 +100,6 @@ def knn_reference(x: np.ndarray, q: np.ndarray, k: int) -> tuple[np.ndarray, np.
     indices = np.argsort(distances, axis=1, kind="stable")[:, :k]
     nearest = np.take_along_axis(distances, indices, axis=1)
     return nearest, indices
-
-
-def loo_reference(x: np.ndarray, y: np.ndarray, theiler_window: int) -> np.ndarray:
-    predictions = []
-    for i in range(len(x)):
-        mask = np.abs(np.arange(len(x)) - i) > theiler_window
-        predictions.append(simplex_projection_reference(x, y, x[i : i + 1], mask=mask)[0])
-    return np.asarray(predictions)
 
 
 def check_simplex_projection(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
@@ -173,16 +152,6 @@ def check_knn(x: np.ndarray, q: np.ndarray, k: int) -> None:
     expected_distances, expected_indices = knn_reference(x, q, k)
     np.testing.assert_allclose(distances, expected_distances)
     np.testing.assert_array_equal(indices, expected_indices)
-
-
-def check_loo(x: np.ndarray, y: np.ndarray, theiler_window: int) -> None:
-    actual = loo(x, y, theiler_window=theiler_window)
-    if x.ndim == 2:
-        expected = loo_reference(x, y, theiler_window).squeeze()
-    else:
-        expected = np.stack([loo_reference(xi, yi, theiler_window) for xi, yi in zip(x, y)])
-    assert actual.shape == expected.shape
-    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
 
 
 def check_simplex_projection_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
@@ -253,7 +222,7 @@ def simplex_projection_problems(draw):
     batches = draw(st.integers(1, 3))
     batched = draw(st.booleans())
     masked = draw(st.booleans())
-    # a masked or batched library always retains at least e + 1 unmasked points (see masking below),
+    # every query always retains at least e + 1 unmasked library points (see masking below),
     # so any k up to e + 1 is guaranteed valid regardless of masking or batching.
     k = draw(st.one_of(st.none(), st.integers(1, e + 1)))
     rng = np.random.default_rng(draw(st.integers(0, 2**32 - 1)))
@@ -261,18 +230,20 @@ def simplex_projection_problems(draw):
         x = rng.normal(size=(batches, n, e))
         y = rng.normal(size=(batches, n, targets))
         q = rng.normal(size=(batches, m, e))
-        mask = np.ones((batches, n), dtype=bool) if masked else None
+        mask = np.ones((batches, m, n), dtype=bool) if masked else None
         if mask is not None:
             for batch in range(batches):
                 n_remove = min(batch + 1, n - (e + 1))
-                mask[batch, rng.permutation(n)[:n_remove]] = False
+                for query in range(m):
+                    mask[batch, query, rng.permutation(n)[:n_remove]] = False
     else:
         x = rng.normal(size=(n, e))
         y = rng.normal(size=(n, targets))
         q = rng.normal(size=(m, e))
-        mask = np.ones(n, dtype=bool) if masked else None
+        mask = np.ones((m, n), dtype=bool) if masked else None
         if mask is not None:
-            mask[rng.permutation(n)[:2]] = False
+            for query in range(m):
+                mask[query, rng.permutation(n)[:2]] = False
         if targets == 1:
             y = y[:, 0]
     return SimplexProjectionProblem(x, y, q, k, mask)
@@ -312,9 +283,6 @@ def soft_simplex_projection_problems(draw):
     return SoftSimplexProjectionProblem(x, y, q, k, mask, 0.02)
 
 
-FINITE = st.floats(-10.0, 10.0, allow_nan=False, allow_infinity=False)
-
-
 @st.composite
 def knn_problems(draw):
     e = draw(st.integers(1, 3))
@@ -326,27 +294,6 @@ def knn_problems(draw):
     q = rng.normal(size=(m, e))
     return KNNProblem(x, q, k)
 
-
-@st.composite
-def loo_problems(draw):
-    e = draw(st.integers(1, 4))
-    theiler_window = draw(st.integers(1, 10))
-    minimum = 2 * theiler_window + e + 2
-    n = draw(st.integers(minimum, max(minimum, 40)))
-    x = draw(hnp.arrays(np.float64, (n, e), elements=FINITE))
-    rng = np.random.default_rng(draw(st.integers(0, 2**32 - 1)))
-    x = x + rng.uniform(-1e-6, 1e-6, x.shape)
-    y = draw(hnp.arrays(np.float64, n, elements=FINITE))
-    return LOOProblem(x, y, theiler_window)
-
-
-IDENTITY_X = np.array([[0.0], [2.0], [5.0], [9.0]])
-IDENTITY_Y = np.array([10.0, 20.0, 30.0, 40.0])
-
-SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X = np.random.default_rng(9).normal(size=(2, 12, 2))
-SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y = np.random.default_rng(10).normal(size=(2, 12, 2))
-SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q = np.random.default_rng(11).normal(size=(2, 4, 2))
-SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK = np.array([[True] * 11 + [False], [True] * 10 + [False] * 2])
 
 SIMPLEX_PROJECTION_VALID = {
     "scalar-2d": SimplexProjectionCase(
@@ -361,7 +308,7 @@ SIMPLEX_PROJECTION_VALID = {
         np.random.default_rng(4).normal(size=(12, 3)),
         np.random.default_rng(5).normal(size=(4, 2)),
         None,
-        np.array([True] * 10 + [False] * 2),
+        np.array([[True] * 10 + [False] * 2] * 3 + [[False] * 2 + [True] * 10]),
     ),
     "scalar-batched-3d": SimplexProjectionCase(
         np.random.default_rng(6).normal(size=(2, 12, 2)),
@@ -371,28 +318,41 @@ SIMPLEX_PROJECTION_VALID = {
         None,
     ),
     "masked-multitarget-batched-3d": SimplexProjectionCase(
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q,
+        np.random.default_rng(9).normal(size=(2, 12, 2)),
+        np.random.default_rng(10).normal(size=(2, 12, 2)),
+        np.random.default_rng(11).normal(size=(2, 4, 2)),
         None,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK,
+        np.stack(
+            [
+                np.array([[True] * 11 + [False]] * 3 + [[False] + [True] * 11]),
+                np.array([[True] * 10 + [False] * 2] * 3 + [[False] * 2 + [True] * 10]),
+            ]
+        ),
     ),
-    "self-query-single-output": SimplexProjectionCase(IDENTITY_X, IDENTITY_Y, IDENTITY_X[:1], None, None),
-    "custom-k-one": SimplexProjectionCase(
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q,
-        1,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK,
+    "self-query-single-output": SimplexProjectionCase(
+        np.array([[0.0], [2.0], [5.0], [9.0]]),
+        np.array([10.0, 20.0, 30.0, 40.0]),
+        np.array([[0.0]]),
+        None,
+        None,
     ),
-    "custom-k-five": SimplexProjectionCase(
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q,
-        5,
-        SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK,
+    "theiler-self-query-2d": SimplexProjectionCase(
+        np.random.default_rng(37).normal(size=(20, 2)),
+        np.random.default_rng(38).normal(size=20),
+        np.random.default_rng(37).normal(size=(20, 2)),
+        None,
+        theiler_window(np.arange(20), np.arange(20), 2),
+    ),
+    "theiler-self-query-batched-3d": SimplexProjectionCase(
+        np.random.default_rng(39).normal(size=(2, 20, 2)),
+        np.random.default_rng(40).normal(size=(2, 20, 2)),
+        np.random.default_rng(39).normal(size=(2, 20, 2)),
+        None,
+        np.tile(theiler_window(np.arange(20), np.arange(20), 2), (2, 1, 1)),
     ),
 }
+SIMPLEX_PROJECTION_VALID["custom-k-one"] = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=1)
+SIMPLEX_PROJECTION_VALID["custom-k-five"] = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=5)
 
 SIMPLEX_PROJECTION_MODES = {
     "numpy": check_simplex_projection,
@@ -409,7 +369,21 @@ SIMPLEX_PROJECTION_INVALID = {
         np.arange(5.0),
         np.array([[0.0, 0.0]]),
         None,
-        np.array([True, True, False, False, False]),
+        np.array([[True, True, False, False, False]]),
+    ),
+    "mask-not-per-query": SimplexProjectionCase(
+        np.zeros((12, 2)),
+        np.zeros(12),
+        np.zeros((4, 2)),
+        None,
+        np.ones(12, dtype=bool),
+    ),
+    "theiler-window-too-wide": SimplexProjectionCase(
+        np.zeros((10, 2)),
+        np.zeros(10),
+        np.zeros((10, 2)),
+        None,
+        theiler_window(np.arange(10), np.arange(10), 100),
     ),
     "zero-k": SimplexProjectionCase(
         SIMPLEX_PROJECTION_VALID["scalar-2d"].x,
@@ -445,11 +419,6 @@ def test_simplex_projection_invalid(case: SimplexProjectionCase) -> None:
         simplex_projection(case.x, case.y, case.q, k=case.k, mask=case.mask)
 
 
-SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X = np.random.default_rng(15).normal(size=(2, 12, 2))
-SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y = np.random.default_rng(16).normal(size=(2, 12, 2))
-SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q = np.random.default_rng(17).normal(size=(2, 4, 2))
-SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK = np.array([[True] * 11 + [False], [True] * 10 + [False] * 2])
-
 SOFT_SIMPLEX_PROJECTION_VALID = {
     "scalar-2d": SoftSimplexProjectionCase(
         np.random.default_rng(12).normal(size=(12, 2)),
@@ -460,11 +429,11 @@ SOFT_SIMPLEX_PROJECTION_VALID = {
         0.02,
     ),
     "masked-multitarget-batched-3d": SoftSimplexProjectionCase(
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q,
+        np.random.default_rng(15).normal(size=(2, 12, 2)),
+        np.random.default_rng(16).normal(size=(2, 12, 2)),
+        np.random.default_rng(17).normal(size=(2, 4, 2)),
         None,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK,
+        np.array([[True] * 11 + [False], [True] * 10 + [False] * 2]),
         0.02,
     ),
     "constant-target": SoftSimplexProjectionCase(
@@ -491,23 +460,9 @@ SOFT_SIMPLEX_PROJECTION_VALID = {
         np.array([True] * 10 + [False] * 2),
         0.1,
     ),
-    "custom-k-one": SoftSimplexProjectionCase(
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q,
-        1,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK,
-        0.02,
-    ),
-    "custom-k-five": SoftSimplexProjectionCase(
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_X,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Y,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_Q,
-        5,
-        SOFT_SIMPLEX_PROJECTION_MASKED_MULTITARGET_BATCHED_MASK,
-        0.02,
-    ),
 }
+SOFT_SIMPLEX_PROJECTION_VALID["custom-k-one"] = SOFT_SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=1)
+SOFT_SIMPLEX_PROJECTION_VALID["custom-k-five"] = SOFT_SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=5)
 
 SOFT_SIMPLEX_PROJECTION_MODES = {
     "numpy": check_soft_simplex_projection,
@@ -582,39 +537,3 @@ def test_knn_valid(case: KNNCase) -> None:
 def test_knn_invalid(case: KNNCase) -> None:
     with pytest.raises(ValueError):
         knn(*case)
-
-
-LOO_VALID = {
-    "scalar-2d": LOOCase(
-        np.random.default_rng(37).normal(size=(20, 2)),
-        np.random.default_rng(38).normal(size=20),
-        2,
-    ),
-    "multitarget-batched-3d": LOOCase(
-        np.random.default_rng(39).normal(size=(2, 20, 2)),
-        np.random.default_rng(40).normal(size=(2, 20, 2)),
-        2,
-    ),
-}
-
-LOO_INVALID = {
-    "library-target-length": LOOCase(np.zeros((10, 2)), np.zeros(9), 1),
-    "insufficient-library": LOOCase(np.zeros((10, 2)), np.zeros(10), 100),
-}
-
-
-@settings(deadline=5000)
-@given(problem=loo_problems())
-def test_loo_compatibility(problem: LOOProblem) -> None:
-    check_loo(*problem)
-
-
-@pytest.mark.parametrize("case", LOO_VALID.values(), ids=LOO_VALID.keys())
-def test_loo_valid(case: LOOCase) -> None:
-    check_loo(*case)
-
-
-@pytest.mark.parametrize("case", LOO_INVALID.values(), ids=LOO_INVALID.keys())
-def test_loo_invalid(case: LOOCase) -> None:
-    with pytest.raises(ValueError):
-        loo(case.x, case.y, theiler_window=case.theiler_window)

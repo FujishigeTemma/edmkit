@@ -1,6 +1,6 @@
 ---
 title: simplex_projection
-description: Simplex projection, leave-one-out, and k-nearest neighbors.
+description: Simplex projection, Theiler window masks, and k-nearest neighbors.
 sidebar:
   order: 2
 ---
@@ -9,42 +9,9 @@ sidebar:
 
 Name | Description
 ---- | -----------
-[`loo`](#loo) | Leave-one-out simplex projection: predict each point in `X` from its neighbors, excluding temporally close points.
 [`simplex_projection`](#simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
 [`soft_simplex_projection`](#soft_simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`, with a soft boundary between neighbors and non-neighbors.
-
-## `loo`
-
-```python
-loo(X: np.ndarray, Y: np.ndarray, *, theiler_window: int) -> np.ndarray
-```
-
-Leave-one-out simplex projection: predict each point in `X` from its neighbors, excluding temporally close points.
-
-Equivalent to ``simplex_projection(X, Y, X)`` with Theiler window exclusion,
-but with the correct temporal index handling.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | The input data of shape (N,) or (N, E) or (B, N, E). | *required*
-`Y` | <code>[ndarray](#numpy.ndarray)</code> | The target data of shape (N,) or (N, E') or (B, N, E'). | *required*
-`theiler_window` | <code>[int](#int)</code> | Theiler window half-width. Library points ``j`` where ``|i - j| <= theiler_window`` are excluded when predicting point ``i``. For lagged embedding, use ``(E - 1) * tau``. | *required*
-
-**Returns:**
-
-Name | Type | Description
----- | ---- | -----------
-`predictions` | <code>[ndarray](#numpy.ndarray)</code> | The predicted values of shape (N,) or (N, E') or (B, N, E').
-
-**Raises:**
-
-Type | Description
----- | -----------
-<code>[ValueError](#ValueError)</code> | - If the input arrays `X` and `Y` do not have the same number of points. - If there are not enough library points outside the Theiler window.
-
-
+[`theiler_window`](#theiler_window) | Build a per-query mask that excludes temporally close library points.
 
 ## `simplex_projection`
 
@@ -62,7 +29,7 @@ Name | Type | Description | Default
 `Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
 `k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
-`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (N,) or (B, N) indicating which library points to include when finding nearest neighbors for the queries in `Q`. | <code>None</code>
+`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
 
 **Returns:**
 
@@ -74,7 +41,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k` library points are unmasked for some query.
 
 **Examples:**
 
@@ -177,4 +144,31 @@ predictions = soft_simplex_projection(X, Y, Q).numpy()
 correlation = np.corrcoef(predictions, actual)[0, 1]
 print(f"Correlation: {correlation:.3f}")
 ```
+
+
+
+## `theiler_window`
+
+```python
+theiler_window(t1: np.ndarray, t2: np.ndarray, width: int) -> np.ndarray
+```
+
+Build a per-query mask that excludes temporally close library points.
+
+Passing the result to `simplex_projection(X, Y, Q, mask=...)` gives leave-one-out
+prediction with Theiler window exclusion when `Q` is `X` and `t1` is `t2`.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`t1` | <code>[ndarray](#numpy.ndarray)</code> | Time indices of the query points, shape (M,) or (B, M). One row of the mask per entry. | *required*
+`t2` | <code>[ndarray](#numpy.ndarray)</code> | Time indices of the library points, shape (N,) or (B, N). One column of the mask per entry. | *required*
+`width` | <code>[int](#int)</code> | Theiler window half-width. Library points ``j`` where ``|t1[i] - t2[j]| <= width`` are excluded when predicting query ``i``. For lagged embedding, use ``(E - 1) * tau``. | *required*
+
+**Returns:**
+
+Name | Type | Description
+---- | ---- | -----------
+`mask` | <code>[ndarray](#numpy.ndarray)</code> | Boolean mask of shape (M, N) or (B, M, N), True where the library point lies outside the window.
 
