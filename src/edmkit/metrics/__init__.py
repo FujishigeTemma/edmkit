@@ -8,7 +8,7 @@ from edmkit.metrics.mae import mae
 from edmkit.metrics.pearson_correlation import pearson_correlation
 from edmkit.metrics.rmse import rmse
 
-__all__ = ["MetricFunc", "pearson_correlation", "rmse", "mae"]
+__all__ = ["MetricFunc", "mae", "pearson_correlation", "rmse"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor

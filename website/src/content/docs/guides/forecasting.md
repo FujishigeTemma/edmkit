@@ -23,8 +23,12 @@ import numpy as np
 from edmkit.generate import lorenz
 
 _, trajectory = lorenz(
-    sigma=10, rho=28, beta=8 / 3,
-    X0=np.array([1.0, 1.0, 1.0]), dt=0.01, t_max=80,
+    sigma=10,
+    rho=28,
+    beta=8 / 3,
+    X0=np.array([1.0, 1.0, 1.0]),
+    dt=0.01,
+    t_max=80,
 )
 x = trajectory[:, 0]
 ```
@@ -32,27 +36,22 @@ x = trajectory[:, 0]
 ## Pick embedding parameters
 
 ```python
-from edmkit.embedding import scan, select
-
-E_grid = list(range(1, 11))
-tau_grid = [1, 2, 3, 5, 8]
-scores = scan(x, E=E_grid, tau=tau_grid)
-E, tau, cv_rho = select(scores, E=E_grid, tau=tau_grid)
-print(f"E={E}, tau={tau}, cross-validated rho={cv_rho:.3f}")
+E, tau = 3, 2
 ```
 
-See the [parameter selection guide](/edmkit/guides/choosing-parameters/) for reading `scores` and customization.
+Score candidates by held-out one-step skill rather than guessing: the [parameter selection guide](/edmkit/guides/choosing-parameters/) gives the loop, the leakage checks, and the noise floor.
 
 ## Embed and align
 
 `embedded[i]` is time `(E - 1) * tau + i` in the original series, so the one-step-ahead target is `x[(E - 1) * tau + i + 1]`.
 
 ```python
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 
-embedded = lagged_embed(x, tau=tau, e=E)
+coordinates = np.array([[0, tau * j] for j in range(E)])
+embedded, _ = embed(coordinates, x)
 shift = (E - 1) * tau
-n_pairs = len(embedded) - 1     # one less, because we need a 1-step-ahead target
+n_pairs = len(embedded) - 1  # one less, because we need a 1-step-ahead target
 ```
 
 For a horizon `Tp > 1`, replace `+1` below with `+Tp` and reduce `n_pairs` accordingly.
@@ -96,7 +95,7 @@ For short series, a held-out tail wastes data. Leave-one-out reuses every point 
 from edmkit.theiler_window import theiler_window
 
 library_all = embedded[:-1]
-target_all = x[shift + 1 :]    # same length as library_all: every point has a 1-step-ahead target
+target_all = x[shift + 1 :]  # same length as library_all: every point has a 1-step-ahead target
 
 times = np.arange(len(library_all))
 mask = theiler_window(times, times, width=(E - 1) * tau)

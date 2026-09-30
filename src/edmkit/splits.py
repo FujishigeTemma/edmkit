@@ -1,8 +1,9 @@
-from typing import TYPE_CHECKING, Callable, NamedTuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 
-__all__ = ["Fold", "SplitFunc", "temporal_fold", "expanding_folds", "sliding_folds"]
+__all__ = ["Fold", "SplitFunc", "expanding_folds", "sliding_folds", "temporal_fold"]
 
 
 class Fold(NamedTuple):

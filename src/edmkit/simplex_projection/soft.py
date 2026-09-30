@@ -86,7 +86,7 @@ def soft_simplex_projection(
     import numpy as np
     from tinygrad import Tensor
 
-    from edmkit.embedding import lagged_embed
+    from edmkit.embedding import embed
     from edmkit.simplex_projection import soft_simplex_projection
 
     # Generate a simple time series (logistic map)
@@ -99,7 +99,8 @@ def soft_simplex_projection(
     tau = 2
     E = 3
 
-    embedding = lagged_embed(x, tau=tau, e=E)
+    coordinates = np.array([[0, tau * j] for j in range(E)])
+    embedding, _ = embed(coordinates, x)
     shift = tau * (E - 1)
 
     lib_size = 200

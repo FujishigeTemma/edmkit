@@ -56,7 +56,7 @@ from edmkit.smap import smap
 # X: (N, E) library embeddings
 # Y: (N,) or (N, D) library targets
 # Q: (M, E) query embeddings
-predictions = smap(X, Y, Q, theta=3.0)   # (M,) or (M, D)
+predictions = smap(X, Y, Q, theta=3.0)  # (M,) or (M, D)
 ```
 
 Shapes match `simplex_projection` — 2-D and batched 3-D layouts both work, and `mask` hides library points from the regression. Two more parameters:

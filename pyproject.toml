@@ -1,6 +1,6 @@
 [project]
 name = "edmkit"
-version = "0.0.12"
+version = "0.0.13"
 description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"
@@ -9,8 +9,8 @@ dependencies = [
     "kdtree-rs>=0.3.1",
     "numpy>=2.5.1",
     "scipy>=1.17.1",
-    "tinygrad>=0.13.0",
-    "tinysolve>=0.2.0",
+    "tinygrad>=0.14.0",
+    "tinysolve>=0.2.1",
 ]
 
 [dependency-groups]

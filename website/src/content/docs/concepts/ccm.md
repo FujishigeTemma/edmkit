@@ -20,7 +20,7 @@ The asymmetry is the test:
 
 ## The procedure
 
-1. Embed the candidate effect `Y` with `lagged_embed` to get `Y_E`.
+1. Embed the candidate effect `Y` with `embed` to get `Y_E`.
 2. Time-align the candidate cause `X` so each row of `Y_E` pairs with the matching `X`.
 3. For each library size `L`:
    - Sample `L` indices from a library pool; the corresponding `Y_E` rows form the library.
@@ -50,21 +50,22 @@ The module offers two wrappers (`with_simplex_projection`, `with_smap`) and a ge
 ```python
 import numpy as np
 from edmkit.ccm import with_simplex_projection
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 
 # Test "x causes y": embed y, align x, then cross-map.
 tau, E = 1, 3
-y_embedded = lagged_embed(y, tau=tau, e=E)
-x_aligned = x[tau * (E - 1):]
+coordinates = np.array([[0, tau * j] for j in range(E)])
+y_embedded, _ = embed(coordinates, y)
+x_aligned = x[tau * (E - 1) :]
 
 n_states = y_embedded.shape[0]
 library_pool = np.arange(n_states // 2)
 prediction_pool = np.arange(n_states // 2, n_states)
-lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]),
-                        num=10, dtype=int)
+lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=10, dtype=int)
 
 rho = with_simplex_projection(
-    y_embedded, x_aligned,
+    y_embedded,
+    x_aligned,
     lib_sizes=lib_sizes,
     library_pool=library_pool,
     prediction_pool=prediction_pool,
@@ -86,7 +87,8 @@ These decide which indices can be sampled into the library and which the functio
 from edmkit.ccm import make_sample_func, with_simplex_projection
 
 rho = with_simplex_projection(
-    y_embedded, x_aligned,
+    y_embedded,
+    x_aligned,
     lib_sizes=lib_sizes,
     library_pool=library_pool,
     prediction_pool=prediction_pool,
@@ -103,7 +105,8 @@ from edmkit.ccm import bootstrap
 from edmkit.simplex_projection import simplex_projection
 
 samples = bootstrap(
-    y_embedded, x_aligned,
+    y_embedded,
+    x_aligned,
     lib_sizes=lib_sizes,
     predict_func=simplex_projection,
     n_samples=100,
@@ -118,7 +121,7 @@ Plot the median with a percentile band against `lib_sizes` to show uncertainty a
 ## Things to watch for
 
 - **Direction.** "Test `X` causes `Y`" means embed `Y` and predict `X` from it. In `with_simplex_projection`, `X` is the embedded effect and `Y` is the candidate cause.
-- **Embedding quality.** CCM stands or falls on the effect's embedding. Run `scan`/`select` on the effect first.
+- **Embedding quality.** CCM stands or falls on the effect's embedding. Choose `(E, tau)` for the effect first — see [Choosing E and tau](/edmkit/guides/choosing-parameters/).
 - **Synchronous coupling.** With strong delay-zero coupling, both directions converge and CCM cannot disambiguate. Time-shifted CCM helps; build it by shifting the target before calling `ccm`.
 - **Shared external forcing.** A common driver `Z` can make both directions converge without direct coupling. Surrogate tests (shuffled or seasonality-matched) are the usual safeguard.
 - **Sample size.** Small library sizes produce noisy correlations that swing across subsamples. Use a log grid from tens up to the pool size, and 50–200 bootstrap samples for stable means.

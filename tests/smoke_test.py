@@ -2,7 +2,7 @@ import numpy as np
 
 from edmkit import generate
 from edmkit.ccm import ccm
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     from tinygrad import Tensor
 
     x = np.sin(np.linspace(0.0, 6.0 * np.pi, 100))
-    embedding = lagged_embed(x, tau=1, e=2)
+    embedding, _ = embed(np.array([[0, 0], [0, 1]]), x)
     library, query = embedding[:50], embedding[50:-1]
     target = x[2:52]
 

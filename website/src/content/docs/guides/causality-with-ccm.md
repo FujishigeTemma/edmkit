@@ -29,28 +29,16 @@ Substitute your own pair for `x` and `y` to use the rest as-is.
 
 CCM relies on the embedding of the *effect*. Each direction needs its own `(E, tau)`, chosen against the variable being reconstructed.
 
-```python
-from edmkit.embedding import scan, select
-
-def best_params(series, E_grid=range(1, 11), tau_grid=(1, 2, 3, 5)):
-    scores = scan(series, E=list(E_grid), tau=list(tau_grid))
-    E, tau, _ = select(scores, E=list(E_grid), tau=list(tau_grid))
-    return E, tau
-
-Ey, tauy = best_params(y)   # used when testing "x -> y"
-Ex, taux = best_params(x)   # used when testing "y -> x"
-print(f"Embedding for y: E={Ey}, tau={tauy}")
-print(f"Embedding for x: E={Ex}, tau={taux}")
-```
+Score each variable's own `(E, tau)` by held-out skill as in the [parameter selection guide](/edmkit/guides/choosing-parameters/), once for `y` and once for `x`.
 
 :::caution
-`scan`/`select` maximize **self-prediction** skill. CCM often needs a slightly larger `E` to capture the cause's influence. If cross-mapping looks suspiciously flat, raise `E` by one or two and re-run before concluding "no causality".
+That recipe maximizes **self-prediction** skill. CCM often needs a slightly larger `E` to capture the cause's influence. If cross-mapping looks suspiciously flat, raise `E` by one or two and re-run before concluding "no causality".
 :::
 
 For the coupled logistic map below, the cause enters `y` at lag 1, so `E = 2` is the smallest dimension that lets `y`'s attractor recover `x`:
 
 ```python
-Ey, tauy = 2, 1   # override; self-prediction would have picked E=1
+Ey, tauy = 2, 1  # override; self-prediction would have picked E=1
 Ex, taux = 2, 1
 ```
 
@@ -60,11 +48,12 @@ For each hypothesis: embed the effect, align the cause, sweep library size with 
 
 ```python
 from edmkit.ccm import make_sample_func, with_simplex_projection
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 
 
 def cross_map(effect, cause, E, tau, seed):
-    embedded = lagged_embed(effect, tau=tau, e=E)
+    coordinates = np.array([[0, tau * j] for j in range(E)])
+    embedded, _ = embed(coordinates, effect)
     aligned = cause[(E - 1) * tau :]
 
     mid = embedded.shape[0] // 2
@@ -126,7 +115,8 @@ For these coupling parameters, expect `x -> y` to converge near `0.8` while `y -
 from edmkit.ccm import bootstrap
 from edmkit.simplex_projection import simplex_projection
 
-embedded_y = lagged_embed(y, tau=tauy, e=Ey)
+coordinates_y = np.array([[0, tauy * j] for j in range(Ey)])
+embedded_y, _ = embed(coordinates_y, y)
 x_aligned = x[(Ey - 1) * tauy :]
 mid = embedded_y.shape[0] // 2
 

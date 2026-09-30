@@ -135,7 +135,7 @@ from functools import partial
 import numpy as np
 
 from edmkit.ccm import ccm
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
@@ -154,7 +154,8 @@ tau = 1
 E = 2
 
 # To test X -> Y causality, cross-map from Y's attractor to X
-Y_embedding = lagged_embed(Y, tau=tau, e=E)
+coordinates = np.array([[0, tau * j] for j in range(E)])
+Y_embedding, _ = embed(coordinates, Y)
 shift = tau * (E - 1)
 X_aligned = X[shift:]
 

@@ -47,7 +47,7 @@ Type | Description
 ```python
 import numpy as np
 
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 from edmkit.simplex_projection import simplex_projection
 
 # Generate a simple time series (logistic map)
@@ -60,12 +60,13 @@ for i in range(1, N):
 tau = 2
 E = 3
 
-embedding = lagged_embed(x, tau=tau, e=E)
+coordinates = np.array([[0, tau * j] for j in range(E)])
+embedding, _ = embed(coordinates, x)
 shift = tau * (E - 1)
 
 lib_size = 200
 Tp = 1
-X = embedding[:lib_size - shift]
+X = embedding[: lib_size - shift]
 Y = x[shift + Tp : lib_size + Tp]
 Q = embedding[lib_size - shift : -Tp]
 actual = x[lib_size + Tp :]
@@ -115,7 +116,7 @@ Type | Description
 import numpy as np
 from tinygrad import Tensor
 
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 from edmkit.simplex_projection import soft_simplex_projection
 
 # Generate a simple time series (logistic map)
@@ -128,12 +129,13 @@ for i in range(1, N):
 tau = 2
 E = 3
 
-embedding = lagged_embed(x, tau=tau, e=E)
+coordinates = np.array([[0, tau * j] for j in range(E)])
+embedding, _ = embed(coordinates, x)
 shift = tau * (E - 1)
 
 lib_size = 200
 Tp = 1
-X = Tensor(embedding[:lib_size - shift])
+X = Tensor(embedding[: lib_size - shift])
 Y = Tensor(x[shift + Tp : lib_size + Tp])
 Q = Tensor(embedding[lib_size - shift : -Tp])
 actual = x[lib_size + Tp :]

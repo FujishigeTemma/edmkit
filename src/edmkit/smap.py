@@ -81,7 +81,7 @@ def smap(
     ```python
     import numpy as np
 
-    from edmkit.embedding import lagged_embed
+    from edmkit.embedding import embed
     from edmkit.smap import smap
 
     # Generate a simple time series (logistic map)
@@ -94,7 +94,8 @@ def smap(
     tau = 2
     E = 3
 
-    embedding = lagged_embed(x, tau=tau, e=E)
+    coordinates = np.array([[0, tau * j] for j in range(E)])
+    embedding, _ = embed(coordinates, x)
     shift = tau * (E - 1)
 
     lib_size = 200
@@ -338,9 +339,9 @@ def _tensor(
     XTY = X_augT.matmul(W.unsqueeze(-1) * Y.unsqueeze(-3))  # (M, E+1, E') or (B, M, E+1, E')
 
     # Tikhonov regularization
-    eye = Tensor.eye(E + 1, dtype=X.dtype, device=X.device)
+    eye = Tensor.eye(E + 1, dtype=X.dtype).to(X.device)
     trace = (XTX * eye).sum(axis=(-2, -1)).clamp(min_=1e-12)  # (M,) or (B, M)
-    eye = (Tensor.arange(E + 1, device=X.device) > 0).where(eye, 0)  # Do not regularize intercept term
+    eye = (Tensor.arange(E + 1).to(X.device) > 0).where(eye, 0)  # Do not regularize intercept term
     reg_term = (alpha * trace).unsqueeze(-1).unsqueeze(-1) * eye
     XTX = XTX + reg_term
 

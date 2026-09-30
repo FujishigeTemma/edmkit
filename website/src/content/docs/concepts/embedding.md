@@ -15,14 +15,16 @@ v(t) = ( x(t),  x(t - tau),  x(t - 2*tau),  ...,  x(t - (E - 1)*tau) )
 
 Earlier times lack enough history. The result is a matrix of shape `(N - (E - 1) * tau, E)`.
 
-`edmkit.embedding.lagged_embed` returns this matrix:
+`edmkit.embedding.embed` returns this matrix, given one `(variable, lag)` row per coordinate:
 
 ```python
 import numpy as np
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 
-x = np.arange(10)             # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-embedded = lagged_embed(x, tau=2, e=3)
+x = np.arange(10)  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+tau, E = 2, 3
+coordinates = np.array([[0, tau * j] for j in range(E)])
+embedded, t = embed(coordinates, x)
 # array([[4, 2, 0],
 #        [5, 3, 1],
 #        [6, 4, 2],
@@ -54,30 +56,23 @@ To pair each embedded state with its 1-step-ahead value:
 
 ```python
 shift = (E - 1) * tau
-target = x[shift + 1 : shift + len(embedded) + 1]   # length len(embedded)
+target = x[shift + 1 : shift + len(embedded) + 1]  # length len(embedded)
 # embedded[i] <-> target[i] = x[shift + i + 1]
 ```
 
 To align a second series `y` (e.g. a candidate cause for CCM) with the embedded `x`:
 
 ```python
-y_aligned = y[shift:]   # same length as embedded
+y_aligned = y[shift:]  # same length as embedded
 ```
 
 ## Choosing E
 
 `E` is the minimum number of lagged coordinates that "unfold" the attractor — the smallest dimension at which the reconstructed cloud no longer self-intersects. Two states that look identical at `E = 1` may sit at different positions in the true state space; lifting the dimension separates them.
 
-The standard recipe: fit a simplex-projection forecast over a range of `E` and pick the peak in held-out skill. `edmkit.embedding.scan` automates this:
+The standard recipe: fit a simplex-projection forecast over a range of `E` and pick the peak in held-out skill. The [parameter selection guide](/edmkit/guides/choosing-parameters/) gives the loop.
 
-```python
-from edmkit.embedding import scan, select
-
-scores = scan(x, E=list(range(1, 11)), tau=[1])
-E, _, rho = select(scores, E=list(range(1, 11)), tau=[1])
-```
-
-Plotting `rho` against `E` typically shows a rise, a peak, then a slow decline once the dimension exceeds the true dimensionality.
+Plotting that skill against `E` typically shows a rise, a peak, then a slow decline once the dimension exceeds the true dimensionality.
 
 ## Choosing tau
 
@@ -92,27 +87,12 @@ Plotting `rho` against `E` typically shows a rise, a peak, then a slow decline o
 Two heuristics:
 
 - **Autocorrelation drop.** Pick the smallest `tau` for which the autocorrelation of `x` falls below `1/e`. `edmkit.util.autocorrelation` returns the values.
-- **Cross-validated scan.** Add `tau` as a second grid axis in `scan` and let `select` pick. See the [parameter selection guide](/edmkit/guides/choosing-parameters/).
+- **Cross-validated grid.** Score `(E, tau)` pairs by held-out skill and take the best. See the [parameter selection guide](/edmkit/guides/choosing-parameters/).
 
 For chaotic continuous-time systems sampled at high resolution, useful `tau` is usually tens of samples. For maps and other discrete-time systems, `tau = 1` is often correct.
-
-## The `scan` and `select` helpers
-
-`scan(x, E=..., tau=...)` returns a `(len(E), len(tau), K)` array of per-fold prediction scores — Pearson correlation by default. `select` picks the `(E, tau)` that maximizes `mean - SE` across folds, penalizing combinations whose performance varies wildly. The returned `best_score` is the raw mean, so it stays directly interpretable.
-
-```python
-from edmkit.embedding import scan, select
-
-E_grid = list(range(1, 11))
-tau_grid = [1, 2, 3, 5]
-scores = scan(x, E=E_grid, tau=tau_grid)
-E, tau, rho = select(scores, E=E_grid, tau=tau_grid)
-```
-
-See the [parameter selection guide](/edmkit/guides/choosing-parameters/) for a full walk-through, including custom splits and prediction functions.
 
 ## Things to watch for
 
 - **Length budget.** Embedding consumes `(E - 1) * tau` samples upfront. Large `E` or `tau` on a short series leaves too few states to train on.
-- **Multivariate inputs.** `lagged_embed` accepts only 1-D arrays. Build multivariate embeddings by concatenating per-variable embeddings before calling the predictors.
+- **Multivariate inputs.** `embed` reads `(T, d)` observations, so a coordinate may name any variable and any lag: `np.array([[0, 0], [0, tau], [1, 0]])` mixes two variables in one delay vector.
 - **Stationarity.** The reconstruction is meaningful only if the system is roughly stationary across the window. Trends or regime shifts mean the library no longer represents the query.

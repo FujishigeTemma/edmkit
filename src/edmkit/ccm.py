@@ -6,11 +6,11 @@ from edmkit.metrics import MetricFunc
 from edmkit.types import PredictFunc
 
 __all__ = [
-    "SampleFunc",
     "AggregateFunc",
-    "make_sample_func",
+    "SampleFunc",
     "bootstrap",
     "ccm",
+    "make_sample_func",
 ]
 
 type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
@@ -83,7 +83,7 @@ def bootstrap(
 
     if X.shape[0] != Y.shape[0]:
         raise ValueError(f"X and Y must have same length, got {X.shape[0]} and {Y.shape[0]}")
-    if not callable(predict_func):
+    if predict_func is None or not callable(predict_func):
         raise ValueError(f"predict_func must be callable, got {type(predict_func)}")
     if n_samples <= 0:
         raise ValueError(f"n_samples must be positive, got {n_samples}")
@@ -202,7 +202,7 @@ def ccm(
     import numpy as np
 
     from edmkit.ccm import ccm
-    from edmkit.embedding import lagged_embed
+    from edmkit.embedding import embed
     from edmkit.metrics import pearson_correlation
     from edmkit.simplex_projection import simplex_projection
     from edmkit.smap import smap
@@ -221,7 +221,8 @@ def ccm(
     E = 2
 
     # To test X -> Y causality, cross-map from Y's attractor to X
-    Y_embedding = lagged_embed(Y, tau=tau, e=E)
+    coordinates = np.array([[0, tau * j] for j in range(E)])
+    Y_embedding, _ = embed(coordinates, Y)
     shift = tau * (E - 1)
     X_aligned = X[shift:]
 

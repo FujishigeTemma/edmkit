@@ -19,7 +19,7 @@ class ModuleMeta(NamedTuple):
 
 
 MODULES: dict[str, ModuleMeta] = {
-    "embedding": ModuleMeta("Time-delay embedding and parameter selection.", 1),
+    "embedding": ModuleMeta("Time-delay embedding.", 1),
     "simplex_projection": ModuleMeta("Simplex projection and k-nearest neighbors.", 2),
     "smap": ModuleMeta("S-Map local linear prediction.", 3),
     "theiler_window": ModuleMeta("Per-query masks that exclude temporally close library points.", 4),

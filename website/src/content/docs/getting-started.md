@@ -27,29 +27,31 @@ The Lorenz system is deterministic but chaotic — hard for parametric models, i
 
 ```python
 import numpy as np
-from edmkit.embedding import lagged_embed, scan, select
+from edmkit.embedding import embed
 from edmkit.generate import lorenz
 from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 
 # 1. Generate a Lorenz trajectory and keep only the x component.
 _, trajectory = lorenz(
-    sigma=10, rho=28, beta=8 / 3,
-    X0=np.array([1.0, 1.0, 1.0]), dt=0.01, t_max=50,
+    sigma=10,
+    rho=28,
+    beta=8 / 3,
+    X0=np.array([1.0, 1.0, 1.0]),
+    dt=0.01,
+    t_max=50,
 )
 x = trajectory[:, 0]
 
-# 2. Pick (E, tau) by cross-validated grid search.
-E_grid = list(range(1, 11))
-tau_grid = [1, 2, 3, 5]
-scores = scan(x, E=E_grid, tau=tau_grid)
-E, tau, cv_rho = select(scores, E=E_grid, tau=tau_grid)
-print(f"Selected E={E}, tau={tau} (CV rho={cv_rho:.3f})")
+# 2. Fix the delay coordinates. Pick them by held-out skill for your own data —
+#    see the parameter selection guide.
+E, tau = 3, 2
 
 # 3. Embed once with the chosen parameters.
-embedded = lagged_embed(x, tau=tau, e=E)
-shift = tau * (E - 1)               # embedded[i] corresponds to time x[shift + i]
-n_pairs = len(embedded) - 1         # one less because we need a 1-step-ahead target
+coordinates = np.array([[0, tau * j] for j in range(E)])
+embedded, _ = embed(coordinates, x)
+shift = tau * (E - 1)  # embedded[i] corresponds to time x[shift + i]
+n_pairs = len(embedded) - 1  # one less because we need a 1-step-ahead target
 
 # 4. Split into library (training) and query (test) sets.
 half = n_pairs // 2
@@ -74,7 +76,7 @@ The example couples two logistic maps so `x` drives `y` but not the reverse, the
 ```python
 import numpy as np
 from edmkit.ccm import with_simplex_projection
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 
 # 1. Build coupled logistic maps. x drives y with coupling 0.02; the reverse is zero.
 N, rx, ry, beta = 1000, 3.8, 3.5, 0.02
@@ -87,8 +89,9 @@ for i in range(1, N):
 
 # 2. To test "x causes y", cross-map from y's attractor to x.
 tau, E = 1, 2
-y_embedded = lagged_embed(y, tau=tau, e=E)
-x_aligned = x[tau * (E - 1):]
+coordinates = np.array([[0, tau * j] for j in range(E)])
+y_embedded, _ = embed(coordinates, y)
+x_aligned = x[tau * (E - 1) :]
 
 # 3. Reserve disjoint pools so the library cannot trivially memorize the queries.
 mid = y_embedded.shape[0] // 2
@@ -98,7 +101,8 @@ lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=8, dtype=i
 
 # 4. Sweep library sizes and read the convergence pattern.
 rho_x_drives_y = with_simplex_projection(
-    y_embedded, x_aligned,
+    y_embedded,
+    x_aligned,
     lib_sizes=lib_sizes,
     library_pool=library_pool,
     prediction_pool=prediction_pool,

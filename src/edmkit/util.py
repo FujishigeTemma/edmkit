@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.spatial.distance import cdist
 
-__all__ = ["pad", "pairwise_distance", "pairwise_distance_np", "dtw", "autocorrelation"]
+__all__ = ["autocorrelation", "dtw", "pad", "pairwise_distance", "pairwise_distance_np"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor

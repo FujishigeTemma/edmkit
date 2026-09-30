@@ -9,7 +9,7 @@ from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
 from edmkit.ccm import AggregateFunc, SampleFunc, bootstrap, ccm, make_sample_func
-from edmkit.embedding import lagged_embed
+from edmkit.embedding import embed
 from edmkit.metrics import MetricFunc, pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 from edmkit.types import PredictFunc
@@ -100,7 +100,7 @@ def logistic_map(length: int, growth: float, initial: float) -> np.ndarray:
 
 def cross_mapped_series(source: np.ndarray, target: np.ndarray, tau: int, e: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Embed `source` and align `target` for a CCM cross-map, splitting indices into equal library/prediction pools."""
-    embedding = lagged_embed(source, tau=tau, e=e)
+    embedding, _ = embed(np.array([[0, tau * j] for j in range(e)]), source)
     aligned_target = target[tau * (e - 1) :]
     half = len(embedding) // 2
     return embedding, aligned_target, np.arange(half), np.arange(half, len(embedding))

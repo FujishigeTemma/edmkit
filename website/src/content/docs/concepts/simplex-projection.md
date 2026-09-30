@@ -20,7 +20,7 @@ Two design choices:
 
 ## Why this picks `E`
 
-Plot held-out `rho(E)` against `E`. The curve rises until `E` matches the attractor's effective dimensionality, then plateaus or declines as higher `E` only adds noise to the neighbor search. The peak is the recommended `E`. `edmkit.embedding.scan` and `select` package this as a grid search — see [Choosing E and tau](/edmkit/guides/choosing-parameters/).
+Plot held-out `rho(E)` against `E`. The curve rises until `E` matches the attractor's effective dimensionality, then plateaus or declines as higher `E` only adds noise to the neighbor search. The peak is the recommended `E` — see [Choosing E and tau](/edmkit/guides/choosing-parameters/).
 
 ## Using `simplex_projection`
 
@@ -32,7 +32,7 @@ from edmkit.simplex_projection import simplex_projection
 # X: (N, E) library embeddings
 # Y: (N,) or (N, D) library targets
 # Q: (M, E) query embeddings
-predictions = simplex_projection(X, Y, Q)   # (M,) or (M, D)
+predictions = simplex_projection(X, Y, Q)  # (M,) or (M, D)
 ```
 
 Conventions:
@@ -43,14 +43,14 @@ Conventions:
 
 ## Batched evaluation
 
-For several independent simplex problems at once (e.g. `scan` over many `(E, tau)` cells), pass arrays with a leading batch dimension:
+For several independent simplex problems at once (e.g. many `(E, tau)` cells of a parameter grid), pass arrays with a leading batch dimension:
 
 ```python
 # X: (B, N, E), Y: (B, N, D), Q: (B, M, E)
-predictions = simplex_projection(X, Y, Q)   # (B, M, D)
+predictions = simplex_projection(X, Y, Q)  # (B, M, D)
 ```
 
-Batched calls share validation and allocation overhead across the batch, so they're faster than calling the function once per problem. This is what makes `scan` tractable.
+Batched calls share validation and allocation overhead across the batch, so they're faster than calling the function once per problem. This is what makes a parameter sweep tractable.
 
 ## Excluding library points with `mask`
 

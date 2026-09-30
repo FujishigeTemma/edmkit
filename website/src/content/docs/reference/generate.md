@@ -10,9 +10,9 @@ sidebar:
 Name | Description
 ---- | -----------
 [`double_pendulum`](#double_pendulum) | Generate double pendulum dynamics via forward Euler integration.
-[`to_xy`](#to_xy) | Convert double pendulum angles to Cartesian coordinates.
 [`lorenz`](#lorenz) | Generate a Lorenz system trajectory via forward Euler integration.
 [`mackey_glass`](#mackey_glass) | Generate a Mackey-Glass chaotic time series via forward Euler integration.
+[`to_xy`](#to_xy) | Convert double pendulum angles to Cartesian coordinates.
 
 ## `double_pendulum`
 
@@ -41,34 +41,6 @@ Name | Type | Description
 ---- | ---- | -----------
 `t` | <code>[ndarray](#numpy.ndarray)</code> | Time array.
 `X` | <code>[ndarray](#numpy.ndarray)</code> | State trajectory of shape ``(N, 4)``.
-
-
-
-## `to_xy`
-
-```python
-to_xy(L1: float, L2: float, theta1: np.ndarray, theta2: np.ndarray)
-```
-
-Convert double pendulum angles to Cartesian coordinates.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`L1` | <code>[float](#float)</code> | Length of first pendulum. | *required*
-`L2` | <code>[float](#float)</code> | Length of second pendulum. | *required*
-`theta1` | <code>[ndarray](#numpy.ndarray)</code> | Angle of first pendulum. | *required*
-`theta2` | <code>[ndarray](#numpy.ndarray)</code> | Angle of second pendulum. | *required*
-
-**Returns:**
-
-Name | Type | Description
----- | ---- | -----------
-`x1` | <code>[ndarray](#numpy.ndarray)</code> | x-coordinate of first pendulum.
-`y1` | <code>[ndarray](#numpy.ndarray)</code> | y-coordinate of first pendulum.
-`x2` | <code>[ndarray](#numpy.ndarray)</code> | x-coordinate of second pendulum.
-`y2` | <code>[ndarray](#numpy.ndarray)</code> | y-coordinate of second pendulum.
 
 
 
@@ -126,4 +98,32 @@ Name | Type | Description
 ---- | ---- | -----------
 `t` | <code>[ndarray](#numpy.ndarray)</code> | Time array.
 `x` | <code>[ndarray](#numpy.ndarray)</code> | 1D time series.
+
+
+
+## `to_xy`
+
+```python
+to_xy(L1: float, L2: float, theta1: np.ndarray, theta2: np.ndarray)
+```
+
+Convert double pendulum angles to Cartesian coordinates.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`L1` | <code>[float](#float)</code> | Length of first pendulum. | *required*
+`L2` | <code>[float](#float)</code> | Length of second pendulum. | *required*
+`theta1` | <code>[ndarray](#numpy.ndarray)</code> | Angle of first pendulum. | *required*
+`theta2` | <code>[ndarray](#numpy.ndarray)</code> | Angle of second pendulum. | *required*
+
+**Returns:**
+
+Name | Type | Description
+---- | ---- | -----------
+`x1` | <code>[ndarray](#numpy.ndarray)</code> | x-coordinate of first pendulum.
+`y1` | <code>[ndarray](#numpy.ndarray)</code> | y-coordinate of first pendulum.
+`x2` | <code>[ndarray](#numpy.ndarray)</code> | x-coordinate of second pendulum.
+`y2` | <code>[ndarray](#numpy.ndarray)</code> | y-coordinate of second pendulum.
 
