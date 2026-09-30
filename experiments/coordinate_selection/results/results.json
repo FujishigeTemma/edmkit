@@ -1,0 +1,3110 @@
+[
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.0581818105128404,
+  "inflation_p99": 4.749083696266759,
+  "rmse_short": 0.048793218819977766,
+  "rmse_long": 0.3594896436116703
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "uniform k=10",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    5
+   ]
+  ],
+  "inflation_median": 1.136432792180515,
+  "inflation_p99": 8.244694377276549,
+  "rmse_short": 0.06274994043075661,
+  "rmse_long": 0.4159048408042558
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "defect k=10",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    6
+   ]
+  ],
+  "inflation_median": 1.1062025961507858,
+  "inflation_p99": 8.201360993845075,
+  "rmse_short": 0.059806480055378516,
+  "rmse_long": 0.40852909589734826
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "uniform k=5",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.207108699031295,
+  "inflation_p99": 8.648400794697364,
+  "rmse_short": 0.06792035195260032,
+  "rmse_long": 0.4269669485340563
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "defect k=5",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 1.0938363814219056,
+  "inflation_p99": 4.875996445986409,
+  "rmse_short": 0.04805492448087604,
+  "rmse_long": 0.3555948561325967
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "defect k=10 @E",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    6
+   ]
+  ],
+  "inflation_median": 1.1062025961507858,
+  "inflation_p99": 8.201360993845075,
+  "rmse_short": 0.059806480055378516,
+  "rmse_long": 0.40852909589734826
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 0,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.083494707630697,
+  "inflation_p99": 5.098489649959972,
+  "rmse_short": 0.04896790795090196,
+  "rmse_long": 0.361450768094664
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.050352404320731,
+  "inflation_p99": 5.419209063764821,
+  "rmse_short": 0.06141840237492471,
+  "rmse_long": 0.38214769531063575
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "uniform k=10",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.1946677875047718,
+  "inflation_p99": 9.131378185916653,
+  "rmse_short": 0.07614154964152621,
+  "rmse_long": 0.45557059999631916
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "defect k=10",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.1946677875047718,
+  "inflation_p99": 9.131378185916653,
+  "rmse_short": 0.07614154964152621,
+  "rmse_long": 0.45557059999631916
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "uniform k=5",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.1946677875047718,
+  "inflation_p99": 9.131378185916653,
+  "rmse_short": 0.07614154964152621,
+  "rmse_long": 0.45557059999631916
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "defect k=5",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.1946677875047718,
+  "inflation_p99": 9.131378185916653,
+  "rmse_short": 0.07614154964152621,
+  "rmse_long": 0.45557059999631916
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "defect k=10 @E",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.1946677875047718,
+  "inflation_p99": 9.131378185916653,
+  "rmse_short": 0.07614154964152621,
+  "rmse_long": 0.45557059999631916
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 1,
+  "method": "defect k=5 @E",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.1946677875047718,
+  "inflation_p99": 9.131378185916653,
+  "rmse_short": 0.07614154964152621,
+  "rmse_long": 0.45557059999631916
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "pecuzal",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    45
+   ],
+   [
+    0,
+    36
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.5008199972624832,
+  "inflation_p99": 9.812691726374808,
+  "rmse_short": 0.07024871392567995,
+  "rmse_long": 0.2705488414107562
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "uniform k=10",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    5
+   ]
+  ],
+  "inflation_median": 1.1367550679962073,
+  "inflation_p99": 8.08342477591606,
+  "rmse_short": 0.0626482350265217,
+  "rmse_long": 0.4630954242589983
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "defect k=10",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.207172179482471,
+  "inflation_p99": 8.350599723448381,
+  "rmse_short": 0.07243292506678037,
+  "rmse_long": 0.47256106422264316
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "uniform k=5",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    5
+   ]
+  ],
+  "inflation_median": 1.1367550679962073,
+  "inflation_p99": 8.08342477591606,
+  "rmse_short": 0.0626482350265217,
+  "rmse_long": 0.4630954242589983
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "defect k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.078557639412094,
+  "inflation_p99": 3.773591836323686,
+  "rmse_short": 0.043845197197615635,
+  "rmse_long": 0.3209309828548421
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "defect k=10 @E",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ]
+  ],
+  "inflation_median": 1.207172179482471,
+  "inflation_p99": 8.350599723448381,
+  "rmse_short": 0.07243292506678037,
+  "rmse_long": 0.47256106422264316
+ },
+ {
+  "case": "lorenz-x",
+  "seed": 2,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.078557639412094,
+  "inflation_p99": 3.773591836323686,
+  "rmse_short": 0.043845197197615635,
+  "rmse_long": 0.3209309828548421
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "pecuzal",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    80
+   ],
+   [
+    0,
+    71
+   ],
+   [
+    0,
+    35
+   ],
+   [
+    0,
+    44
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    28
+   ]
+  ],
+  "inflation_median": 2.0683799407497325,
+  "inflation_p99": 10.443368176163295,
+  "rmse_short": 0.35436771113153265,
+  "rmse_long": 0.6539646587520486
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "uniform k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 2.192254000330337,
+  "inflation_p99": 8.410834154450848,
+  "rmse_short": 0.18945135168810653,
+  "rmse_long": 0.7251532451899227
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "defect k=10",
+  "E": 8,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    39
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    34
+   ]
+  ],
+  "inflation_median": 1.8379560583306984,
+  "inflation_p99": 3.622188443916029,
+  "rmse_short": 0.1820216728997892,
+  "rmse_long": 0.5685266094812184
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "uniform k=5",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    14
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    5
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    9
+   ]
+  ],
+  "inflation_median": 1.5584649760724014,
+  "inflation_p99": 5.543021495131684,
+  "rmse_short": 0.13840700742561618,
+  "rmse_long": 0.5847668176216336
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "defect k=5",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    40
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    31
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    33
+   ]
+  ],
+  "inflation_median": 1.6894325406556092,
+  "inflation_p99": 3.380836610087091,
+  "rmse_short": 0.19151798085721042,
+  "rmse_long": 0.5524607556462858
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "defect k=10 @E",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    39
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    3
+   ]
+  ],
+  "inflation_median": 1.9310864562221932,
+  "inflation_p99": 3.7578246460850275,
+  "rmse_short": 0.16844527633244027,
+  "rmse_long": 0.5940760275197183
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 0,
+  "method": "defect k=5 @E",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    40
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    31
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    3
+   ]
+  ],
+  "inflation_median": 1.8412289673182012,
+  "inflation_p99": 3.725203313045163,
+  "rmse_short": 0.1858847251512578,
+  "rmse_long": 0.5641427542752473
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "pecuzal",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    44
+   ],
+   [
+    0,
+    35
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.8475728175393349,
+  "inflation_p99": 12.511112191642288,
+  "rmse_short": 0.305662776219414,
+  "rmse_long": 0.6304128882457672
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "uniform k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 2.1803952504848176,
+  "inflation_p99": 9.711961776533416,
+  "rmse_short": 0.19731458109356273,
+  "rmse_long": 0.7162545358131244
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "defect k=10",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    5
+   ]
+  ],
+  "inflation_median": 1.64014961203149,
+  "inflation_p99": 7.704452362895185,
+  "rmse_short": 0.15537338968249303,
+  "rmse_long": 0.5875955781590537
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "uniform k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 2.1803952504848176,
+  "inflation_p99": 9.711961776533416,
+  "rmse_short": 0.19731458109356273,
+  "rmse_long": 0.7162545358131244
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "defect k=5",
+  "E": 8,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    37
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    45
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    3
+   ]
+  ],
+  "inflation_median": 1.8735458815780413,
+  "inflation_p99": 4.429681470373812,
+  "rmse_short": 0.27478086872135954,
+  "rmse_long": 0.6144905664195165
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "defect k=10 @E",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    10
+   ]
+  ],
+  "inflation_median": 1.8845368155689064,
+  "inflation_p99": 8.03353880104124,
+  "rmse_short": 0.18270213131163365,
+  "rmse_long": 0.6433856719179426
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 1,
+  "method": "defect k=5 @E",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    37
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 2.0692913580212378,
+  "inflation_p99": 5.220764239913065,
+  "rmse_short": 0.21340286236509884,
+  "rmse_long": 0.6245379781742033
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "pecuzal",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    44
+   ],
+   [
+    0,
+    34
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.9884451183965322,
+  "inflation_p99": 9.77006605457401,
+  "rmse_short": 0.15031920422937578,
+  "rmse_long": 0.4994696780466036
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "uniform k=10",
+  "E": 5,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "inflation_median": 1.8502726777305403,
+  "inflation_p99": 8.03868647344518,
+  "rmse_short": 0.13727225697549145,
+  "rmse_long": 0.5508808484983112
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "defect k=10",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    13
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    5
+   ],
+   [
+    0,
+    6
+   ]
+  ],
+  "inflation_median": 1.499182128055587,
+  "inflation_p99": 6.55765103581193,
+  "rmse_short": 0.11378265228907178,
+  "rmse_long": 0.4730722915545067
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "uniform k=5",
+  "E": 6,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    12
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "inflation_median": 1.6983772015193122,
+  "inflation_p99": 6.631127316200303,
+  "rmse_short": 0.12516960199928517,
+  "rmse_long": 0.4938438989637846
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "defect k=5",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    43
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    34
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    46
+   ],
+   [
+    0,
+    29
+   ]
+  ],
+  "inflation_median": 1.7614646766351125,
+  "inflation_p99": 10.227962294464339,
+  "rmse_short": 0.13214384189841014,
+  "rmse_long": 0.44474624475878893
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "defect k=10 @E",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    7
+   ]
+  ],
+  "inflation_median": 2.0008213053386097,
+  "inflation_p99": 9.063876433283244,
+  "rmse_short": 0.15639855176073633,
+  "rmse_long": 0.606688665544794
+ },
+ {
+  "case": "lorenz-x-noise",
+  "seed": 2,
+  "method": "defect k=5 @E",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    43
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 2.30884191290267,
+  "inflation_p99": 5.898187502002494,
+  "rmse_short": 0.14539258524112136,
+  "rmse_long": 0.5520032805000162
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "pecuzal",
+  "E": 5,
+  "coordinates": [
+   [
+    2,
+    33
+   ],
+   [
+    1,
+    33
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    2,
+    23
+   ]
+  ],
+  "inflation_median": 1.1671142081594619,
+  "inflation_p99": 2.1932542192241513,
+  "rmse_short": 0.1451524790841852,
+  "rmse_long": 0.36968071020256604
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "uniform k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "inflation_median": 1.256156273575495,
+  "inflation_p99": 4.519344131843168,
+  "rmse_short": 0.03661322949680362,
+  "rmse_long": 0.34009816450268054
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "defect k=10",
+  "E": 4,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    5
+   ],
+   [
+    1,
+    1
+   ]
+  ],
+  "inflation_median": 1.261953886979263,
+  "inflation_p99": 4.314088620659999,
+  "rmse_short": 0.03575821575777059,
+  "rmse_long": 0.3389366094541495
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "uniform k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.1590012144640505,
+  "inflation_p99": 4.131912078429475,
+  "rmse_short": 0.03561004283796092,
+  "rmse_long": 0.3336345875336498
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "defect k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.2250683845830612,
+  "inflation_p99": 4.2907301177793205,
+  "rmse_short": 0.03678106785335868,
+  "rmse_long": 0.3397100755429289
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "defect k=10 @E",
+  "E": 4,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    5
+   ],
+   [
+    1,
+    1
+   ]
+  ],
+  "inflation_median": 1.261953886979263,
+  "inflation_p99": 4.314088620659999,
+  "rmse_short": 0.03575821575777059,
+  "rmse_long": 0.3389366094541495
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 0,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.2250683845830612,
+  "inflation_p99": 4.2907301177793205,
+  "rmse_short": 0.03678106785335868,
+  "rmse_long": 0.3397100755429289
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "pecuzal",
+  "E": 6,
+  "coordinates": [
+   [
+    2,
+    42
+   ],
+   [
+    1,
+    42
+   ],
+   [
+    0,
+    42
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    18
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.194371252920134,
+  "inflation_p99": 7.08875084470206,
+  "rmse_short": 0.26584473636217815,
+  "rmse_long": 0.4460955076449698
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "uniform k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "inflation_median": 1.2297687127801646,
+  "inflation_p99": 5.098097565517094,
+  "rmse_short": 0.04540997098749466,
+  "rmse_long": 0.3635186218180341
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "defect k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.20694317348037,
+  "inflation_p99": 4.602349018783592,
+  "rmse_short": 0.045021896216139896,
+  "rmse_long": 0.3566152203860478
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "uniform k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "inflation_median": 1.1579807106605284,
+  "inflation_p99": 4.947462127973417,
+  "rmse_short": 0.04503804222191402,
+  "rmse_long": 0.3591559108783885
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "defect k=5",
+  "E": 4,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    1,
+    5
+   ],
+   [
+    1,
+    1
+   ]
+  ],
+  "inflation_median": 1.1721133936458927,
+  "inflation_p99": 4.427573531172182,
+  "rmse_short": 0.044867043115565206,
+  "rmse_long": 0.3588015729642954
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.20694317348037,
+  "inflation_p99": 4.602349018783592,
+  "rmse_short": 0.045021896216139896,
+  "rmse_long": 0.3566152203860478
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 1,
+  "method": "defect k=5 @E",
+  "E": 4,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    1,
+    5
+   ],
+   [
+    1,
+    1
+   ]
+  ],
+  "inflation_median": 1.1721133936458927,
+  "inflation_p99": 4.427573531172182,
+  "rmse_short": 0.044867043115565206,
+  "rmse_long": 0.3588015729642954
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "pecuzal",
+  "E": 5,
+  "coordinates": [
+   [
+    2,
+    31
+   ],
+   [
+    1,
+    31
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    5
+   ],
+   [
+    0,
+    31
+   ]
+  ],
+  "inflation_median": 1.184168230211064,
+  "inflation_p99": 4.309063237120425,
+  "rmse_short": 0.08171408299605198,
+  "rmse_long": 0.2400223180309257
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "uniform k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.2325448033511313,
+  "inflation_p99": 3.548979377032195,
+  "rmse_short": 0.03070831536290538,
+  "rmse_long": 0.2938518293843623
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "defect k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    1,
+    5
+   ]
+  ],
+  "inflation_median": 1.2728305748555824,
+  "inflation_p99": 3.8650209961915394,
+  "rmse_short": 0.031363707159149316,
+  "rmse_long": 0.30295044958591455
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "uniform k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    4
+   ]
+  ],
+  "inflation_median": 1.2325448033511313,
+  "inflation_p99": 3.548979377032195,
+  "rmse_short": 0.03070831536290538,
+  "rmse_long": 0.2938518293843623
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "defect k=5",
+  "E": 5,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    1,
+    1
+   ],
+   [
+    1,
+    2
+   ]
+  ],
+  "inflation_median": 1.0259556591619627,
+  "inflation_p99": 1.1178859772552991,
+  "rmse_short": 0.030916877033365514,
+  "rmse_long": 0.22267552388269155
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    1,
+    5
+   ]
+  ],
+  "inflation_median": 1.2728305748555824,
+  "inflation_p99": 3.8650209961915394,
+  "rmse_short": 0.031363707159149316,
+  "rmse_long": 0.30295044958591455
+ },
+ {
+  "case": "lorenz-xyz",
+  "seed": 2,
+  "method": "defect k=5 @E",
+  "E": 5,
+  "coordinates": [
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    1,
+    1
+   ],
+   [
+    1,
+    2
+   ]
+  ],
+  "inflation_median": 1.0259556591619627,
+  "inflation_p99": 1.1178859772552991,
+  "rmse_short": 0.030916877033365514,
+  "rmse_long": 0.22267552388269155
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.0215193603428119,
+  "inflation_p99": 3.1251058434807444,
+  "rmse_short": 0.019968577248670134,
+  "rmse_long": 0.02752739964150581
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "uniform k=10",
+  "E": 5,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    27
+   ]
+  ],
+  "inflation_median": 1.0638322861350002,
+  "inflation_p99": 2.7065786738649593,
+  "rmse_short": 0.02075897812731053,
+  "rmse_long": 0.027204019047596006
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "defect k=10",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    29
+   ],
+   [
+    0,
+    23
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    26
+   ]
+  ],
+  "inflation_median": 1.0731189987901089,
+  "inflation_p99": 3.0950772497415437,
+  "rmse_short": 0.018698681525970054,
+  "rmse_long": 0.026155984719610576
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "uniform k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    21
+   ]
+  ],
+  "inflation_median": 1.0089792323968902,
+  "inflation_p99": 3.4776128656751695,
+  "rmse_short": 0.0328969761934974,
+  "rmse_long": 0.042294009217209175
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "defect k=5",
+  "E": 6,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    26
+   ],
+   [
+    0,
+    21
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    22
+   ]
+  ],
+  "inflation_median": 1.0734620385321003,
+  "inflation_p99": 2.3420849227313574,
+  "rmse_short": 0.019516285880711956,
+  "rmse_long": 0.026186436780050462
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    29
+   ]
+  ],
+  "inflation_median": 1.1202293401105776,
+  "inflation_p99": 3.6113254853325816,
+  "rmse_short": 0.02247511565076875,
+  "rmse_long": 0.030501042969241093
+ },
+ {
+  "case": "rossler-x",
+  "seed": 0,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    26
+   ]
+  ],
+  "inflation_median": 1.2132591831737312,
+  "inflation_p99": 3.4636591709216695,
+  "rmse_short": 0.028456454081200816,
+  "rmse_long": 0.03634007239760265
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.0199192631745286,
+  "inflation_p99": 2.6306688096981645,
+  "rmse_short": 0.017876704373144432,
+  "rmse_long": 0.0254968641379653
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "uniform k=10",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    20
+   ]
+  ],
+  "inflation_median": 1.015893216033437,
+  "inflation_p99": 2.6554569457505184,
+  "rmse_short": 0.02078031584102854,
+  "rmse_long": 0.028770921699238505
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "defect k=10",
+  "E": 5,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    5
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    19
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 1.04668387212908,
+  "inflation_p99": 2.610896986237115,
+  "rmse_short": 0.01636609423383055,
+  "rmse_long": 0.02338165945345782
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "uniform k=5",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 1.1534081920432415,
+  "inflation_p99": 7.087765210320047,
+  "rmse_short": 0.03253311667954675,
+  "rmse_long": 0.04266272392423292
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "defect k=5",
+  "E": 6,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    26
+   ],
+   [
+    0,
+    21
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    27
+   ]
+  ],
+  "inflation_median": 1.0700003478373614,
+  "inflation_p99": 2.9371079224389987,
+  "rmse_short": 0.017063769235869275,
+  "rmse_long": 0.024395539212471663
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    5
+   ],
+   [
+    0,
+    25
+   ]
+  ],
+  "inflation_median": 1.1107555217532399,
+  "inflation_p99": 4.712503342382774,
+  "rmse_short": 0.02660478947653911,
+  "rmse_long": 0.0344715736115066
+ },
+ {
+  "case": "rossler-x",
+  "seed": 1,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    26
+   ]
+  ],
+  "inflation_median": 1.1048872252701107,
+  "inflation_p99": 4.1276905890577575,
+  "rmse_short": 0.025319455870685258,
+  "rmse_long": 0.03309912213610912
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.0215146255530776,
+  "inflation_p99": 2.555755717794107,
+  "rmse_short": 0.023175410450436716,
+  "rmse_long": 0.03202284640618903
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "uniform k=10",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 1.1215392931541572,
+  "inflation_p99": 8.768282600791832,
+  "rmse_short": 0.03742786817424685,
+  "rmse_long": 0.04835401966697552
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "defect k=10",
+  "E": 6,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    28
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    24
+   ]
+  ],
+  "inflation_median": 1.0760399162835117,
+  "inflation_p99": 2.7051086456981928,
+  "rmse_short": 0.021925772455765578,
+  "rmse_long": 0.031079818154434773
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "uniform k=5",
+  "E": 2,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ]
+  ],
+  "inflation_median": 1.0768311343761714,
+  "inflation_p99": 18.883505346746688,
+  "rmse_short": 0.08752218383649919,
+  "rmse_long": 0.1145285399639015
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "defect k=5",
+  "E": 6,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    28
+   ],
+   [
+    0,
+    24
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    23
+   ]
+  ],
+  "inflation_median": 1.0694671196187766,
+  "inflation_p99": 2.755353254550214,
+  "rmse_short": 0.021026795269317534,
+  "rmse_long": 0.03003570075587391
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    0,
+    28
+   ]
+  ],
+  "inflation_median": 1.0746487062317183,
+  "inflation_p99": 5.3715828654830915,
+  "rmse_short": 0.029797017905629136,
+  "rmse_long": 0.038356380302218655
+ },
+ {
+  "case": "rossler-x",
+  "seed": 2,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ],
+   [
+    0,
+    28
+   ]
+  ],
+  "inflation_median": 1.1036804712881847,
+  "inflation_p99": 3.8891129724513616,
+  "rmse_short": 0.02766226436677531,
+  "rmse_long": 0.036340883748074315
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ]
+  ],
+  "inflation_median": 1.682023525199415,
+  "inflation_p99": 4.119437592163515,
+  "rmse_short": 0.07908693653810199,
+  "rmse_long": 0.10486686643939441
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "uniform k=10",
+  "E": 9,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    22
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    31
+   ],
+   [
+    0,
+    24
+   ],
+   [
+    0,
+    23
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    16
+   ]
+  ],
+  "inflation_median": 1.2951393747497209,
+  "inflation_p99": 2.4748134672737683,
+  "rmse_short": 0.04562691547202571,
+  "rmse_long": 0.06436734382431493
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "defect k=10",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    22
+   ],
+   [
+    0,
+    33
+   ],
+   [
+    0,
+    27
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    20
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    7
+   ]
+  ],
+  "inflation_median": 1.2690146173246744,
+  "inflation_p99": 2.347618571087822,
+  "rmse_short": 0.044480369989779826,
+  "rmse_long": 0.0624649493985485
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "uniform k=5",
+  "E": 6,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    22
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    28
+   ],
+   [
+    0,
+    20
+   ]
+  ],
+  "inflation_median": 1.3918849772960056,
+  "inflation_p99": 2.9483552183997377,
+  "rmse_short": 0.05566435381834021,
+  "rmse_long": 0.07724891821398915
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "defect k=5",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    19
+   ],
+   [
+    0,
+    30
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    22
+   ],
+   [
+    0,
+    23
+   ],
+   [
+    0,
+    6
+   ],
+   [
+    0,
+    20
+   ],
+   [
+    0,
+    21
+   ]
+  ],
+  "inflation_median": 1.2603909457699962,
+  "inflation_p99": 2.348695114098474,
+  "rmse_short": 0.04408299131060813,
+  "rmse_long": 0.06126456859685024
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    22
+   ]
+  ],
+  "inflation_median": 1.647534102436984,
+  "inflation_p99": 5.706227930820154,
+  "rmse_short": 0.09257384810363277,
+  "rmse_long": 0.12423520126883669
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 0,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    19
+   ]
+  ],
+  "inflation_median": 1.6403947861519281,
+  "inflation_p99": 4.37699538644433,
+  "rmse_short": 0.0790330280944951,
+  "rmse_long": 0.10575480473051177
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    9
+   ]
+  ],
+  "inflation_median": 1.7368706703089491,
+  "inflation_p99": 4.25888489521412,
+  "rmse_short": 0.07669157584320468,
+  "rmse_long": 0.10155776017242892
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "uniform k=10",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    21
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    26
+   ]
+  ],
+  "inflation_median": 1.4697479575896382,
+  "inflation_p99": 3.0636637913073557,
+  "rmse_short": 0.057148701061948165,
+  "rmse_long": 0.0789934128149087
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "defect k=10",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    20
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    28
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    19
+   ],
+   [
+    0,
+    26
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    27
+   ]
+  ],
+  "inflation_median": 1.3606401159121708,
+  "inflation_p99": 2.7644308873003247,
+  "rmse_short": 0.04754107953702364,
+  "rmse_long": 0.06598360882676092
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "uniform k=5",
+  "E": 5,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    22
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    27
+   ]
+  ],
+  "inflation_median": 1.5323393194357087,
+  "inflation_p99": 3.4107288017656496,
+  "rmse_short": 0.06461400543063414,
+  "rmse_long": 0.08868374126832568
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "defect k=5",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    17
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    23
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    21
+   ],
+   [
+    0,
+    26
+   ],
+   [
+    0,
+    30
+   ],
+   [
+    0,
+    3
+   ]
+  ],
+  "inflation_median": 1.3318002446532418,
+  "inflation_p99": 2.623612565053311,
+  "rmse_short": 0.04618347337281466,
+  "rmse_long": 0.06577609228304063
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    20
+   ]
+  ],
+  "inflation_median": 1.7020353599121698,
+  "inflation_p99": 4.7513705891441225,
+  "rmse_short": 0.08057770351368579,
+  "rmse_long": 0.10484886617665518
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 1,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    17
+   ]
+  ],
+  "inflation_median": 1.708904572626709,
+  "inflation_p99": 4.0679957619973015,
+  "rmse_short": 0.07480877387457736,
+  "rmse_long": 0.09909424963718085
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "pecuzal",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    8
+   ]
+  ],
+  "inflation_median": 1.705722298863784,
+  "inflation_p99": 4.018400949028209,
+  "rmse_short": 0.07643230052832338,
+  "rmse_long": 0.09887396480538663
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "uniform k=10",
+  "E": 4,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    12
+   ],
+   [
+    0,
+    23
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "inflation_median": 1.6200303440483101,
+  "inflation_p99": 4.602387545673942,
+  "rmse_short": 0.08368094609761025,
+  "rmse_long": 0.10765362848881632
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "defect k=10",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    20
+   ],
+   [
+    0,
+    28
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    27
+   ],
+   [
+    0,
+    4
+   ],
+   [
+    0,
+    24
+   ],
+   [
+    0,
+    26
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "inflation_median": 1.3712468783338563,
+  "inflation_p99": 2.5391836657590052,
+  "rmse_short": 0.04784780867735098,
+  "rmse_long": 0.064671990679638
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "uniform k=5",
+  "E": 7,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    23
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    15
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    24
+   ]
+  ],
+  "inflation_median": 1.4260637912670315,
+  "inflation_p99": 2.8131550191111336,
+  "rmse_short": 0.051787706811598534,
+  "rmse_long": 0.06855512669948773
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "defect k=5",
+  "E": 10,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    21
+   ],
+   [
+    0,
+    33
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    22
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    25
+   ],
+   [
+    0,
+    27
+   ]
+  ],
+  "inflation_median": 1.3450416915090886,
+  "inflation_p99": 2.533371398423006,
+  "rmse_short": 0.04765302353996923,
+  "rmse_long": 0.06474692503601924
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "defect k=10 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    20
+   ]
+  ],
+  "inflation_median": 1.685835689455097,
+  "inflation_p99": 5.009241821478085,
+  "rmse_short": 0.08854028247057805,
+  "rmse_long": 0.11488594437821083
+ },
+ {
+  "case": "rossler-x-noise",
+  "seed": 2,
+  "method": "defect k=5 @E",
+  "E": 3,
+  "coordinates": [
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    11
+   ],
+   [
+    0,
+    21
+   ]
+  ],
+  "inflation_median": 1.6831977290644011,
+  "inflation_p99": 4.617412610587939,
+  "rmse_short": 0.0856245167504299,
+  "rmse_long": 0.11041106853561572
+ }
+]

@@ -1,0 +1,1 @@
+{"coordinates": [[0, 0], [0, 6]], "history": [{"coordinate": [0, 0], "gain": 2.5291843737845263, "error": 0.041563121457781106, "accepted": true}, {"coordinate": [0, 6], "gain": 2.4382924350306685, "error": 0.08596663106059699, "accepted": true}, {"coordinate": [0, 1], "gain": 0.004100020589485769, "error": 0.010733614988748676, "accepted": false}], "seconds": 5.8571083545684814}

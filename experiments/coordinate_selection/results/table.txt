@@ -1,0 +1,142 @@
+lorenz-x         0 pecuzal        E= 3  infl 1.06/ 4.75  rmse 0.0488/0.3595  [0:9 0:0 0:4]
+lorenz-x         0 uniform k=10   E= 2  infl 1.14/ 8.24  rmse 0.0627/0.4159  [0:0 0:5]
+lorenz-x         0 defect k=10    E= 2  infl 1.11/ 8.20  rmse 0.0598/0.4085  [0:0 0:6]
+lorenz-x         0 uniform k=5    E= 2  infl 1.21/ 8.65  rmse 0.0679/0.4270  [0:0 0:4]
+lorenz-x         0 defect k=5     E= 4  infl 1.09/ 4.88  rmse 0.0481/0.3556  [0:0 0:4 0:8 0:1]
+lorenz-x         0 defect k=10 @E E= 2  infl 1.11/ 8.20  rmse 0.0598/0.4085  [0:0 0:6]
+lorenz-x         0 defect k=5 @E  E= 3  infl 1.08/ 5.10  rmse 0.0490/0.3615  [0:0 0:4 0:8]
+lorenz-x         1 pecuzal        E= 3  infl 1.05/ 5.42  rmse 0.0614/0.3821  [0:9 0:0 0:4]
+lorenz-x         1 uniform k=10   E= 2  infl 1.19/ 9.13  rmse 0.0761/0.4556  [0:0 0:4]
+lorenz-x         1 defect k=10    E= 2  infl 1.19/ 9.13  rmse 0.0761/0.4556  [0:0 0:4]
+lorenz-x         1 uniform k=5    E= 2  infl 1.19/ 9.13  rmse 0.0761/0.4556  [0:0 0:4]
+lorenz-x         1 defect k=5     E= 2  infl 1.19/ 9.13  rmse 0.0761/0.4556  [0:0 0:4]
+lorenz-x         1 defect k=10 @E E= 2  infl 1.19/ 9.13  rmse 0.0761/0.4556  [0:0 0:4]
+lorenz-x         1 defect k=5 @E  E= 2  infl 1.19/ 9.13  rmse 0.0761/0.4556  [0:0 0:4]
+lorenz-x         2 pecuzal        E= 4  infl 1.50/ 9.81  rmse 0.0702/0.2705  [0:45 0:36 0:0 0:8]
+lorenz-x         2 uniform k=10   E= 2  infl 1.14/ 8.08  rmse 0.0626/0.4631  [0:0 0:5]
+lorenz-x         2 defect k=10    E= 2  infl 1.21/ 8.35  rmse 0.0724/0.4726  [0:0 0:4]
+lorenz-x         2 uniform k=5    E= 2  infl 1.14/ 8.08  rmse 0.0626/0.4631  [0:0 0:5]
+lorenz-x         2 defect k=5     E= 3  infl 1.08/ 3.77  rmse 0.0438/0.3209  [0:0 0:4 0:8]
+lorenz-x         2 defect k=10 @E E= 2  infl 1.21/ 8.35  rmse 0.0724/0.4726  [0:0 0:4]
+lorenz-x         2 defect k=5 @E  E= 3  infl 1.08/ 3.77  rmse 0.0438/0.3209  [0:0 0:4 0:8]
+lorenz-x-noise   0 pecuzal        E= 7  infl 2.07/10.44  rmse 0.3544/0.6540  [0:80 0:71 0:35 0:44 0:0 0:9 0:28]
+lorenz-x-noise   0 uniform k=10   E= 3  infl 2.19/ 8.41  rmse 0.1895/0.7252  [0:0 0:7 0:1]
+lorenz-x-noise   0 defect k=10    E= 8  infl 1.84/ 3.62  rmse 0.1820/0.5685  [0:0 0:9 0:4 0:1 0:39 0:2 0:3 0:34]
+lorenz-x-noise   0 uniform k=5    E= 7  infl 1.56/ 5.54  rmse 0.1384/0.5848  [0:0 0:7 0:14 0:1 0:5 0:3 0:9]
+lorenz-x-noise   0 defect k=5     E=10  infl 1.69/ 3.38  rmse 0.1915/0.5525  [0:0 0:8 0:40 0:1 0:31 0:2 0:3 0:4 0:10 0:33]
+lorenz-x-noise   0 defect k=10 @E E= 7  infl 1.93/ 3.76  rmse 0.1684/0.5941  [0:0 0:9 0:4 0:1 0:39 0:2 0:3]
+lorenz-x-noise   0 defect k=5 @E  E= 7  infl 1.84/ 3.73  rmse 0.1859/0.5641  [0:0 0:8 0:40 0:1 0:31 0:2 0:3]
+lorenz-x-noise   1 pecuzal        E= 4  infl 1.85/12.51  rmse 0.3057/0.6304  [0:44 0:35 0:0 0:8]
+lorenz-x-noise   1 uniform k=10   E= 3  infl 2.18/ 9.71  rmse 0.1973/0.7163  [0:0 0:7 0:1]
+lorenz-x-noise   1 defect k=10    E= 7  infl 1.64/ 7.70  rmse 0.1554/0.5876  [0:0 0:7 0:1 0:10 0:2 0:6 0:5]
+lorenz-x-noise   1 uniform k=5    E= 3  infl 2.18/ 9.71  rmse 0.1973/0.7163  [0:0 0:7 0:1]
+lorenz-x-noise   1 defect k=5     E= 8  infl 1.87/ 4.43  rmse 0.2748/0.6145  [0:0 0:7 0:37 0:1 0:2 0:45 0:6 0:3]
+lorenz-x-noise   1 defect k=10 @E E= 4  infl 1.88/ 8.03  rmse 0.1827/0.6434  [0:0 0:7 0:1 0:10]
+lorenz-x-noise   1 defect k=5 @E  E= 4  infl 2.07/ 5.22  rmse 0.2134/0.6245  [0:0 0:7 0:37 0:1]
+lorenz-x-noise   2 pecuzal        E= 4  infl 1.99/ 9.77  rmse 0.1503/0.4995  [0:44 0:34 0:0 0:8]
+lorenz-x-noise   2 uniform k=10   E= 5  infl 1.85/ 8.04  rmse 0.1373/0.5509  [0:0 0:6 0:1 0:10 0:2]
+lorenz-x-noise   2 defect k=10    E=10  infl 1.50/ 6.56  rmse 0.1138/0.4731  [0:0 0:8 0:1 0:7 0:13 0:2 0:3 0:9 0:5 0:6]
+lorenz-x-noise   2 uniform k=5    E= 6  infl 1.70/ 6.63  rmse 0.1252/0.4938  [0:0 0:6 0:12 0:1 0:7 0:2]
+lorenz-x-noise   2 defect k=5     E=10  infl 1.76/10.23  rmse 0.1321/0.4447  [0:0 0:8 0:43 0:1 0:34 0:2 0:10 0:4 0:46 0:29]
+lorenz-x-noise   2 defect k=10 @E E= 4  infl 2.00/ 9.06  rmse 0.1564/0.6067  [0:0 0:8 0:1 0:7]
+lorenz-x-noise   2 defect k=5 @E  E= 4  infl 2.31/ 5.90  rmse 0.1454/0.5520  [0:0 0:8 0:43 0:1]
+lorenz-xyz       0 pecuzal        E= 5  infl 1.17/ 2.19  rmse 0.1452/0.3697  [2:33 1:33 0:0 0:7 2:23]
+lorenz-xyz       0 uniform k=10   E= 3  infl 1.26/ 4.52  rmse 0.0366/0.3401  [1:0 0:1 1:3]
+lorenz-xyz       0 defect k=10    E= 4  infl 1.26/ 4.31  rmse 0.0358/0.3389  [1:0 0:1 1:5 1:1]
+lorenz-xyz       0 uniform k=5    E= 3  infl 1.16/ 4.13  rmse 0.0356/0.3336  [1:0 0:2 1:4]
+lorenz-xyz       0 defect k=5     E= 3  infl 1.23/ 4.29  rmse 0.0368/0.3397  [1:0 0:1 1:4]
+lorenz-xyz       0 defect k=10 @E E= 4  infl 1.26/ 4.31  rmse 0.0358/0.3389  [1:0 0:1 1:5 1:1]
+lorenz-xyz       0 defect k=5 @E  E= 3  infl 1.23/ 4.29  rmse 0.0368/0.3397  [1:0 0:1 1:4]
+lorenz-xyz       1 pecuzal        E= 6  infl 1.19/ 7.09  rmse 0.2658/0.4461  [2:42 1:42 0:42 0:0 0:18 0:8]
+lorenz-xyz       1 uniform k=10   E= 3  infl 1.23/ 5.10  rmse 0.0454/0.3635  [1:0 0:1 1:3]
+lorenz-xyz       1 defect k=10    E= 3  infl 1.21/ 4.60  rmse 0.0450/0.3566  [1:0 0:1 1:4]
+lorenz-xyz       1 uniform k=5    E= 3  infl 1.16/ 4.95  rmse 0.0450/0.3592  [1:0 0:2 1:3]
+lorenz-xyz       1 defect k=5     E= 4  infl 1.17/ 4.43  rmse 0.0449/0.3588  [1:0 0:2 1:5 1:1]
+lorenz-xyz       1 defect k=10 @E E= 3  infl 1.21/ 4.60  rmse 0.0450/0.3566  [1:0 0:1 1:4]
+lorenz-xyz       1 defect k=5 @E  E= 4  infl 1.17/ 4.43  rmse 0.0449/0.3588  [1:0 0:2 1:5 1:1]
+lorenz-xyz       2 pecuzal        E= 5  infl 1.18/ 4.31  rmse 0.0817/0.2400  [2:31 1:31 0:0 0:5 0:31]
+lorenz-xyz       2 uniform k=10   E= 3  infl 1.23/ 3.55  rmse 0.0307/0.2939  [1:0 0:1 1:4]
+lorenz-xyz       2 defect k=10    E= 3  infl 1.27/ 3.87  rmse 0.0314/0.3030  [1:0 0:0 1:5]
+lorenz-xyz       2 uniform k=5    E= 3  infl 1.23/ 3.55  rmse 0.0307/0.2939  [1:0 0:1 1:4]
+lorenz-xyz       2 defect k=5     E= 5  infl 1.03/ 1.12  rmse 0.0309/0.2227  [1:0 0:0 2:0 1:1 1:2]
+lorenz-xyz       2 defect k=10 @E E= 3  infl 1.27/ 3.87  rmse 0.0314/0.3030  [1:0 0:0 1:5]
+lorenz-xyz       2 defect k=5 @E  E= 5  infl 1.03/ 1.12  rmse 0.0309/0.2227  [1:0 0:0 2:0 1:1 1:2]
+rossler-x        0 pecuzal        E= 3  infl 1.02/ 3.13  rmse 0.0200/0.0275  [0:15 0:0 0:8]
+rossler-x        0 uniform k=10   E= 5  infl 1.06/ 2.71  rmse 0.0208/0.0272  [0:0 0:10 0:25 0:1 0:27]
+rossler-x        0 defect k=10    E= 7  infl 1.07/ 3.10  rmse 0.0187/0.0262  [0:0 0:8 0:29 0:23 0:25 0:1 0:26]
+rossler-x        0 uniform k=5    E= 3  infl 1.01/ 3.48  rmse 0.0329/0.0423  [0:0 0:8 0:21]
+rossler-x        0 defect k=5     E= 6  infl 1.07/ 2.34  rmse 0.0195/0.0262  [0:0 0:4 0:26 0:21 0:1 0:22]
+rossler-x        0 defect k=10 @E E= 3  infl 1.12/ 3.61  rmse 0.0225/0.0305  [0:0 0:8 0:29]
+rossler-x        0 defect k=5 @E  E= 3  infl 1.21/ 3.46  rmse 0.0285/0.0363  [0:0 0:4 0:26]
+rossler-x        1 pecuzal        E= 3  infl 1.02/ 2.63  rmse 0.0179/0.0255  [0:15 0:0 0:8]
+rossler-x        1 uniform k=10   E= 4  infl 1.02/ 2.66  rmse 0.0208/0.0288  [0:0 0:10 0:1 0:20]
+rossler-x        1 defect k=10    E= 5  infl 1.05/ 2.61  rmse 0.0164/0.0234  [0:0 0:5 0:25 0:19 0:1]
+rossler-x        1 uniform k=5    E= 3  infl 1.15/ 7.09  rmse 0.0325/0.0427  [0:0 0:8 0:1]
+rossler-x        1 defect k=5     E= 6  infl 1.07/ 2.94  rmse 0.0171/0.0244  [0:0 0:6 0:26 0:21 0:1 0:27]
+rossler-x        1 defect k=10 @E E= 3  infl 1.11/ 4.71  rmse 0.0266/0.0345  [0:0 0:5 0:25]
+rossler-x        1 defect k=5 @E  E= 3  infl 1.10/ 4.13  rmse 0.0253/0.0331  [0:0 0:6 0:26]
+rossler-x        2 pecuzal        E= 3  infl 1.02/ 2.56  rmse 0.0232/0.0320  [0:15 0:0 0:8]
+rossler-x        2 uniform k=10   E= 3  infl 1.12/ 8.77  rmse 0.0374/0.0484  [0:0 0:9 0:1]
+rossler-x        2 defect k=10    E= 6  infl 1.08/ 2.71  rmse 0.0219/0.0311  [0:0 0:9 0:28 0:25 0:1 0:24]
+rossler-x        2 uniform k=5    E= 2  infl 1.08/18.88  rmse 0.0875/0.1145  [0:0 0:9]
+rossler-x        2 defect k=5     E= 6  infl 1.07/ 2.76  rmse 0.0210/0.0300  [0:0 0:8 0:28 0:24 0:1 0:23]
+rossler-x        2 defect k=10 @E E= 3  infl 1.07/ 5.37  rmse 0.0298/0.0384  [0:0 0:9 0:28]
+rossler-x        2 defect k=5 @E  E= 3  infl 1.10/ 3.89  rmse 0.0277/0.0363  [0:0 0:8 0:28]
+rossler-x-noise  0 pecuzal        E= 3  infl 1.68/ 4.12  rmse 0.0791/0.1049  [0:15 0:0 0:9]
+rossler-x-noise  0 uniform k=10   E= 9  infl 1.30/ 2.47  rmse 0.0456/0.0644  [0:0 0:11 0:22 0:1 0:31 0:24 0:23 0:2 0:16]
+rossler-x-noise  0 defect k=10    E=10  infl 1.27/ 2.35  rmse 0.0445/0.0625  [0:0 0:11 0:22 0:33 0:27 0:2 0:25 0:20 0:1 0:7]
+rossler-x-noise  0 uniform k=5    E= 6  infl 1.39/ 2.95  rmse 0.0557/0.0772  [0:0 0:11 0:22 0:1 0:28 0:20]
+rossler-x-noise  0 defect k=5     E=10  infl 1.26/ 2.35  rmse 0.0441/0.0613  [0:0 0:11 0:19 0:30 0:1 0:22 0:23 0:6 0:20 0:21]
+rossler-x-noise  0 defect k=10 @E E= 3  infl 1.65/ 5.71  rmse 0.0926/0.1242  [0:0 0:11 0:22]
+rossler-x-noise  0 defect k=5 @E  E= 3  infl 1.64/ 4.38  rmse 0.0790/0.1058  [0:0 0:11 0:19]
+rossler-x-noise  1 pecuzal        E= 3  infl 1.74/ 4.26  rmse 0.0767/0.1016  [0:15 0:0 0:9]
+rossler-x-noise  1 uniform k=10   E= 7  infl 1.47/ 3.06  rmse 0.0571/0.0790  [0:0 0:11 0:25 0:1 0:21 0:2 0:26]
+rossler-x-noise  1 defect k=10    E=10  infl 1.36/ 2.76  rmse 0.0475/0.0660  [0:0 0:11 0:20 0:1 0:28 0:2 0:19 0:26 0:4 0:27]
+rossler-x-noise  1 uniform k=5    E= 5  infl 1.53/ 3.41  rmse 0.0646/0.0887  [0:0 0:11 0:22 0:1 0:27]
+rossler-x-noise  1 defect k=5     E=10  infl 1.33/ 2.62  rmse 0.0462/0.0658  [0:0 0:10 0:17 0:1 0:23 0:2 0:21 0:26 0:30 0:3]
+rossler-x-noise  1 defect k=10 @E E= 3  infl 1.70/ 4.75  rmse 0.0806/0.1048  [0:0 0:11 0:20]
+rossler-x-noise  1 defect k=5 @E  E= 3  infl 1.71/ 4.07  rmse 0.0748/0.0991  [0:0 0:10 0:17]
+rossler-x-noise  2 pecuzal        E= 3  infl 1.71/ 4.02  rmse 0.0764/0.0989  [0:15 0:0 0:8]
+rossler-x-noise  2 uniform k=10   E= 4  infl 1.62/ 4.60  rmse 0.0837/0.1077  [0:0 0:12 0:23 0:1]
+rossler-x-noise  2 defect k=10    E=10  infl 1.37/ 2.54  rmse 0.0478/0.0647  [0:0 0:10 0:20 0:28 0:1 0:27 0:4 0:24 0:26 0:2]
+rossler-x-noise  2 uniform k=5    E= 7  infl 1.43/ 2.81  rmse 0.0518/0.0686  [0:0 0:10 0:23 0:1 0:15 0:2 0:24]
+rossler-x-noise  2 defect k=5     E=10  infl 1.35/ 2.53  rmse 0.0477/0.0647  [0:0 0:11 0:21 0:33 0:2 0:22 0:3 0:1 0:25 0:27]
+rossler-x-noise  2 defect k=10 @E E= 3  infl 1.69/ 5.01  rmse 0.0885/0.1149  [0:0 0:10 0:20]
+rossler-x-noise  2 defect k=5 @E  E= 3  infl 1.68/ 4.62  rmse 0.0856/0.1104  [0:0 0:11 0:21]
+
+mean over seeds
+lorenz-x         pecuzal        n=3 E=3.3  infl 1.20/ 6.66  rmse 0.0602/0.3374
+lorenz-x         uniform k=10   n=3 E=2.0  infl 1.16/ 8.49  rmse 0.0672/0.4449
+lorenz-x         defect k=10    n=3 E=2.0  infl 1.17/ 8.56  rmse 0.0695/0.4456
+lorenz-x         uniform k=5    n=3 E=2.0  infl 1.18/ 8.62  rmse 0.0689/0.4485
+lorenz-x         defect k=5     n=3 E=3.0  infl 1.12/ 5.93  rmse 0.0560/0.3774
+lorenz-x         defect k=10 @E n=3 E=2.0  infl 1.17/ 8.56  rmse 0.0695/0.4456
+lorenz-x         defect k=5 @E  n=3 E=2.7  infl 1.12/ 6.00  rmse 0.0563/0.3793
+lorenz-x-noise   pecuzal        n=3 E=5.0  infl 1.97/10.91  rmse 0.2701/0.5946
+lorenz-x-noise   uniform k=10   n=3 E=3.7  infl 2.07/ 8.72  rmse 0.1747/0.6641
+lorenz-x-noise   defect k=10    n=3 E=8.3  infl 1.66/ 5.96  rmse 0.1504/0.5431
+lorenz-x-noise   uniform k=5    n=3 E=5.3  infl 1.81/ 7.30  rmse 0.1536/0.5983
+lorenz-x-noise   defect k=5     n=3 E=9.3  infl 1.77/ 6.01  rmse 0.1995/0.5372
+lorenz-x-noise   defect k=10 @E n=3 E=5.0  infl 1.94/ 6.95  rmse 0.1692/0.6147
+lorenz-x-noise   defect k=5 @E  n=3 E=5.0  infl 2.07/ 4.95  rmse 0.1816/0.5802
+lorenz-xyz       pecuzal        n=3 E=5.3  infl 1.18/ 4.53  rmse 0.1642/0.3519
+lorenz-xyz       uniform k=10   n=3 E=3.0  infl 1.24/ 4.39  rmse 0.0376/0.3325
+lorenz-xyz       defect k=10    n=3 E=3.3  infl 1.25/ 4.26  rmse 0.0374/0.3328
+lorenz-xyz       uniform k=5    n=3 E=3.0  infl 1.18/ 4.21  rmse 0.0371/0.3289
+lorenz-xyz       defect k=5     n=3 E=4.0  infl 1.14/ 3.28  rmse 0.0375/0.3071
+lorenz-xyz       defect k=10 @E n=3 E=3.3  infl 1.25/ 4.26  rmse 0.0374/0.3328
+lorenz-xyz       defect k=5 @E  n=3 E=4.0  infl 1.14/ 3.28  rmse 0.0375/0.3071
+rossler-x        pecuzal        n=3 E=3.0  infl 1.02/ 2.77  rmse 0.0203/0.0283
+rossler-x        uniform k=10   n=3 E=4.0  infl 1.07/ 4.71  rmse 0.0263/0.0348
+rossler-x        defect k=10    n=3 E=6.0  infl 1.07/ 2.80  rmse 0.0190/0.0269
+rossler-x        uniform k=5    n=3 E=2.7  infl 1.08/ 9.82  rmse 0.0510/0.0665
+rossler-x        defect k=5     n=3 E=6.0  infl 1.07/ 2.68  rmse 0.0192/0.0269
+rossler-x        defect k=10 @E n=3 E=3.0  infl 1.10/ 4.57  rmse 0.0263/0.0344
+rossler-x        defect k=5 @E  n=3 E=3.0  infl 1.14/ 3.83  rmse 0.0271/0.0353
+rossler-x-noise  pecuzal        n=3 E=3.0  infl 1.71/ 4.13  rmse 0.0774/0.1018
+rossler-x-noise  uniform k=10   n=3 E=6.7  infl 1.46/ 3.38  rmse 0.0622/0.0837
+rossler-x-noise  defect k=10    n=3 E=10.0  infl 1.33/ 2.55  rmse 0.0466/0.0644
+rossler-x-noise  uniform k=5    n=3 E=6.0  infl 1.45/ 3.06  rmse 0.0574/0.0782
+rossler-x-noise  defect k=5     n=3 E=10.0  infl 1.31/ 2.50  rmse 0.0460/0.0639
+rossler-x-noise  defect k=10 @E n=3 E=3.0  infl 1.68/ 5.16  rmse 0.0872/0.1147
+rossler-x-noise  defect k=5 @E  n=3 E=3.0  infl 1.68/ 4.35  rmse 0.0798/0.1051
