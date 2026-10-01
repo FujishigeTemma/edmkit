@@ -1,6 +1,6 @@
 [project]
 name = "edmkit"
-version = "0.0.13"
+version = "0.0.14"
 description = "Simple EDM (Empirical Dynamic Modeling) library"
 authors = [{ name = "FUJISHIGE TEMMA", email = "tenma.x0@gmail.com" }]
 readme = "README.md"
@@ -17,6 +17,7 @@ dependencies = [
 dev = [
     "griffe2md>=1.5.0",
     "hypothesis>=6.151.9",
+    "matplotlib>=3.11.2",
     "pytest>=9.1.1",
     "ruff>=0.15.20",
     "ty>=0.0.56",

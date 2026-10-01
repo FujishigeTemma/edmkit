@@ -3,17 +3,8 @@ import numpy as np
 __all__ = ["double_pendulum", "to_xy"]
 
 
-def double_pendulum(
-    m1: float,
-    m2: float,
-    L1: float,
-    L2: float,
-    g: float,
-    X0: np.ndarray,
-    dt: float,
-    t_max: int,
-):
-    """Generate double pendulum dynamics via forward Euler integration.
+def double_pendulum(m1: float, m2: float, L1: float, L2: float, g: float):
+    """Vector field of the double pendulum.
 
     Parameters
     ----------
@@ -27,22 +18,14 @@ def double_pendulum(
         Length of second pendulum.
     g : float
         Gravitational acceleration.
-    X0 : np.ndarray
-        Initial state ``(theta1, theta2, omega1, omega2)`` of shape ``(4,)``.
-    dt : float
-        Integration time step.
-    t_max : int
-        Maximum time.
 
     Returns
     -------
-    t : np.ndarray
-        Time array.
-    X : np.ndarray
-        State trajectory of shape ``(N, 4)``.
+    f : Callable[[float, np.ndarray], np.ndarray]
+        Right-hand side ``f(t, x)`` for a state ``(theta1, theta2, omega1, omega2)`` of shape ``(4,)``.
     """
 
-    def f(x: np.ndarray):
+    def f(t: float, x: np.ndarray):
         theta1, theta2, omega1, omega2 = x
         delta = theta1 - theta2
 
@@ -63,14 +46,7 @@ def double_pendulum(
 
         return np.array([dtheta1_dt, dtheta2_dt, domega1_dt, domega2_dt])
 
-    t = np.arange(0, t_max, dt)
-    X = np.zeros((len(t), 4))
-    X[0] = X0
-
-    for i in range(1, len(t)):
-        X[i] = X[i - 1] + dt * f(X[i - 1])
-
-    return t, X
+    return f
 
 
 def to_xy(L1: float, L2: float, theta1: np.ndarray, theta2: np.ndarray):

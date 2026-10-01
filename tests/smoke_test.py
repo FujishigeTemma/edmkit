@@ -38,7 +38,7 @@ if __name__ == "__main__":
     )
     assert correlations.shape == (2,) and np.isfinite(correlations).all()
 
-    _, lorenz = generate.lorenz(10.0, 28.0, 8.0 / 3.0, np.ones(3), 0.01, 1)
+    _, lorenz = generate.rk45(generate.lorenz(10.0, 28.0, 8.0 / 3.0), np.ones(3), 0.01, 1)
     _, mackey_glass = generate.mackey_glass(17.0, 10, 0.2, 0.1, 0.9, 1.0, 50)
-    _, double_pendulum = generate.double_pendulum(1.0, 1.0, 1.0, 1.0, 9.81, np.array([0.5, 0.3, 0.0, 0.0]), 0.01, 1)
+    _, double_pendulum = generate.rk45(generate.double_pendulum(1.0, 1.0, 1.0, 1.0, 9.81), np.array([0.5, 0.3, 0.0, 0.0]), 0.01, 1)
     assert all(np.isfinite(trajectory).all() for trajectory in (lorenz, mackey_glass, double_pendulum))

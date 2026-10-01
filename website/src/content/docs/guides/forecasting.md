@@ -20,12 +20,10 @@ The Lorenz attractor stands in for any chaotic series. Substitute your own `x` t
 
 ```python
 import numpy as np
-from edmkit.generate import lorenz
+from edmkit.generate import lorenz, rk45
 
-_, trajectory = lorenz(
-    sigma=10,
-    rho=28,
-    beta=8 / 3,
+_, trajectory = rk45(
+    lorenz(sigma=10, rho=28, beta=8 / 3),
     X0=np.array([1.0, 1.0, 1.0]),
     dt=0.01,
     t_max=80,

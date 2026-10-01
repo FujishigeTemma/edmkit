@@ -28,15 +28,13 @@ The Lorenz system is deterministic but chaotic — hard for parametric models, i
 ```python
 import numpy as np
 from edmkit.embedding import embed
-from edmkit.generate import lorenz
+from edmkit.generate import lorenz, rk45
 from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
 
 # 1. Generate a Lorenz trajectory and keep only the x component.
-_, trajectory = lorenz(
-    sigma=10,
-    rho=28,
-    beta=8 / 3,
+_, trajectory = rk45(
+    lorenz(sigma=10, rho=28, beta=8 / 3),
     X0=np.array([1.0, 1.0, 1.0]),
     dt=0.01,
     t_max=50,
