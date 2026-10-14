@@ -8,7 +8,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from scipy.special import expit
 
-from edmkit.simplex_projection import knn, simplex_projection, soft_simplex_projection
+from edmkit.simplex_projection import knn, linear_operator, simplex_projection, soft_linear_operator, soft_simplex_projection
 from edmkit.theiler_window import theiler_window
 
 
@@ -112,7 +112,9 @@ def check_simplex_projection(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int
         default = simplex_projection(x, y, q, mask=mask)
         np.testing.assert_array_equal(actual, default)
     if x.ndim == 2:
-        expected = simplex_projection_reference(x, y, q, k=k, mask=mask).squeeze()
+        expected = simplex_projection_reference(x, y, q, k=k, mask=mask)
+        if y.ndim == 1:
+            expected = expected[..., 0]
     else:
         expected = np.stack(
             [
@@ -138,7 +140,9 @@ def check_soft_simplex_projection(
         default = soft_simplex_projection(x, y, q, mask=mask, softness=softness)
         np.testing.assert_array_equal(actual, default)
     if x.ndim == 2:
-        expected = soft_simplex_projection_reference(x, y, q, k=k, mask=mask, softness=softness).squeeze()
+        expected = soft_simplex_projection_reference(x, y, q, k=k, mask=mask, softness=softness)
+        if y.ndim == 1:
+            expected = expected[..., 0]
     else:
         expected = np.stack(
             [
@@ -209,7 +213,8 @@ def check_soft_simplex_projection_tensor_gradient(
     from tinygrad import Tensor
 
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    q[..., :2, :] = x[..., :2, :]
+    coincident = min(q.shape[-2], 2)
+    q[..., :coincident, :] = x[..., :coincident, :]  # coincident query and library points produce zero distances
     X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
     gradients = soft_simplex_projection(X, Y, Q, k=k, softness=softness).sum().gradient(X, Y, Q)
     for gradient in gradients:
@@ -356,6 +361,14 @@ SIMPLEX_PROJECTION_VALID = {
         np.tile(theiler_window(np.arange(20), np.arange(20), 2), (2, 1, 1)),
     ),
 }
+SIMPLEX_PROJECTION_VALID["single-query-multitarget-2d"] = SimplexProjectionCase(
+    np.random.default_rng(43).normal(size=(12, 2)),
+    np.random.default_rng(44).normal(size=(12, 3)),
+    np.random.default_rng(45).normal(size=(1, 2)),
+    None,
+    np.array([[True] * 10 + [False] * 2]),
+)
+
 SIMPLEX_PROJECTION_VALID["custom-k-one"] = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=1)
 SIMPLEX_PROJECTION_VALID["custom-k-five"] = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=5)
 
@@ -479,6 +492,9 @@ SOFT_SIMPLEX_PROJECTION_VALID = {
         0.02,
     ),
 }
+SOFT_SIMPLEX_PROJECTION_VALID["single-query-multitarget-2d"] = SOFT_SIMPLEX_PROJECTION_VALID["hard-limit"]._replace(
+    q=SOFT_SIMPLEX_PROJECTION_VALID["hard-limit"].q[:1]
+)
 SOFT_SIMPLEX_PROJECTION_VALID["custom-k-one"] = SOFT_SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=1)
 SOFT_SIMPLEX_PROJECTION_VALID["custom-k-five"] = SOFT_SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=5)
 
@@ -496,6 +512,14 @@ SOFT_SIMPLEX_PROJECTION_INVALID = {
         np.zeros((4, 2)),
         None,
         np.ones(12, dtype=bool),
+        0.02,
+    ),
+    "too-few-unmasked-neighbors": SoftSimplexProjectionCase(
+        np.arange(10.0).reshape(5, 2),
+        np.arange(5.0),
+        np.array([[0.0, 0.0]]),
+        None,
+        np.array([[True, True, True, False, False]]),
         0.02,
     ),
     "zero-softness": SoftSimplexProjectionCase(np.zeros((4, 2)), np.zeros(4), np.zeros((1, 2)), None, None, 0.0),
@@ -534,6 +558,191 @@ def test_soft_simplex_projection_valid(case: SoftSimplexProjectionCase, mode) ->
 def test_soft_simplex_projection_invalid(case: SoftSimplexProjectionCase) -> None:
     with pytest.raises(ValueError):
         soft_simplex_projection(case.x, case.y, case.q, k=case.k, mask=case.mask, softness=case.softness)
+
+
+class LinearOperatorProblem(NamedTuple):
+    x: np.ndarray
+    q: np.ndarray
+    k: int | None
+    mask: np.ndarray | None
+
+
+class LinearOperatorCase(NamedTuple):
+    x: np.ndarray
+    q: np.ndarray
+    k: int | None
+    mask: np.ndarray | None
+
+
+class SoftLinearOperatorProblem(NamedTuple):
+    x: np.ndarray
+    q: np.ndarray
+    k: int | None
+    mask: np.ndarray | None
+    softness: float
+
+
+class SoftLinearOperatorCase(NamedTuple):
+    x: np.ndarray
+    q: np.ndarray
+    k: int | None
+    mask: np.ndarray | None
+    softness: float
+
+
+def check_linear_operator(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
+    actual = linear_operator(x, q, k=k, mask=mask)
+    # projecting the identity target yields the operator itself
+    identity = np.eye(x.shape[-2])
+    if x.ndim == 2:
+        expected = simplex_projection_reference(x, identity, q, k=k, mask=mask)
+    else:
+        expected = np.stack(
+            [
+                simplex_projection_reference(xi, identity, qi, k=k, mask=None if mask is None else mask[batch])
+                for batch, (xi, qi) in enumerate(zip(x, q))
+            ]
+        )
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+
+
+def check_linear_operator_tensor(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
+    from tinygrad import Tensor
+
+    x, q = (array.astype(np.float32) for array in (x, q))
+    expected = linear_operator(x, q, k=k, mask=mask)
+    tensor_mask = None if mask is None else Tensor(mask)
+    actual = linear_operator(Tensor(x), Tensor(q), k=k, mask=tensor_mask).numpy()
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+
+def check_linear_operator_tensor_gradient(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
+    from tinygrad import Tensor
+
+    x, q = (array.astype(np.float32) for array in (x, q))
+    coincident = min(q.shape[-2], 2)
+    q[..., :coincident, :] = x[..., :coincident, :]  # coincident query and library points produce zero distances
+    X, Q = Tensor(x), Tensor(q)
+    gradients = linear_operator(X, Q, k=k).square().sum().gradient(X, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
+
+
+def check_soft_linear_operator(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None, softness: float) -> None:
+    actual = soft_linear_operator(x, q, k=k, mask=mask, softness=softness)
+    # projecting the identity target yields the operator itself
+    identity = np.eye(x.shape[-2])
+    if x.ndim == 2:
+        expected = soft_simplex_projection_reference(x, identity, q, k=k, mask=mask, softness=softness)
+    else:
+        expected = np.stack(
+            [
+                soft_simplex_projection_reference(xi, identity, qi, k=k, mask=None if mask is None else mask[batch], softness=softness)
+                for batch, (xi, qi) in enumerate(zip(x, q))
+            ]
+        )
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+
+
+def check_soft_linear_operator_tensor(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None, softness: float) -> None:
+    from tinygrad import Tensor
+
+    x, q = (array.astype(np.float32) for array in (x, q))
+    expected = soft_linear_operator(x, q, k=k, mask=mask, softness=softness)
+    tensor_mask = None if mask is None else Tensor(mask)
+    actual = soft_linear_operator(Tensor(x), Tensor(q), k=k, mask=tensor_mask, softness=softness).numpy()
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
+
+
+def check_soft_linear_operator_tensor_gradient(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None, softness: float) -> None:
+    from tinygrad import Tensor
+
+    x, q = (array.astype(np.float32) for array in (x, q))
+    coincident = min(q.shape[-2], 2)
+    q[..., :coincident, :] = x[..., :coincident, :]  # coincident query and library points produce zero distances
+    X, Q = Tensor(x), Tensor(q)
+    gradients = soft_linear_operator(X, Q, k=k, softness=softness).square().sum().gradient(X, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
+
+
+def linear_operator_problems():
+    return simplex_projection_problems().map(lambda problem: LinearOperatorProblem(problem.x, problem.q, problem.k, problem.mask))
+
+
+def soft_linear_operator_problems():
+    return soft_simplex_projection_problems().map(
+        lambda problem: SoftLinearOperatorProblem(problem.x, problem.q, problem.k, problem.mask, problem.softness)
+    )
+
+
+LINEAR_OPERATOR_VALID = {name: LinearOperatorCase(case.x, case.q, case.k, case.mask) for name, case in SIMPLEX_PROJECTION_VALID.items()}
+
+LINEAR_OPERATOR_MODES = {
+    "numpy": check_linear_operator,
+    "tinygrad": pytest.param(check_linear_operator_tensor, marks=pytest.mark.gpu),
+    "gradient": pytest.param(check_linear_operator_tensor_gradient, marks=pytest.mark.gpu),
+}
+
+# the target plays no part in the operator, so drop the cases that are invalid only because of it
+LINEAR_OPERATOR_INVALID = {
+    name: LinearOperatorCase(case.x, case.q, case.k, case.mask)
+    for name, case in SIMPLEX_PROJECTION_INVALID.items()
+    if name != "library-target-length"
+}
+
+
+@given(problem=linear_operator_problems())
+def test_linear_operator_compatibility(problem: LinearOperatorProblem) -> None:
+    check_linear_operator(*problem)
+
+
+@pytest.mark.parametrize("mode", LINEAR_OPERATOR_MODES.values(), ids=LINEAR_OPERATOR_MODES.keys())
+@pytest.mark.parametrize("case", LINEAR_OPERATOR_VALID.values(), ids=LINEAR_OPERATOR_VALID.keys())
+def test_linear_operator_valid(case: LinearOperatorCase, mode) -> None:
+    mode(*case)
+
+
+@pytest.mark.parametrize("case", LINEAR_OPERATOR_INVALID.values(), ids=LINEAR_OPERATOR_INVALID.keys())
+def test_linear_operator_invalid(case: LinearOperatorCase) -> None:
+    with pytest.raises(ValueError):
+        linear_operator(case.x, case.q, k=case.k, mask=case.mask)
+
+
+SOFT_LINEAR_OPERATOR_VALID = {
+    name: SoftLinearOperatorCase(case.x, case.q, case.k, case.mask, case.softness) for name, case in SOFT_SIMPLEX_PROJECTION_VALID.items()
+}
+
+SOFT_LINEAR_OPERATOR_MODES = {
+    "numpy": check_soft_linear_operator,
+    "tinygrad": pytest.param(check_soft_linear_operator_tensor, marks=pytest.mark.gpu),
+    "gradient": pytest.param(check_soft_linear_operator_tensor_gradient, marks=pytest.mark.gpu),
+}
+
+SOFT_LINEAR_OPERATOR_INVALID = {
+    name: SoftLinearOperatorCase(case.x, case.q, case.k, case.mask, case.softness) for name, case in SOFT_SIMPLEX_PROJECTION_INVALID.items()
+}
+
+
+@given(problem=soft_linear_operator_problems())
+def test_soft_linear_operator_compatibility(problem: SoftLinearOperatorProblem) -> None:
+    check_soft_linear_operator(*problem)
+
+
+@pytest.mark.parametrize("mode", SOFT_LINEAR_OPERATOR_MODES.values(), ids=SOFT_LINEAR_OPERATOR_MODES.keys())
+@pytest.mark.parametrize("case", SOFT_LINEAR_OPERATOR_VALID.values(), ids=SOFT_LINEAR_OPERATOR_VALID.keys())
+def test_soft_linear_operator_valid(case: SoftLinearOperatorCase, mode) -> None:
+    mode(*case)
+
+
+@pytest.mark.parametrize("case", SOFT_LINEAR_OPERATOR_INVALID.values(), ids=SOFT_LINEAR_OPERATOR_INVALID.keys())
+def test_soft_linear_operator_invalid(case: SoftLinearOperatorCase) -> None:
+    with pytest.raises(ValueError):
+        soft_linear_operator(case.x, case.q, k=case.k, mask=case.mask, softness=case.softness)
 
 
 KNN_VALID = {

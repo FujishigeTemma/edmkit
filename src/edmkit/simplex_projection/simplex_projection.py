@@ -63,12 +63,14 @@ def simplex_projection(
     -------
     predictions : np.ndarray or Tensor
         The predicted values based on the weighted mean of the nearest neighbors in `Y`.
+        Shape (M,) if `Y` is 1D, (M, E') if `Y` is 2D, or (B, M, E') if `Y` is 3D.
 
     Raises
     ------
     ValueError
         - If `k` is not positive.
         - If the input arrays `X` and `Y` do not have the same number of points.
+        - If the batch size or dimension of `X` and `Q` do not match.
         - If `mask` does not have shape (M, N) or (B, M, N).
         - If fewer than `k` library points are unmasked for some query.
 
@@ -121,6 +123,8 @@ def _numpy(
     k: int | None = None,
     mask: np.ndarray | None = None,
 ):
+    return_ndim = Y.ndim
+
     # ensure at least 2D
     if X.ndim == 1:
         X = X[:, None]
@@ -139,8 +143,7 @@ def _numpy(
         raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     # treat the unbatched case as a single batch
-    batched = X.ndim == 3
-    if not batched:
+    if X.ndim == 2:
         X, Y, Q = X[None], Y[None], Q[None]
         if mask is not None:
             mask = mask[None]
@@ -177,9 +180,11 @@ def _numpy(
 
     predictions = np.matmul(weights[..., None, :], Y_neighbors).squeeze(-2) / weights.sum(axis=-1, keepdims=True)  # (B, M, E')
 
-    if not batched:
-        return predictions.squeeze()  # (M,) or (M, E')
-    return predictions
+    if return_ndim == 1:
+        return predictions[0, :, 0]  # (M,)
+    if return_ndim == 2:
+        return predictions[0]  # (M, E')
+    return predictions  # (B, M, E')
 
 
 def _tensor(
@@ -193,6 +198,8 @@ def _tensor(
     # Lazy import: tinygrad starts a per-CPU async-executor pool at import time
     # Loading it only when needed keeps the numpy path free of that scheduler pressure.
     from tinygrad import Tensor, dtypes
+
+    return_ndim = Y.ndim
 
     # ensure at least 2D
     if X.ndim == 1:
@@ -212,8 +219,7 @@ def _tensor(
         raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     # treat the unbatched case as a single batch
-    batched = X.ndim == 3
-    if not batched:
+    if X.ndim == 2:
         X, Y, Q = X[None], Y[None], Q[None]
         if mask is not None:
             mask = mask[None]
@@ -242,9 +248,11 @@ def _tensor(
 
     predictions: Tensor = (weights.unsqueeze(-1) * Y_neighbors).sum(axis=-2) / weights.sum(axis=-1, keepdim=True)  # (B, M, E')
 
-    if not batched:
-        return predictions.squeeze()  # (M,) or (M, E')
-    return predictions
+    if return_ndim == 1:
+        return predictions[0, :, 0]  # (M,)
+    if return_ndim == 2:
+        return predictions[0]  # (M, E')
+    return predictions  # (B, M, E')
 
 
 if TYPE_CHECKING:

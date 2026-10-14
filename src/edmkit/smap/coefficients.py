@@ -6,14 +6,14 @@ import numpy as np
 
 from edmkit.util import pairwise_distance_np
 
-__all__ = ["smap"]
+__all__ = ["coefficients"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
 
 
 @overload
-def smap(
+def coefficients(
     X: np.ndarray,
     Y: np.ndarray,
     Q: np.ndarray,
@@ -25,7 +25,7 @@ def smap(
 
 
 @overload
-def smap(
+def coefficients(
     X: Tensor,
     Y: Tensor,
     Q: Tensor,
@@ -36,7 +36,7 @@ def smap(
 ) -> Tensor: ...
 
 
-def smap(
+def coefficients(
     X,
     Y,
     Q,
@@ -46,16 +46,20 @@ def smap(
     mask=None,
 ):
     """
-    Perform S-Map (local linear regression) from `X` to `Y`.
+    Compute the S-Map coefficients `C` of the local linear regression from `X` to `Y` around each query in `Q`.
+
+    ``C[m, 0]`` is the intercept and ``C[m, 1 + i, j]`` is the slope of target `j` with respect to coordinate `i` around ``Q[m]``,
+    so ``smap(X, Y, Q)[m]`` equals ``C[m, 0] + Q[m] @ C[m, 1:]``.
+    The slopes estimate the local Jacobian of the map from `X` to `Y`, shrunk by the regularization.
 
     Parameters
     ----------
     X : np.ndarray or Tensor
-        The input data
+        The input data of shape (N,) or (N, E) or (B, N, E)
     Y : np.ndarray or Tensor
-        The target data
+        The target data of shape (N,) or (N, E') or (B, N, E')
     Q : np.ndarray or Tensor
-        The query points for which to make predictions.
+        The query points of shape (M,) or (M, E) or (B, M, E) around which to fit the regressions.
     theta : float
         Locality parameter. (0: global linear, >0: local linear)
     alpha : float, default 1e-10
@@ -65,14 +69,15 @@ def smap(
 
     Returns
     -------
-    predictions : np.ndarray or Tensor
-        The predicted values based on the weighted linear regression.
+    C : np.ndarray or Tensor
+        The coefficients of shape (M, E+1) if `Y` is 1D, (M, E+1, E') if `Y` is 2D, or (B, M, E+1, E') if `Y` is 3D.
 
     Raises
     ------
     ValueError
-        - If the input arrays `X` and `Y` do not have the same number of points.
         - If `theta` is negative.
+        - If the input arrays `X` and `Y` do not have the same number of points.
+        - If the batch size or dimension of `X` and `Q` do not match.
         - If `mask` does not have shape (M, N) or (B, M, N).
         - If fewer than E + 1 library points are unmasked for some query.
 
@@ -81,79 +86,22 @@ def smap(
     ```python
     import numpy as np
 
-    from edmkit.embedding import embed
-    from edmkit.smap import smap
+    from edmkit.smap import coefficients, smap
 
-    # Generate a simple time series (logistic map)
-    N = 300
-    x = np.zeros(N)
-    x[0] = 0.4
-    for i in range(1, N):
-        x[i] = 3.9 * x[i - 1] * (1 - x[i - 1])
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(200, 3))
+    Q = rng.normal(size=(50, 3))
+    Y = rng.normal(size=(200, 4))
 
-    tau = 2
-    E = 3
+    C = coefficients(X, Y, Q, theta=4.0)  # (50, 4, 4)
+    jacobians = C[:, 1:].swapaxes(-1, -2)  # (50, 4, 3): d Y_j / d X_i around each query
 
-    coordinates = np.array([[0, tau * j] for j in range(E)])
-    embedding, _ = embed(coordinates, x)
-    shift = tau * (E - 1)
-
-    lib_size = 200
-    Tp = 1
-    X = embedding[:lib_size - shift]
-    Y = x[shift + Tp : lib_size + Tp]
-    Q = embedding[lib_size - shift : -Tp]
-    actual = x[lib_size + Tp :]
-
-    # Local linear with theta=4.0
-    predictions = smap(X, Y, Q, theta=4.0)
-    correlation = np.corrcoef(predictions, actual)[0, 1]
-    print(f"Correlation (theta=4.0): {correlation:.3f}")
-
-    # Global linear with theta=0.0
-    predictions_global = smap(X, Y, Q, theta=0.0)
-    correlation_global = np.corrcoef(predictions_global, actual)[0, 1]
-    print(f"Correlation (theta=0.0): {correlation_global:.3f}")
+    assert np.allclose(C[:, 0] + np.einsum("mi,mij->mj", Q, C[:, 1:]), smap(X, Y, Q, theta=4.0))
     ```
     """
     if isinstance(X, np.ndarray):
         return _numpy(X, Y, Q, theta=theta, alpha=alpha, mask=mask)
     return _tensor(X, Y, Q, theta=theta, alpha=alpha, mask=mask)
-
-
-def weights(
-    D: np.ndarray,
-    theta: float,
-    *,
-    mask: np.ndarray | None = None,
-    min_points: int,
-) -> np.ndarray:
-    """Compute S-Map exponential weights, zeroing out masked library points.
-
-    Parameters
-    ----------
-    D : np.ndarray
-        Distance matrix — (M, N) or (B, M, N).
-    theta : float
-        Locality parameter.
-    mask : np.ndarray | None
-        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query row of `D`, which library points to include.
-    min_points : int
-        Minimum number of valid library points required per query.
-    """
-    valid = np.isfinite(D) if mask is None else np.isfinite(D) & mask
-
-    n_valid = valid.sum(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
-    if int(n_valid.min()) < min_points:
-        raise ValueError(f"Not enough valid library points to fit S-Map: need at least {min_points}, got {int(n_valid.min())}")
-
-    if theta == 0.0:
-        return np.where(valid, 1.0, 0.0)
-
-    d_sum = np.where(valid, D, 0.0).sum(axis=-1, keepdims=True)
-    d_mean = np.maximum(d_sum / np.maximum(n_valid, 1), 1e-6)
-    w = np.exp(-theta * D / d_mean)
-    return np.where(valid, w, 0.0)
 
 
 def _numpy(
@@ -164,40 +112,11 @@ def _numpy(
     theta: float,
     alpha: float = 1e-10,
     mask: np.ndarray | None = None,
-):
-    """
-    Perform S-Map (local linear regression) from `X` to `Y`.
-
-    Parameters
-    ----------
-    X : np.ndarray
-        (N,) or (N, E) or (B, N, E)
-    Y : np.ndarray
-        (N,) or (N, E') or (B, N, E')
-    Q : np.ndarray
-        The query points for which to make predictions.
-        (M,) or (M, E) or (B, M, E)
-    theta : float
-        Locality parameter. (0: global linear, >0: local linear)
-    alpha : float, default 1e-10
-        Regularization parameter to stabilize the inversion.
-
-    Returns
-    -------
-    predictions : np.ndarray
-        The predicted values based on the weighted linear regression.
-        (M, E') or (B, M, E')
-
-    Raises
-    ------
-    ValueError
-        - If the input arrays `X` and `Y` do not have the same number of points.
-        - If `theta` is negative.
-    """
-    if X.shape[0] != Y.shape[0]:
-        raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
+) -> np.ndarray:
     if theta < 0:
         raise ValueError(f"theta must be non-negative, got theta={theta}")
+
+    return_ndim = Y.ndim
 
     # ensure at least 2D
     if X.ndim == 1:
@@ -209,19 +128,42 @@ def _numpy(
 
     if not (X.ndim == Y.ndim == Q.ndim and X.ndim in (2, 3)):
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D arrays, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
+    if X.shape[:-1] != Y.shape[:-1]:
+        raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
+    if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
+        raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
     if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
         raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
-    E = X.shape[-1]
+    N, E = X.shape[-2:]
+
+    n_exclude = 0 if mask is None else int((~mask).sum(axis=-1).max())
+    if N - n_exclude < E + 1:
+        raise ValueError(
+            f"Not enough unmasked points in X to fit S-Map with {E + 1} coefficients, got N={N} with up to {n_exclude} points masked out per query"
+        )
 
     D = np.sqrt(pairwise_distance_np(Q, X))  # (M, N) or (B, M, N)
-    W = weights(D, theta, mask=mask, min_points=E + 1)
+
+    # Exponential weights, scaled by the mean distance over valid library points
+    if theta == 0.0:
+        W = np.ones_like(D)
+    else:
+        if mask is None:
+            d_mean = D.mean(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
+        else:
+            n_valid = mask.sum(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
+            d_mean = np.where(mask, D, 0.0).sum(axis=-1, keepdims=True) / n_valid
+        W = np.exp(-theta * D / np.maximum(d_mean, 1e-6))
+
+    # Zero out masked-out library points
+    if mask is not None:
+        W = np.where(mask, W, 0.0)
 
     # Add intercept term
     X_aug = np.concatenate([np.ones_like(X[..., :1]), X], axis=-1)  # (N, E+1) or (B, N, E+1)
-    Q_aug = np.concatenate([np.ones_like(Q[..., :1]), Q], axis=-1)  # (M, E+1) or (B, M, E+1)
 
-    # Weighted design matrices for all query points: A^T @ W @ A
+    # Weighted design matrices for all query points: A^T @ W @ A and A^T @ W @ Y
     XTX = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, X_aug)  # (M, E+1, E+1) or (B, M, E+1, E+1)
     XTY = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, Y)  # (M, E+1, E') or (B, M, E+1, E')
 
@@ -234,11 +176,9 @@ def _numpy(
 
     C = np.linalg.solve(XTX, XTY)  # (M, E+1, E') or (B, M, E+1, E')
 
-    predictions = np.einsum("...pi,...pij->...pj", Q_aug, C)  # (M, E') or (B, M, E')
-
-    if X.ndim == 2:
-        return predictions.squeeze()  # (M,) or (M, E')
-    return predictions
+    if return_ndim == 1:
+        return C[..., 0]  # (M, E+1)
+    return C
 
 
 def _tensor(
@@ -249,40 +189,7 @@ def _tensor(
     theta: float,
     alpha: float = 1e-10,
     mask: Tensor | None = None,
-):
-    """
-    Perform S-Map (local linear regression) from `X` to `Y`.
-
-    Parameters
-    ----------
-    X : Tensor
-        The input data
-        (N,) or (N, E) or (B, N, E)
-    Y : Tensor
-        The target data
-        (N,) or (N, E') or (B, N, E')
-    Q : Tensor
-        The query points for which to make predictions.
-        (M,) or (M, E) or (B, M, E)
-    theta : float
-        Locality parameter. (0: global linear, >0: local linear)
-    alpha : float, default 1e-10
-        Regularization parameter to stabilize the inversion.
-    mask : Tensor | None
-        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include in the regression.
-
-    Returns
-    -------
-    predictions : Tensor
-        The predicted values based on the weighted linear regression.
-        (M, E') or (B, M, E')
-
-    Raises
-    ------
-    ValueError
-        - If the input arrays `X` and `Y` do not have the same number of points.
-        - If `theta` is negative.
-    """
+) -> Tensor:
     # Lazy import: tinygrad starts a per-CPU async-executor pool at import time
     # Loading it only on the tensor path keeps the numpy path free of that scheduler pressure.
     from tinygrad import Tensor
@@ -290,10 +197,10 @@ def _tensor(
 
     from edmkit.util import pairwise_distance
 
-    if X.shape[0] != Y.shape[0]:
-        raise ValueError(f"X and Y must have the same length, got X.shape={X.shape} and Y.shape={Y.shape}")
     if theta < 0:
         raise ValueError(f"theta must be non-negative, got theta={theta}")
+
+    return_ndim = Y.ndim
 
     # ensure at least 2D
     if X.ndim == 1:
@@ -305,6 +212,10 @@ def _tensor(
 
     if not (X.ndim == Y.ndim == Q.ndim and X.ndim in (2, 3)):
         raise ValueError(f"X, Y, and Q must all be 2D or all be 3D tensors, got X.ndim={X.ndim}, Y.ndim={Y.ndim}, Q.ndim={Q.ndim}")
+    if X.shape[:-1] != Y.shape[:-1]:
+        raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
+    if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
+        raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
     if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
         raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
@@ -331,9 +242,8 @@ def _tensor(
 
     # Add intercept term
     X_aug = Tensor.ones_like(X[..., :1]).cat(X, dim=-1)  # (N, E+1) or (B, N, E+1)
-    Q_aug = Tensor.ones_like(Q[..., :1]).cat(Q, dim=-1)  # (M, E+1) or (B, M, E+1)
 
-    # Weighted design matrices for all query points: A^T @ W @ A, without materializing diag(W)
+    # Weighted design matrices for all query points: A^T @ W @ A and A^T @ W @ Y, without materializing diag(W)
     X_augT = X_aug.transpose(-1, -2).unsqueeze(-3)  # (1, E+1, N) or (B, 1, E+1, N)
     XTX = X_augT.matmul(W.unsqueeze(-1) * X_aug.unsqueeze(-3))  # (M, E+1, E+1) or (B, M, E+1, E+1)
     XTY = X_augT.matmul(W.unsqueeze(-1) * Y.unsqueeze(-3))  # (M, E+1, E') or (B, M, E+1, E')
@@ -347,16 +257,6 @@ def _tensor(
 
     C = solve(XTX, XTY)  # (M, E+1, E') or (B, M, E+1, E')
 
-    predictions = Q_aug.unsqueeze(-2).matmul(C).squeeze(-2)  # (M, E') or (B, M, E')
-
-    if X.ndim == 2:
-        return predictions.squeeze()  # (M,) or (M, E')
-    return predictions
-
-
-if TYPE_CHECKING:
-    from functools import partial
-
-    from edmkit.types import PredictFunc
-
-    func: PredictFunc = partial(smap, theta=4.0)
+    if return_ndim == 1:
+        return C[..., 0]  # (M, E+1)
+    return C

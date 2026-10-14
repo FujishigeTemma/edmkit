@@ -70,6 +70,7 @@ def soft_simplex_projection(
     -------
     predictions : np.ndarray or Tensor
         The predicted values based on the weighted mean of the nearest neighbors in `Y`.
+        Shape (M,) if `Y` is 1D, (M, E') if `Y` is 2D, or (B, M, E') if `Y` is 3D.
 
     Raises
     ------
@@ -77,8 +78,9 @@ def soft_simplex_projection(
         - If `k` is not positive.
         - If `softness` is not positive.
         - If the input arrays `X` and `Y` do not have the same number of points.
-        - If `X` does not contain at least `k + 1` points.
+        - If the batch size or dimension of `X` and `Q` do not match.
         - If `mask` does not have shape (M, N) or (B, M, N).
+        - If fewer than `k + 1` library points are unmasked for some query.
 
     Examples
     --------
@@ -134,6 +136,8 @@ def _numpy(
     if softness <= 0:
         raise ValueError(f"softness must be positive, got softness={softness}")
 
+    return_ndim = Y.ndim
+
     # ensure at least 2D
     if X.ndim == 1:
         X = X[:, None]
@@ -152,8 +156,7 @@ def _numpy(
         raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     # treat the unbatched case as a single batch
-    batched = X.ndim == 3
-    if not batched:
+    if X.ndim == 2:
         X, Y, Q = X[None], Y[None], Q[None]
         if mask is not None:
             mask = mask[None]
@@ -162,8 +165,9 @@ def _numpy(
     k = E + 1 if k is None else k
     if k <= 0:
         raise ValueError(f"k must be positive, got k={k}")
-    if N < k + 1:
-        raise ValueError(f"Not enough points in X to find {k + 1} neighbors, got N={N}")
+    n_exclude = 0 if mask is None else int((~mask).sum(axis=-1).max())
+    if N - n_exclude < k + 1:
+        raise ValueError(f"Not enough unmasked points in X to find {k + 1} neighbors, got N={N} with up to {n_exclude} points masked out per query")
 
     # clamp to align with _tensor()
     D = np.sqrt(np.maximum(pairwise_distance_np(Q, X), 1e-12))  # (B, M, N)
@@ -186,9 +190,11 @@ def _numpy(
 
     predictions = np.matmul(weights, Y) / weights.sum(axis=-1, keepdims=True)  # (B, M, E')
 
-    if not batched:
-        return predictions.squeeze()  # (M,) or (M, E')
-    return predictions
+    if return_ndim == 1:
+        return predictions[0, :, 0]  # (M,)
+    if return_ndim == 2:
+        return predictions[0]  # (M, E')
+    return predictions  # (B, M, E')
 
 
 def _tensor(
@@ -202,6 +208,8 @@ def _tensor(
 ) -> Tensor:
     if softness <= 0:
         raise ValueError(f"softness must be positive, got softness={softness}")
+
+    return_ndim = Y.ndim
 
     # ensure at least 2D
     if X.ndim == 1:
@@ -221,8 +229,7 @@ def _tensor(
         raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     # treat the unbatched case as a single batch
-    batched = X.ndim == 3
-    if not batched:
+    if X.ndim == 2:
         X, Y, Q = X[None], Y[None], Q[None]
         if mask is not None:
             mask = mask[None]
@@ -257,6 +264,8 @@ def _tensor(
 
     predictions: Tensor = weights.matmul(Y) / weights.sum(axis=-1, keepdim=True)  # (B, M, E')
 
-    if not batched:
-        return predictions.squeeze()  # (M,) or (M, E')
-    return predictions
+    if return_ndim == 1:
+        return predictions[0, :, 0]  # (M,)
+    if return_ndim == 2:
+        return predictions[0]  # (M, E')
+    return predictions  # (B, M, E')

@@ -9,8 +9,56 @@ sidebar:
 
 Name | Description
 ---- | -----------
+[`linear_operator`](#linear_operator) | Build the linear operator `S` of simplex projection, such that ``S @ Y`` equals ``simplex_projection(X, Y, Q)`` for any target `Y`.
 [`simplex_projection`](#simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`.
+[`soft_linear_operator`](#soft_linear_operator) | Build the linear operator `S` of soft simplex projection, such that ``S @ Y`` equals ``soft_simplex_projection(X, Y, Q)`` for any target `Y`.
 [`soft_simplex_projection`](#soft_simplex_projection) | Perform simplex projection from `X` to `Y` using the nearest neighbors of the points specified by `Q`, with a soft boundary between neighbors and non-neighbors.
+
+## `linear_operator`
+
+```python
+linear_operator(X, Q, *, k = None, mask = None)
+```
+
+Build the linear operator `S` of simplex projection, such that ``S @ Y`` equals ``simplex_projection(X, Y, Q)`` for any target `Y`.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
+`Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
+`k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
+`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
+
+**Returns:**
+
+Name | Type | Description
+---- | ---- | -----------
+`S` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The operator of shape (M, N) or (B, M, N).
+
+**Raises:**
+
+Type | Description
+---- | -----------
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k` library points are unmasked for some query.
+
+**Examples:**
+
+```python
+import numpy as np
+
+from edmkit.simplex_projection import linear_operator, simplex_projection
+
+rng = np.random.default_rng(0)
+X = rng.normal(size=(200, 3))
+Q = rng.normal(size=(50, 3))
+Y = rng.normal(size=(200, 4))
+
+assert np.allclose(linear_operator(X, Q) @ Y, simplex_projection(X, Y, Q))
+```
+
+
 
 ## `simplex_projection`
 
@@ -34,13 +82,13 @@ Name | Type | Description | Default
 
 Name | Type | Description
 ---- | ---- | -----------
-`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`.
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`. Shape (M,) if `Y` is 1D, (M, E') if `Y` is 2D, or (B, M, E') if `Y` is 3D.
 
 **Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k` library points are unmasked for some query.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k` library points are unmasked for some query.
 
 **Examples:**
 
@@ -79,6 +127,53 @@ print(f"Correlation: {correlation:.3f}")
 
 
 
+## `soft_linear_operator`
+
+```python
+soft_linear_operator(X, Q, *, k = None, mask = None, softness = 0.02)
+```
+
+Build the linear operator `S` of soft simplex projection, such that ``S @ Y`` equals ``soft_simplex_projection(X, Y, Q)`` for any target `Y`.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
+`Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
+`k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
+`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
+`softness` | <code>[float](#float)</code> | Width of the boundary between neighbors and non-neighbors, as a fraction of the neighborhood radius. | <code>0.02</code>
+
+**Returns:**
+
+Name | Type | Description
+---- | ---- | -----------
+`S` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The operator of shape (M, N) or (B, M, N).
+
+**Raises:**
+
+Type | Description
+---- | -----------
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k + 1` library points are unmasked for some query.
+
+**Examples:**
+
+```python
+import numpy as np
+
+from edmkit.simplex_projection import soft_linear_operator, soft_simplex_projection
+
+rng = np.random.default_rng(0)
+X = rng.normal(size=(200, 3))
+Q = rng.normal(size=(50, 3))
+Y = rng.normal(size=(200, 4))
+
+assert np.allclose(soft_linear_operator(X, Q) @ Y, soft_simplex_projection(X, Y, Q))
+```
+
+
+
 ## `soft_simplex_projection`
 
 ```python
@@ -102,13 +197,13 @@ Name | Type | Description | Default
 
 Name | Type | Description
 ---- | ---- | -----------
-`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`.
+`predictions` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The predicted values based on the weighted mean of the nearest neighbors in `Y`. Shape (M,) if `Y` is 1D, (M, E') if `Y` is 2D, or (B, M, E') if `Y` is 3D.
 
 **Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If `X` does not contain at least `k + 1` points. - If `mask` does not have shape (M, N) or (B, M, N).
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k + 1` library points are unmasked for some query.
 
 **Examples:**
 

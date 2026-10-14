@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Core library code lives under `src/edmkit/`. Top-level modules such as `simplex_projection/*.py`, `smap.py`, and `ccm.py` expose the main EDM algorithms, while `src/edmkit/generate/` contains synthetic data generators. Tests live in `tests/` and generally mirror module names, for example `src/edmkit/smap.py` and `tests/test_smap.py`. Use `benchmarks/` for ad hoc performance scripts, not correctness checks. CI workflows are in `.github/workflows/`.
+Core library code lives under `src/edmkit/`. Top-level modules such as `simplex_projection/*.py`, `smap/*.py`, and `ccm.py` expose the main EDM algorithms, while `src/edmkit/generate/` contains synthetic data generators. Tests live in `tests/` and generally mirror module names, for example `src/edmkit/smap/smap.py` and `tests/test_smap.py`. Use `benchmarks/` for ad hoc performance scripts, not correctness checks. CI workflows are in `.github/workflows/`.
 
 ## Build, Test, and Development Commands
 Use `uv`, never use `python`, `pip`, `uv pip`.

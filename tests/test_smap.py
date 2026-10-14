@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from edmkit.smap import smap, weights
+from edmkit.smap import coefficients, linear_operator, smap
 from edmkit.theiler_window import theiler_window
 
 
@@ -27,20 +27,6 @@ class SmapCase(NamedTuple):
     theta: float
     alpha: float
     mask: np.ndarray | None
-
-
-class WeightsProblem(NamedTuple):
-    distances: np.ndarray
-    theta: float
-    mask: np.ndarray | None
-    min_points: int
-
-
-class WeightsCase(NamedTuple):
-    distances: np.ndarray
-    theta: float
-    mask: np.ndarray | None
-    min_points: int
 
 
 def smap_reference(
@@ -91,7 +77,9 @@ def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha:
             theta=theta,
             alpha=alpha,
             mask=mask,
-        ).squeeze()
+        )
+        if y.ndim == 1:
+            expected = expected[..., 0]
     else:
         expected = np.stack(
             [
@@ -108,22 +96,6 @@ def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha:
         )
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=1e-8, rtol=1e-8)
-
-
-def weights_reference(distances: np.ndarray, theta: float, mask: np.ndarray | None, min_points: int) -> np.ndarray:
-    valid = np.isfinite(distances) if mask is None else np.isfinite(distances) & mask
-    counts = valid.sum(axis=-1, keepdims=True)
-    assert int(counts.min()) >= min_points
-    if theta == 0.0:
-        return np.where(valid, 1.0, 0.0)
-    mean = np.maximum(np.where(valid, distances, 0.0).sum(axis=-1, keepdims=True) / counts, 1e-6)
-    return np.where(valid, np.exp(-theta * distances / mean), 0.0)
-
-
-def check_weights(distances: np.ndarray, theta: float, mask: np.ndarray | None, min_points: int) -> None:
-    actual = weights(distances, theta, mask=mask, min_points=min_points)
-    expected = weights_reference(distances, theta, mask, min_points)
-    np.testing.assert_allclose(actual, expected, atol=1e-12, rtol=1e-12)
 
 
 def check_smap_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
@@ -254,6 +226,14 @@ SMAP_VALID = {
             ]
         ),
     ),
+    "single-query-multitarget-2d": SmapCase(
+        np.random.default_rng(20).normal(size=(16, 2)),
+        np.random.default_rng(21).normal(size=(16, 3)),
+        np.random.default_rng(22).normal(size=(1, 2)),
+        1.0,
+        1e-4,
+        None,
+    ),
     "theiler-self-query-2d": SmapCase(
         np.random.default_rng(18).normal(size=(20, 2)),
         np.random.default_rng(19).normal(size=20),
@@ -281,6 +261,8 @@ SMAP_INVALID = {
     "negative-theta": SmapCase(np.zeros((5, 2)), np.zeros(5), np.zeros((2, 2)), -1.0, 0.0, None),
     "library-target-length": SmapCase(np.zeros((5, 2)), np.zeros(4), np.zeros((2, 2)), 1.0, 0.0, None),
     "batched-library-target-length": SmapCase(np.zeros((2, 5, 2)), np.zeros((2, 4, 1)), np.zeros((2, 2, 2)), 1.0, 0.0, None),
+    "query-dimension": SmapCase(np.zeros((6, 2)), np.zeros(6), np.zeros((2, 3)), 1.0, 0.0, None),
+    "batch-size-mismatch": SmapCase(np.zeros((1, 6, 2)), np.zeros((1, 6, 1)), np.zeros((4, 2, 2)), 1.0, 0.0, None),
     "mixed-ranks": SmapCase(np.zeros((2, 5, 2)), np.zeros((2, 5, 1)), np.zeros((2, 2)), 1.0, 0.0, None),
     "too-few-unmasked-points": SmapCase(
         np.arange(10.0).reshape(5, 2),
@@ -307,61 +289,222 @@ def test_smap_invalid(case: SmapCase) -> None:
         smap(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
 
 
-@st.composite
-def weights_problems(draw):
-    n = draw(st.integers(3, 12))
-    m = draw(st.integers(1, 4))
-    min_points = draw(st.integers(1, n))
-    batched = draw(st.booleans())
-    masked = draw(st.booleans())
-    rng = np.random.default_rng(draw(st.integers(0, 2**32 - 1)))
-    if batched:
-        b = draw(st.integers(1, 3))
-        distances = rng.uniform(0.0, 10.0, size=(b, m, n))
-        mask = np.ones((b, m, n), dtype=bool) if masked else None
-        if mask is not None:
-            for batch in range(b):
-                n_remove = draw(st.integers(0, n - min_points))
-                for query in range(m):
-                    if n_remove:
-                        mask[batch, query, rng.permutation(n)[:n_remove]] = False
+class LinearOperatorProblem(NamedTuple):
+    x: np.ndarray
+    q: np.ndarray
+    theta: float
+    alpha: float
+    mask: np.ndarray | None
+
+
+class LinearOperatorCase(NamedTuple):
+    x: np.ndarray
+    q: np.ndarray
+    theta: float
+    alpha: float
+    mask: np.ndarray | None
+
+
+def check_linear_operator(x: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
+    actual = linear_operator(x, q, theta=theta, alpha=alpha, mask=mask)
+    # projecting the identity target yields the operator itself
+    identity = np.eye(x.shape[-2])
+    if x.ndim == 2:
+        expected = smap_reference(x, identity, q, theta=theta, alpha=alpha, mask=mask)
     else:
-        distances = rng.uniform(0.0, 10.0, size=(m, n))
-        mask = np.ones((m, n), dtype=bool) if masked else None
-        if mask is not None:
-            n_remove = draw(st.integers(0, n - min_points))
-            for query in range(m):
-                if n_remove:
-                    mask[query, rng.permutation(n)[:n_remove]] = False
-    return WeightsProblem(distances, draw(st.sampled_from((0.0, 0.5, 2.5))), mask, min_points)
+        expected = np.stack(
+            [
+                smap_reference(xi, identity, qi, theta=theta, alpha=alpha, mask=None if mask is None else mask[batch])
+                for batch, (xi, qi) in enumerate(zip(x, q))
+            ]
+        )
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=1e-8, rtol=1e-8)
 
 
-@given(problem=weights_problems())
-def test_weights_compatibility(problem: WeightsProblem) -> None:
-    check_weights(*problem)
+def check_linear_operator_tensor(x: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
+    from tinygrad import Tensor
+
+    x, q = (array.astype(np.float32) for array in (x, q))
+    expected = linear_operator(x, q, theta=theta, alpha=alpha, mask=mask)
+    actual = linear_operator(Tensor(x), Tensor(q), theta=theta, alpha=alpha, mask=None if mask is None else Tensor(mask)).numpy()
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
 
-WEIGHTS_VALID = {
-    "global-finite": WeightsCase(np.array([[0.0, 1.0, np.inf]]), 0.0, None, 2),
-    "local-masked": WeightsCase(
-        np.array([[0.0, 1.0, 2.0]]),
-        2.0,
-        np.array([[True, True, False]]),
-        2,
-    ),
+def check_linear_operator_tensor_gradient(x: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
+    from tinygrad import Tensor
+
+    x, q = (array.astype(np.float32) for array in (x, q))
+    coincident = min(q.shape[-2], 2)
+    q[..., :coincident, :] = x[..., :coincident, :]  # coincident query and library points produce zero distances
+    X, Q = Tensor(x), Tensor(q)
+    gradients = linear_operator(X, Q, theta=theta, alpha=alpha).square().sum().gradient(X, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
+
+
+def linear_operator_problems():
+    return smap_problems().map(lambda problem: LinearOperatorProblem(problem.x, problem.q, problem.theta, problem.alpha, problem.mask))
+
+
+@given(problem=linear_operator_problems())
+def test_linear_operator_compatibility(problem: LinearOperatorProblem) -> None:
+    check_linear_operator(*problem)
+
+
+LINEAR_OPERATOR_VALID = {name: LinearOperatorCase(case.x, case.q, case.theta, case.alpha, case.mask) for name, case in SMAP_VALID.items()}
+
+LINEAR_OPERATOR_MODES = {
+    "numpy": check_linear_operator,
+    "tinygrad": pytest.param(check_linear_operator_tensor, marks=pytest.mark.gpu),
+    "gradient": pytest.param(check_linear_operator_tensor_gradient, marks=pytest.mark.gpu),
 }
 
-WEIGHTS_INVALID = {
-    "too-few-finite-points": WeightsCase(np.array([[0.0, np.inf, np.inf]]), 2.0, None, 2),
+
+@pytest.mark.parametrize("mode", LINEAR_OPERATOR_MODES.values(), ids=LINEAR_OPERATOR_MODES.keys())
+@pytest.mark.parametrize("case", LINEAR_OPERATOR_VALID.values(), ids=LINEAR_OPERATOR_VALID.keys())
+def test_linear_operator_valid(case: LinearOperatorCase, mode) -> None:
+    mode(*case)
+
+
+# the target plays no part in the operator, so drop the cases that are invalid only because of it
+LINEAR_OPERATOR_INVALID = {
+    name: LinearOperatorCase(case.x, case.q, case.theta, case.alpha, case.mask)
+    for name, case in SMAP_INVALID.items()
+    if name not in ("library-target-length", "batched-library-target-length")
 }
 
 
-@pytest.mark.parametrize("case", WEIGHTS_VALID.values(), ids=WEIGHTS_VALID.keys())
-def test_weights_valid(case: WeightsCase) -> None:
-    check_weights(*case)
-
-
-@pytest.mark.parametrize("case", WEIGHTS_INVALID.values(), ids=WEIGHTS_INVALID.keys())
-def test_weights_invalid(case: WeightsCase) -> None:
+@pytest.mark.parametrize("case", LINEAR_OPERATOR_INVALID.values(), ids=LINEAR_OPERATOR_INVALID.keys())
+def test_linear_operator_invalid(case: LinearOperatorCase) -> None:
     with pytest.raises(ValueError):
-        weights(case.distances, case.theta, mask=case.mask, min_points=case.min_points)
+        linear_operator(case.x, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
+
+
+class CoefficientsProblem(NamedTuple):
+    x: np.ndarray
+    y: np.ndarray
+    q: np.ndarray
+    theta: float
+    alpha: float
+    mask: np.ndarray | None
+
+
+class CoefficientsCase(NamedTuple):
+    x: np.ndarray
+    y: np.ndarray
+    q: np.ndarray
+    theta: float
+    alpha: float
+    mask: np.ndarray | None
+
+
+def coefficients_reference(
+    x: np.ndarray,
+    y: np.ndarray,
+    q: np.ndarray,
+    *,
+    theta: float,
+    alpha: float,
+    mask: np.ndarray | None = None,
+) -> np.ndarray:
+    """Independent S-Map coefficients reference returning the canonical ``(M, E+1, targets)`` shape; `mask` is per-query with shape (M, N)."""
+    y = y[:, None] if y.ndim == 1 else y
+    if mask is not None:
+        return np.concatenate(
+            [coefficients_reference(x[keep], y[keep], q[query : query + 1], theta=theta, alpha=alpha) for query, keep in enumerate(mask)]
+        )
+
+    x_aug = np.column_stack([np.ones(len(x)), x])
+    distances = np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1)
+    if theta == 0.0:
+        query_weights = np.ones_like(distances)
+    else:
+        scale = np.maximum(distances.mean(axis=1, keepdims=True), 1e-6)
+        query_weights = np.exp(-theta * distances / scale)
+
+    penalty = np.eye(x_aug.shape[1])[1:]
+    result = np.empty((len(q), x_aug.shape[1], y.shape[1]))
+    for i, weight in enumerate(query_weights):
+        sqrt_weight = np.sqrt(weight)[:, None]
+        design = sqrt_weight * x_aug
+        target = sqrt_weight * y
+        trace = max(float(np.sum(design**2)), 1e-12)
+        regularizer = np.sqrt(alpha * trace) * penalty
+        design = np.vstack([design, regularizer])
+        target = np.vstack([target, np.zeros((len(regularizer), y.shape[1]))])
+        result[i], *_ = np.linalg.lstsq(design, target, rcond=None)
+    return result
+
+
+def check_coefficients(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
+    actual = coefficients(x, y, q, theta=theta, alpha=alpha, mask=mask)
+    if x.ndim == 2:
+        expected = coefficients_reference(x, y, q, theta=theta, alpha=alpha, mask=mask)
+        if y.ndim == 1:
+            expected = expected[..., 0]
+    else:
+        expected = np.stack(
+            [
+                coefficients_reference(xi, yi, qi, theta=theta, alpha=alpha, mask=None if mask is None else mask[batch])
+                for batch, (xi, yi, qi) in enumerate(zip(x, y, q))
+            ]
+        )
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=1e-8, rtol=1e-8)
+
+
+def check_coefficients_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
+    from tinygrad import Tensor
+
+    x, y, q = (array.astype(np.float32) for array in (x, y, q))
+    expected = coefficients(x, y, q, theta=theta, alpha=alpha, mask=mask)
+    actual = coefficients(Tensor(x), Tensor(y), Tensor(q), theta=theta, alpha=alpha, mask=None if mask is None else Tensor(mask)).numpy()
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
+
+
+def check_coefficients_tensor_gradient(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
+    from tinygrad import Tensor
+
+    x, y, q = (array.astype(np.float32) for array in (x, y, q))
+    coincident = min(q.shape[-2], 2)
+    q[..., :coincident, :] = x[..., :coincident, :]  # coincident query and library points produce zero distances
+    X, Y, Q = Tensor(x), Tensor(y), Tensor(q)
+    gradients = coefficients(X, Y, Q, theta=theta, alpha=alpha).square().sum().gradient(X, Y, Q)
+    for gradient in gradients:
+        assert np.isfinite(gradient.numpy()).all()
+
+
+def coefficients_problems():
+    return smap_problems().map(lambda problem: CoefficientsProblem(*problem))
+
+
+@given(problem=coefficients_problems())
+def test_coefficients_compatibility(problem: CoefficientsProblem) -> None:
+    check_coefficients(*problem)
+
+
+COEFFICIENTS_VALID = {name: CoefficientsCase(*case) for name, case in SMAP_VALID.items()}
+
+COEFFICIENTS_MODES = {
+    "numpy": check_coefficients,
+    "tinygrad": pytest.param(check_coefficients_tensor, marks=pytest.mark.gpu),
+    "gradient": pytest.param(check_coefficients_tensor_gradient, marks=pytest.mark.gpu),
+}
+
+
+@pytest.mark.parametrize("mode", COEFFICIENTS_MODES.values(), ids=COEFFICIENTS_MODES.keys())
+@pytest.mark.parametrize("case", COEFFICIENTS_VALID.values(), ids=COEFFICIENTS_VALID.keys())
+def test_coefficients_valid(case: CoefficientsCase, mode) -> None:
+    mode(*case)
+
+
+COEFFICIENTS_INVALID = {name: CoefficientsCase(*case) for name, case in SMAP_INVALID.items()}
+
+
+@pytest.mark.parametrize("case", COEFFICIENTS_INVALID.values(), ids=COEFFICIENTS_INVALID.keys())
+def test_coefficients_invalid(case: CoefficientsCase) -> None:
+    with pytest.raises(ValueError):
+        coefficients(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
