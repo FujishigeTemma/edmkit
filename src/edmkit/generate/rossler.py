@@ -18,10 +18,11 @@ def rossler(a: float, b: float, c: float):
     Returns
     -------
     f : Callable[[float, np.ndarray], np.ndarray]
-        Right-hand side ``f(t, x)`` for a state ``(x, y, z)`` of shape ``(3,)``.
+        Right-hand side ``f(t, x)`` for a state ``(x, y, z)`` of shape ``(3,)``, or ``(B, 3)`` for a batch.
     """
 
-    def f(t: float, x: np.ndarray):
-        return np.array([[0, -1, -1], [1, a, 0], [0, 0, x[0] - c]]) @ x + np.array([0, 0, b])
+    def f(t: float, s: np.ndarray):
+        x, y, z = np.moveaxis(s, -1, 0)
+        return np.stack([-y - z, x + a * y, b + (x - c) * z], axis=-1)
 
     return f

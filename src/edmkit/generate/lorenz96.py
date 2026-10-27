@@ -14,12 +14,12 @@ def lorenz96(F: float):
     Returns
     -------
     f : Callable[[float, np.ndarray], np.ndarray]
-        Right-hand side ``f(t, x)`` for a state of shape ``(D,)`` with ``D >= 4``.
+        Right-hand side ``f(t, x)`` for a state of shape ``(D,)``, or ``(B, D)`` for a batch, with ``D >= 4``.
     """
 
     def f(t: float, x: np.ndarray):
         # p[i + 2] is x[i] on the ring, so this is (x[i + 1] - x[i - 2]) * x[i - 1] - x[i] + F
-        p = np.concatenate([x[-2:], x, x[:1]])
-        return (p[3:] - p[:-3]) * p[1:-2] - x + F
+        p = np.concatenate([x[..., -2:], x, x[..., :1]], axis=-1)
+        return (p[..., 3:] - p[..., :-3]) * p[..., 1:-2] - x + F
 
     return f

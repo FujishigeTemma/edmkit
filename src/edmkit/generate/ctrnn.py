@@ -16,10 +16,10 @@ def ctrnn(g: float, J: np.ndarray):
     Returns
     -------
     f : Callable[[float, np.ndarray], np.ndarray]
-        Right-hand side ``f(t, x)`` for a state of shape ``(N,)``.
+        Right-hand side ``f(t, x)`` for a state of shape ``(N,)``, or ``(B, N)`` for a batch.
     """
 
     def f(t: float, x: np.ndarray):
-        return -x + g * J @ np.tanh(x)
+        return -x + g * np.tanh(x) @ J.T
 
     return f

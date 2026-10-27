@@ -18,10 +18,11 @@ def lorenz(sigma: float, rho: float, beta: float):
     Returns
     -------
     f : Callable[[float, np.ndarray], np.ndarray]
-        Right-hand side ``f(t, x)`` for a state ``(x, y, z)`` of shape ``(3,)``.
+        Right-hand side ``f(t, x)`` for a state ``(x, y, z)`` of shape ``(3,)``, or ``(B, 3)`` for a batch.
     """
 
-    def f(t: float, x: np.ndarray):
-        return np.array([[-sigma, sigma, 0], [rho, -1, -x[0]], [0, x[0], -beta]]) @ x
+    def f(t: float, s: np.ndarray):
+        x, y, z = np.moveaxis(s, -1, 0)
+        return np.stack([sigma * (y - x), rho * x - y - x * z, x * y - beta * z], axis=-1)
 
     return f

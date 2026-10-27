@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 import numpy as np
@@ -7,7 +8,27 @@ from matplotlib.colors import CenteredNorm
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 
-from edmkit.generate import ctrnn, double_pendulum, duffing, lorenz, lorenz96, mackey_glass, rk45, rossler, to_xy
+from edmkit.generate import (
+    chua,
+    ctrnn,
+    double_pendulum,
+    duffing,
+    euler_spiral,
+    fitzhugh_nagumo,
+    hindmarsh_rose,
+    kuramoto,
+    lorenz,
+    lorenz96,
+    lotka_volterra,
+    mackey_glass,
+    morris_lecar,
+    pyloric,
+    rk45,
+    rossler,
+    rulkov_map,
+    three_scroll,
+    to_xy,
+)
 
 OUTPUT_DIR = Path(__file__).parent / "gallery"
 
@@ -57,17 +78,24 @@ def traces(t: np.ndarray, X: np.ndarray, labels: str | list[str]):
     return fig
 
 
-def panels(views: dict[str, dict[str, np.ndarray]]):
+def panels(views: dict[str, dict[str, np.ndarray]], **style):
     """One panel per titled view, each a trajectory given as its coordinates by axis label; three coordinates are drawn in 3D."""
     width = min(TEXT_WIDTH, COLUMN_WIDTH * len(views))
     fig = Figure(figsize=(width, 0.5 + 0.9 * width / len(views)))
+    line: dict[str, Any] = {"linewidth": 0.3, "alpha": 0.8, **style}
     for i, (title, coordinates) in enumerate(views.items()):
         ax = fig.add_subplot(1, len(views), i + 1, projection="3d" if len(coordinates) == 3 else None)
-        ax.plot(*coordinates.values(), linewidth=0.3, alpha=0.8)
+        ax.plot(*coordinates.values(), **line)
         ax.set(title=title, **dict(zip(("xlabel", "ylabel", "zlabel"), coordinates)))
         ax.locator_params(nbins=4)
         if isinstance(ax, Axes3D):
             ax.set_box_aspect(None, zoom=0.85)
+            # look along the direction in which the trajectory, as stretched onto the box, varies least, so that its two widest directions face the viewer
+            limits = np.array([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()])
+            shown = np.stack(list(coordinates.values())) / np.ptp(limits, axis=1, keepdims=True) * np.asarray(ax.get_box_aspect())[:, None]
+            v = np.linalg.eigh(np.cov(shown))[1][:, 0]
+            x, y, z = v if v[2] >= 0 else -v
+            ax.view_init(elev=np.degrees(np.arcsin(z)), azim=np.degrees(np.arctan2(y, x)))
     return fig
 
 
@@ -94,6 +122,18 @@ def settled(t: np.ndarray, X: np.ndarray, transient: float):
 def rescaled(f: Callable[[float, np.ndarray], np.ndarray], speed: float, scale: float = 1.0):
     """Vector field whose solutions are those of ``f`` run ``speed`` times faster and stretched ``scale`` times."""
     return lambda t, x: speed * scale * f(speed * t, x / scale)
+
+
+def coupled(units: list[Callable[[float, np.ndarray], np.ndarray]], coupling: float):
+    """Vector field of ``units`` coupled all-to-all through their first variable, each pulled towards the mean (electrical coupling), for their states stacked."""
+
+    def f(t: float, x: np.ndarray):
+        X = x.reshape(len(units), -1)
+        dX = np.stack([unit(t, state) for unit, state in zip(units, X)])
+        dX[:, 0] += coupling * (X[:, 0].mean() - X[:, 0])
+        return dX.ravel()
+
+    return f
 
 
 def chain(coupling: float):
@@ -134,6 +174,17 @@ def main():
     save(traces(t[:10000], X[:10000], "xyz"), "rossler_traces", title)
     save(panels({"": dict(zip("xyz", X.T))}), "rossler_attractor", title)
 
+    # Li's c = 11/6 settles onto a limit cycle, so c is raised to 1.9; this chaotic attractor rarely makes large excursions, none within this window
+    title = "Li three-scroll\n$a = 40$, $k = 55$, $c = 1.9$, $d = 0.16$, $e = 0.65$, $f = 20$"
+    t, X = settled(*rk45(three_scroll(40.0, 55.0, 1.9, 0.16, 0.65, 20.0), np.array([2.0, 2.0, 2.0]), 0.002, 45), transient=10)
+    save(traces(t[:5000], X[:5000], "xyz"), "three_scroll_traces", title)
+    save(panels({"": dict(zip("xyz", X.T))}), "three_scroll_attractor", title)
+
+    title = "Chua\n" + r"$\alpha = 15.6$, $\beta = 28$, $m_0 = -8/7$, $m_1 = -5/7$"
+    t, X = settled(*rk45(chua(15.6, 28.0, -8.0 / 7.0, -5.0 / 7.0), np.array([0.7, 0.0, 0.0]), 0.02, 300), transient=50)
+    save(traces(t[:5000], X[:5000], "xyz"), "chua_traces", title)
+    save(panels({"": dict(zip("xyz", X.T))}), "chua_attractor", title)
+
     title = "Duffing\n" + r"$\alpha = -1$, $\beta = 1$, $\delta = 0.3$, $\gamma = 0.5$, $\omega = 1.2$"
     t, X = settled(*rk45(duffing(-1.0, 1.0, 0.3, 0.5, 1.2), np.array([1.0, 0.0]), 0.05, 600), transient=100)
     save(traces(t[:6000], X[:6000], "xv"), "duffing_traces", title)
@@ -145,6 +196,54 @@ def main():
     fig = panels({"": {"x": x2, "y": y2}})
     fig.axes[0].set_aspect("equal")
     save(fig, "double_pendulum_attractor", title)
+
+    title = "Euler spiral\ncurvature $\\kappa(s) = a s$, $a = 1$, arc length $s \\in [-8, 8]$"
+    _, X = rk45(euler_spiral(1.0), np.zeros(3), 0.01, 8)
+    fig = panels({"": {"x": np.concatenate([-X[:0:-1, 0], X[:, 0]]), "y": np.concatenate([-X[:0:-1, 1], X[:, 1]])}})
+    fig.axes[0].set_aspect("equal")
+    save(fig, "euler_spiral_attractor", title)
+
+    title = "Hindmarsh–Rose\n" + r"$a = 1$, $b = 3$, $c = 1$, $d = 5$, $r = 0.006$, $s = 4$, $x_R = -1.6$, $I = 3.25$"
+    t, X = settled(*rk45(hindmarsh_rose(1.0, 3.0, 1.0, 5.0, 0.006, 4.0, -1.6, 3.25), np.array([-1.6, 0.0, 0.0]), 0.05, 2500), transient=500)
+    save(traces(t[:20000], X[:20000], "xyz"), "hindmarsh_rose_traces", title)
+    save(panels({"": dict(zip("xyz", X.T))}), "hindmarsh_rose_attractor", title)
+
+    # a single unit is two-dimensional and so at most periodic; three units with different currents and time scales, coupled through v, are chaotic
+    # v jumps between two branches, so the attractor is drawn in the smooth recovery variables w
+    title = "FitzHugh–Nagumo\n3 units coupled through $v$ with strength 0.1, " + r"$\epsilon = 0.12, 0.18, 0.27$, $I = 0.2, 0.5, 0.8$"
+    units = [fitzhugh_nagumo(0.7, 0.8, epsilon, I) for epsilon, I in zip((0.12, 0.18, 0.27), (0.2, 0.5, 0.8))]
+    t, X = settled(*rk45(coupled(units, 0.1), np.array([-1.0, 1.0, 0.0, 0.5, 1.0, 0.0]), 0.1, 2500), transient=1000)
+    save(traces(t[:4000], X[:4000, ::2], ["v1", "v2", "v3"]), "fitzhugh_nagumo_traces", title)
+    save(panels({"": dict(zip(["w1", "w2", "w3"], X[:, 1::2].T))}), "fitzhugh_nagumo_attractor", title)
+
+    # likewise for three Morris–Lecar units, drawn in their potassium activations n
+    title = "Morris–Lecar\n3 units coupled through $V$ with strength 0.06, " + r"$\phi = 0.04, 0.06, 0.09$, $I = 70, 100, 130$"
+    units = [
+        morris_lecar(20.0, 2.0, 4.4, 8.0, -60.0, 120.0, -84.0, -1.2, 18.0, 2.0, 30.0, phi, I)
+        for phi, I in zip((0.04, 0.06, 0.09), (70.0, 100.0, 130.0))
+    ]
+    t, X = settled(*rk45(coupled(units, 0.06), np.array([-60.0, 0.0, -20.0, 0.2, 10.0, 0.4]), 1.0, 16000), transient=10000)
+    save(traces(t[:3000], X[:3000, ::2], ["V1", "V2", "V3"]), "morris_lecar_traces", title)
+    save(panels({"": dict(zip(["n1", "n2", "n3"], X[:, 1::2].T))}), "morris_lecar_attractor", title)
+
+    # a map has no trajectory between steps, so its states are drawn as points; the slow y drifts while the fast x bursts (upper band) or rests (lower branch)
+    title = "Rulkov map\n" + r"$\alpha = 4.1$, $\mu = 0.001$, $\sigma = -1.5$"
+    n, X = rulkov_map(4.1, 0.001, -1.5, 0.0, np.array([[-1.0, -3.0]]), 60000)
+    n, X = settled(n, X[:, 0], transient=10000)
+    save(traces(n[:3000], X[:3000], "xy"), "rulkov_map_traces", title)
+    save(panels({"": {"y": X[:, 1], "x": X[:, 0]}}, linestyle="none", marker=".", markersize=0.6, alpha=0.4), "rulkov_map_attractor", title)
+
+    # the AB/PD pacemaker inhibits LP and PY, which rebound in turn, giving the rhythm PD → LP → PY; with these neurons and synapses LP's bursts vary
+    # chaotically from cycle to cycle (largest Lyapunov exponent about 3 / s); the attractor is drawn in each neuron's calcium
+    title = "Pyloric circuit\nAB/PD 2, LP 1 and PY 4 of Prinz et al. (2004), synapses of 3 to 100 nS"
+    g_mem = np.array([[100, 2.5, 6, 50, 5, 100, 0.01, 0], [100, 0, 8, 40, 5, 75, 0.05, 0.02], [400, 2.5, 2, 50, 0, 75, 0.05, 0]])
+    g_glu = np.array([[0, 3, 0], [3, 0, 100], [10, 100, 0]])
+    g_ach = np.array([[0, 0, 0], [0, 0, 0], [100, 0, 0]])
+    x0 = np.zeros(45)
+    x0[:3], x0[3:6] = -50.0, 0.05
+    t, X = settled(*rk45(pyloric(g_mem, g_glu, g_ach), x0, 0.2, 11000), transient=3000)
+    save(traces(t[:20000], X[:20000, :3], ["V (AB/PD)", "V (LP)", "V (PY)"]), "pyloric_traces", title)
+    save(panels({"": dict(zip(["Ca (AB/PD)", "Ca (LP)", "Ca (PY)"], X[:, 3:6].T))}), "pyloric_attractor", title)
 
     title = "Mackey–Glass\n" + r"$\tau = 17$, $n = 10$, $\beta = 0.2$, $\gamma = 0.1$"
     t, x = settled(*mackey_glass(17.0, 10, 0.2, 0.1, 1.2, 0.1, 2000), transient=500)
@@ -180,6 +279,22 @@ def main():
     save(fig, "ctrnn_connectivity", title)
     save(heatmap(t[:1000], X[:1000], "unit", cmap="RdBu_r", norm=CenteredNorm()), "ctrnn_heatmap", title)
     save(panels({f"units {i}, {i + 1}": {f"unit {i}": X[:, i], f"unit {i + 1}": X[:, i + 1]} for i in (0, 2, 4, 6)}), "ctrnn_slices", title)
+
+    title = "Lotka–Volterra\n4 competing species (Vano et al. 2006), $r = (1, 0.72, 1.53, 1.27)$"
+    r = np.array([1.0, 0.72, 1.53, 1.27])
+    alpha = np.array([[1, 1.09, 1.52, 0], [0, 1, 0.44, 1.36], [2.33, 0, 1, 0.47], [1.21, 0.51, 0.35, 1]])
+    t, X = settled(*rk45(lotka_volterra(r[:, None] * alpha, r, 0.0), np.array([0.3013, 0.4586, 0.1307, 0.3557]), 0.5, 3000), transient=500)
+    save(traces(t[:3000], X[:3000], ["x1", "x2", "x3", "x4"]), "lotka_volterra_traces", title)
+    save(panels({"": dict(zip(["x1", "x2", "x3"], X.T))}), "lotka_volterra_attractor", title)
+
+    # a Gaussian spread of frequencies of width 1 puts the transition at k = 2 / (π g(0)) ≈ 1.6, so k = 3 is well past it
+    title = "Kuramoto\n50 oscillators with all-to-all coupling, sorted by natural frequency, " + r"$\omega_i \sim \mathcal{N}(0, 1)$, $k = 3$"
+    rng = np.random.default_rng(0)
+    N = 50
+    t, X = settled(*rk45(kuramoto(np.sort(rng.normal(size=N)), np.full((N, N), 3.0 / N)), rng.uniform(0, 2 * np.pi, N), 0.1, 150), transient=50)
+    fig = heatmap(t, np.sin(X), "oscillator", cmap="RdBu_r", norm=CenteredNorm())
+    fig.axes[1].set_ylabel(r"$\sin \theta$")
+    save(fig, "kuramoto_heatmap", title)
 
 
 if __name__ == "__main__":

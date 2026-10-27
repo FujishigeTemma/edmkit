@@ -22,11 +22,11 @@ def double_pendulum(m1: float, m2: float, L1: float, L2: float, g: float):
     Returns
     -------
     f : Callable[[float, np.ndarray], np.ndarray]
-        Right-hand side ``f(t, x)`` for a state ``(theta1, theta2, omega1, omega2)`` of shape ``(4,)``.
+        Right-hand side ``f(t, x)`` for a state ``(theta1, theta2, omega1, omega2)`` of shape ``(4,)``, or ``(B, 4)`` for a batch.
     """
 
     def f(t: float, x: np.ndarray):
-        theta1, theta2, omega1, omega2 = x
+        theta1, theta2, omega1, omega2 = np.moveaxis(x, -1, 0)
         delta = theta1 - theta2
 
         denom = 2 * m1 + m2 - m2 * np.cos(2 * delta)
@@ -44,7 +44,7 @@ def double_pendulum(m1: float, m2: float, L1: float, L2: float, g: float):
             L2 * denom
         )
 
-        return np.array([dtheta1_dt, dtheta2_dt, domega1_dt, domega2_dt])
+        return np.stack([dtheta1_dt, dtheta2_dt, domega1_dt, domega2_dt], axis=-1)
 
     return f
 

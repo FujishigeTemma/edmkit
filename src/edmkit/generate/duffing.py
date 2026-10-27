@@ -22,10 +22,11 @@ def duffing(alpha: float, beta: float, delta: float, gamma: float, omega: float)
     Returns
     -------
     f : Callable[[float, np.ndarray], np.ndarray]
-        Right-hand side ``f(t, x)`` for a state ``(x, v)`` of shape ``(2,)``.
+        Right-hand side ``f(t, x)`` for a state ``(x, v)`` of shape ``(2,)``, or ``(B, 2)`` for a batch.
     """
 
-    def f(t: float, x: np.ndarray):
-        return np.array([[0, 1], [-alpha - beta * x[0] ** 2, -delta]]) @ x + np.array([0, gamma * np.cos(omega * t)])
+    def f(t: float, s: np.ndarray):
+        x, v = np.moveaxis(s, -1, 0)
+        return np.stack([v, (-alpha - beta * x**2) * x - delta * v + gamma * np.cos(omega * t)], axis=-1)
 
     return f
