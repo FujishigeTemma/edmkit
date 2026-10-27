@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, overload
 
 import numpy as np
-from scipy.special import expit
 
 from edmkit.util import pairwise_distance, pairwise_distance_np
 
@@ -141,7 +140,8 @@ def _numpy(
     radius = (neighbors[..., k - 1 : k] + neighbors[..., k : k + 1]) / 2  # (M, 1) or (B, M, 1)
     radius = np.maximum(radius, 1e-6)
 
-    weights = np.exp(-D / d_min) * expit((radius - D) / (softness * radius))  # (M, N) or (B, M, N)
+    # exp(-D / d_min) * sigmoid((radius - D) / (softness * radius)), with the sigmoid in logarithms
+    weights = np.exp(-D / d_min - np.logaddexp(0.0, (D - radius) / (softness * radius)))  # (M, N) or (B, M, N)
     if mask is not None:
         weights = np.where(mask, weights, 0.0)
 
