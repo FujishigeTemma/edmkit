@@ -47,10 +47,12 @@ def curves(results: list[Result], field: str):
 def main(path: str, out: str = "benchmarks.png") -> None:
     results = load(path)
     funcs = sorted({r.func for r in results})
+    # fields swept over more than one value
+    fields = [field for field in Shape._fields if len({getattr(r.shape, field) for r in results if swept(r.shape, field)}) > 1]
 
-    fig, axes = plt.subplots(len(funcs), len(Shape._fields), figsize=(4 * len(Shape._fields), 3 * len(funcs)), squeeze=False)
+    fig, axes = plt.subplots(len(funcs), len(fields), figsize=(4 * len(fields), 3 * len(funcs)), squeeze=False)
     for row, func in zip(axes, funcs):
-        for ax, field in zip(row, Shape._fields):
+        for ax, field in zip(row, fields):
             for label, xs, ys in curves([r for r in results if r.func == func], field):
                 ax.plot(xs, ys, marker="o", label=label)
             ax.set(xscale="log", yscale="log", title=f"{func} vs {field}", xlabel=field, ylabel="median [s]")

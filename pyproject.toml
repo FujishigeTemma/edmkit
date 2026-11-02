@@ -14,6 +14,10 @@ dependencies = [
 ]
 
 [dependency-groups]
+benchmark = [
+    "pandas>=3.1.0",
+    "pyedm>=2.5.7",
+]
 dev = [
     "griffe2md>=1.5.1",
     "hypothesis>=6.170.14",
