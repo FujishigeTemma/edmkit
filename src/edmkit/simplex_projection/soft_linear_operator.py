@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
-from edmkit.util import pairwise_distance, pairwise_distance_np
+from edmkit.util import pairwise_distance, pairwise_distance_np, topk
 
 __all__ = ["soft_linear_operator"]
 
@@ -187,7 +187,7 @@ def _tensor(
         # a finite sentinel instead of inf to avoid NaN
         D = mask.where(D, D.max(axis=-1, keepdim=True) * 2 + 1)
 
-    neighbors = D.topk(k + 1, dim=-1, largest=False, sorted_=True)[0]  # (M, k + 1) or (B, M, k + 1)
+    neighbors = topk(D, k + 1, largest=False)[0]  # (M, k + 1) or (B, M, k + 1)
 
     # clamp to avoid division by zero
     d_min = neighbors[..., :1].clamp(min_=1e-6)  # (M, 1) or (B, M, 1)

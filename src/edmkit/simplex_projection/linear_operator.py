@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, overload
 import numpy as np
 
 from edmkit.simplex_projection.knn import knn
-from edmkit.util import pairwise_distance
+from edmkit.util import pairwise_distance, topk
 
 __all__ = ["linear_operator"]
 
@@ -180,7 +180,7 @@ def _tensor(
     if mask is not None:
         D = mask.where(D, float("inf"))
 
-    distances, indices = D.topk(k, dim=-1, largest=False, sorted_=True)  # (B, M, k)
+    distances, indices = topk(D, k, largest=False)  # (B, M, k)
 
     # neighbors are sorted, so the first is the nearest; clamp to avoid division by zero
     d_min = distances[..., :1].clamp(min_=1e-6)  # (B, M, 1)

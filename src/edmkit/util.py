@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.spatial.distance import cdist
 
-__all__ = ["autocorrelation", "dtw", "pad", "pairwise_distance", "pairwise_distance_np"]
+__all__ = ["autocorrelation", "dtw", "pad", "pairwise_distance", "pairwise_distance_np", "topk"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
@@ -84,6 +84,64 @@ def pairwise_distance(A: Tensor, B: Tensor | None = None) -> Tensor:
     D: Tensor = A_sq + B_sq - 2 * A.matmul(B.transpose(-1, -2))
 
     return D.clamp(min_=0)
+
+
+def topk(A: Tensor, k: int, dim: int = -1, largest: bool = True, sorted_: bool = True) -> tuple[Tensor, Tensor]:
+    """
+    Computes the top-k elements of the tensor along the specified `dim`.
+
+    Order of indices for equivalent elements is always preserved.
+
+    Parameters
+    ----------
+    A : Tensor
+        Input tensor.
+    k : int
+        The number of elements to take, at most ``A.shape[dim]``.
+    dim : int, default -1
+        The dimension along which to take the elements.
+    largest : bool, default True
+        Take the largest elements if True, otherwise the smallest.
+    sorted_ : bool, default True
+        Must be True; the elements are returned in order, as `Tensor.topk` requires.
+
+    Returns
+    -------
+    values : Tensor
+        The top-k elements, ordered from the most extreme, with ``A.shape[dim]`` replaced by `k`.
+    indices : Tensor
+        Their indices along `dim`, of the same shape as `values`. Equal elements keep their order.
+
+    Raises
+    ------
+    NotImplementedError
+        - If `sorted_` is False.
+    ValueError
+        - If `k` exceeds ``A.shape[dim]``.
+    """
+    from tinygrad import Tensor
+
+    if not sorted_:
+        raise NotImplementedError("topk with sorted_=False is not supported")
+    dim = dim % A.ndim
+    n = int(A.shape[dim])
+    if k > n:
+        raise ValueError(f"k must be at most A.shape[dim]={n}, got k={k}")
+
+    positions = Tensor.arange(n).reshape(*(n if axis == dim else 1 for axis in range(A.ndim)))
+    fill = A.dtype.min if largest else A.dtype.max
+
+    taken = positions < 0  # nothing taken yet
+    values, indices = [], []
+    for _ in range(k):
+        remaining = taken.where(fill, A)
+        extreme = remaining.max(dim, keepdim=True) if largest else remaining.min(dim, keepdim=True)
+        # the first position holding the extreme that is not taken yet, since `A` may itself hold `fill`
+        index = ((remaining == extreme) & ~taken).where(positions, n).min(dim, keepdim=True)
+        values.append(A.gather(dim, index))
+        indices.append(index)
+        taken = taken | (positions == index)
+    return Tensor.cat(*values, dim=dim), Tensor.cat(*indices, dim=dim)
 
 
 def pairwise_distance_np(A: np.ndarray, B: np.ndarray | None = None) -> np.ndarray:

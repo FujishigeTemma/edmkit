@@ -8,7 +8,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
-from edmkit.util import autocorrelation, dtw, pad, pairwise_distance, pairwise_distance_np
+from edmkit.util import autocorrelation, dtw, pad, pairwise_distance, pairwise_distance_np, topk
 
 
 class PairwiseDistanceNPProblem(NamedTuple):
@@ -301,3 +301,81 @@ def test_pad_valid(case: PadCase) -> None:
 def test_pad_invalid(case: PadCase) -> None:
     with pytest.raises(ValueError):
         pad(case.arrays)
+
+
+class TopkProblem(NamedTuple):
+    a: np.ndarray
+    k: int
+    dim: int
+    largest: bool
+
+
+class TopkCase(NamedTuple):
+    a: np.ndarray
+    k: int
+    dim: int
+    largest: bool
+
+
+@st.composite
+def topk_problems(draw):
+    shape = draw(hnp.array_shapes(min_dims=1, max_dims=3, min_side=1, max_side=12))
+    dim = draw(st.integers(-len(shape), len(shape) - 1))
+    a = draw(hnp.arrays(np.float32, shape, elements=st.integers(-5, 5)))
+    return TopkProblem(a, draw(st.integers(1, shape[dim])), dim, draw(st.booleans()))
+
+
+def check_topk(a: np.ndarray, k: int, dim: int, largest: bool) -> None:
+    from tinygrad import Tensor
+
+    values, indices = topk(Tensor(a), k, dim, largest)
+    order = np.argsort(-a if largest else a, axis=dim, stable=True)
+    expected_indices = np.take(order, np.arange(k), axis=dim)
+    np.testing.assert_array_equal(indices.numpy(), expected_indices)
+    np.testing.assert_array_equal(values.numpy(), np.take_along_axis(a, expected_indices, axis=dim))
+
+
+def check_topk_tensor_gradient(a: np.ndarray, k: int, dim: int, largest: bool) -> None:
+    from tinygrad import Tensor
+
+    x = Tensor(a)
+    values, _ = topk(x, k, dim, largest)
+    (gradient,) = values.sum().gradient(x)
+    order = np.take(np.argsort(-a if largest else a, axis=dim, stable=True), np.arange(k), axis=dim)
+    expected = np.zeros_like(a)
+    np.put_along_axis(expected, order, 1, axis=dim)
+    np.testing.assert_array_equal(gradient.numpy(), expected)
+
+
+TOPK_VALID = {
+    "ties": TopkCase(np.array([[2, 1, 2, 1], [1, 1, 1, 1]], dtype=np.float32), 3, -1, True),
+    "infinite_min": TopkCase(np.array([[np.inf, -np.inf, -np.inf, np.inf]], dtype=np.float32), 4, -1, False),
+    "infinite_max": TopkCase(np.array([[np.inf, -np.inf, -np.inf, np.inf]], dtype=np.float32), 4, -1, True),
+    "first_axis": TopkCase(np.zeros((5, 3), dtype=np.float32), 5, 0, False),
+    "long_axis": TopkCase(np.arange(513, dtype=np.float32)[::-1].copy(), 28, -1, False),
+}
+TOPK_INVALID = {"too_many": TopkCase(np.ones(3, dtype=np.float32), 4, -1, True)}
+
+
+@pytest.mark.gpu
+@settings(deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(problem=topk_problems())
+def test_topk_compatibility(problem: TopkProblem, tinygrad_warmup: None) -> None:
+    check_topk(*problem)
+    check_topk_tensor_gradient(*problem)
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize("case", TOPK_VALID.values(), ids=TOPK_VALID)
+def test_topk_valid(case: TopkCase) -> None:
+    check_topk(*case)
+    check_topk_tensor_gradient(*case)
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize("case", TOPK_INVALID.values(), ids=TOPK_INVALID)
+def test_topk_invalid(case: TopkCase) -> None:
+    from tinygrad import Tensor
+
+    with pytest.raises(ValueError):
+        topk(Tensor(case.a), case.k, case.dim, case.largest)

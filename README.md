@@ -2,9 +2,7 @@
 
 This library is a collection of tools and utilities that are useful for Empirical Data Modeling (EDM) and related tasks. The library is designed to be fast and lightweight, and easy to use.
 
-::: warning
-This library is still under intensive development so API may change in the future.
-:::
+![](./benchmarks/benchmarks.png)
 
 ## Installation
 

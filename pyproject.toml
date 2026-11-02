@@ -7,21 +7,22 @@ readme = "README.md"
 requires-python = ">= 3.13"
 dependencies = [
     "kdtree-rs>=0.3.1",
-    "numpy>=2.5.1",
-    "scipy>=1.17.1",
+    "numpy>=2.5.4",
+    "scipy>=1.18.1",
     "tinygrad>=0.14.0",
-    "tinysolve>=0.2.1",
+    "tinysolve>=0.2.2",
 ]
 
 [dependency-groups]
 dev = [
-    "griffe2md>=1.5.0",
-    "hypothesis>=6.151.9",
+    "griffe2md>=1.5.1",
+    "hypothesis>=6.170.14",
     "matplotlib>=3.11.2",
-    "pytest>=9.1.1",
+    "pytest>=9.2.0",
+    "pytest-benchmark>=5.3.1",
     "pywavelets>=1.10.0",
-    "ruff>=0.15.20",
-    "ty>=0.0.56",
+    "ruff>=0.17.3",
+    "ty>=0.0.95",
 ]
 
 [tool.uv]
@@ -31,10 +32,14 @@ required-environments = [
 
 [tool.pytest.ini_options]
 addopts = "-v --tb=short"
+testpaths = ["tests"]
+python_files = ["test_*.py", "bench_*.py"]
 filterwarnings = ["error"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests requiring tinygrad tensor backend (deselect with '-m \"not gpu\"')",
+    "dense: marks benchmarks that build an (M, N) matrix",
+    "huge: marks benchmarks whose N is too large for an (M, N) matrix in memory (deselect with '-m \"not (dense and huge)\"')",
 ]
 
 

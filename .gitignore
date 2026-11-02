@@ -12,3 +12,6 @@ wheels/
 !.hypothesis/examples/
 
 scripts/gallery
+
+# pytest-benchmark results
+.benchmarks/

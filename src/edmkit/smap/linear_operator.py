@@ -218,9 +218,13 @@ def _tensor(
     X_aug = Tensor.ones_like(X[..., :1]).cat(X, dim=-1)  # (N, E+1) or (B, N, E+1)
     Q_aug = Tensor.ones_like(Q[..., :1]).cat(Q, dim=-1)  # (M, E+1) or (B, M, E+1)
 
-    # Weighted design matrices for all query points: A^T @ W @ A, without materializing diag(W)
     X_augT = X_aug.transpose(-1, -2)  # (E+1, N) or (B, E+1, N)
-    XTX = X_augT.unsqueeze(-3).matmul(W.unsqueeze(-1) * X_aug.unsqueeze(-3))  # (M, E+1, E+1) or (B, M, E+1, E+1)
+    # Reuse each library point's outer product when fitting multiple queries: A^T @ W @ A
+    if Q.shape[-2] == 1:
+        XTX = X_augT.unsqueeze(-3).matmul(W.unsqueeze(-1) * X_aug.unsqueeze(-3))
+    else:
+        outer = (X_aug.unsqueeze(-1) * X_aug.unsqueeze(-2)).reshape(*X_aug.shape[:-1], (E + 1) ** 2)
+        XTX = W.matmul(outer).reshape(*W.shape[:-1], E + 1, E + 1)  # (M, E+1, E+1) or (B, M, E+1, E+1)
 
     # Tikhonov regularization
     eye = Tensor.eye(E + 1, dtype=X.dtype).to(X.device)
