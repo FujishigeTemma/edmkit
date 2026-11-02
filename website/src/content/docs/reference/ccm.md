@@ -7,184 +7,103 @@ sidebar:
 
 ## `ccm`
 
-**Type Aliases:**
-
-Name | Description
----- | -----------
-[`SampleFunc`](#edmkit.ccm.SampleFunc) | SampleFunc is a function that takes (pool, size) and returns a sampled array.
-[`AggregateFunc`](#edmkit.ccm.AggregateFunc) | AggregateFunc is a function that takes an array of values and returns a single value.
-
-### `SampleFunc` {#edmkit.ccm.SampleFunc}
-
-```python
-type SampleFunc = Callable[[np.ndarray, int], np.ndarray]
-```
-
-SampleFunc is a function that takes (pool, size) and returns a sampled array.
-
-### `AggregateFunc` {#edmkit.ccm.AggregateFunc}
-
-```python
-type AggregateFunc = Callable[[np.ndarray], float]
-```
-
-AggregateFunc is a function that takes an array of values and returns a single value.
-
 **Functions:**
 
 Name | Description
 ---- | -----------
-[`make_sample_func`](#edmkit.ccm.make_sample_func) | Create a sample function with its own independent RNG.
-[`bootstrap`](#edmkit.ccm.bootstrap) | Perform Convergent Cross Mapping and return per-sample scores.
-[`ccm`](#edmkit.ccm.ccm) | Perform Convergent Cross Mapping using a custom prediction function.
-
-### `make_sample_func`
-
-```python
-make_sample_func(seed: int | None = 42) -> SampleFunc
-```
-
-Create a sample function with its own independent RNG.
+[`bootstrap`](#edmkit.ccm.bootstrap) | Generate tasks that perform `predict_func` from `X` to `Y` on randomly sampled libraries for each size in `lib_sizes`.
 
 ### `bootstrap`
 
 ```python
-bootstrap(X: np.ndarray, Y: np.ndarray, lib_sizes: np.ndarray, predict_func: PredictFunc, metric_func: MetricFunc, n_samples: int = 20, *, library_pool: np.ndarray, prediction_pool: np.ndarray, sample_func: SampleFunc | None = None, batch_size: int | None = 20) -> np.ndarray
+bootstrap(X: np.ndarray, Y: np.ndarray, Q: np.ndarray, lib_sizes: np.ndarray, *, predict_func: PredictFunc, n_samples: int = 20, replace: bool = True, seed: int | None = 42, mask: np.ndarray | None = None, batch_size: int | None = 20) -> Iterator[tuple[tuple[int, slice], Callable[[], np.ndarray]]]
 ```
 
-Perform Convergent Cross Mapping and return per-sample scores.
+Generate tasks that perform `predict_func` from `X` to `Y` on randomly sampled libraries for each size in `lib_sizes`.
 
-Same as :func:`ccm` but returns the raw per-sample scores instead of
-aggregating them.
+Iterating only samples the library indices. Each task gathers its libraries and calls `predict_func` when executed,
+so tasks can be executed in any order or passed to ``executor.map``.
+For a fixed `seed`, the sampled libraries do not depend on `batch_size` or on the execution order.
+Tasks share the input arrays, so `X`, `Y`, `Q`, and `mask` must not be modified until all tasks have finished.
 
 **Parameters:**
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | Library delay vectors of shape ``(T,)`` or ``(T, E)`` (potential response). | *required*
-`Y` | <code>[ndarray](#numpy.ndarray)</code> | Target values of shape ``(T,)`` or ``(T, E')`` (potential driver). A 2D `Y` cross-maps to a delay vector; the metric scores all columns jointly. | *required*
-`lib_sizes` | <code>[ndarray](#numpy.ndarray)</code> | Array of library sizes to test convergence. | *required*
-`predict_func` | <code>[PredictFunc](#edmkit.types.PredictFunc)</code> | Prediction function with signature (X, Y, Q) -> predictions. | *required*
-`metric_func` | <code>[MetricFunc](#edmkit.metrics.MetricFunc)</code> | Metric function with signature (predictions, observations) -> metric value. | *required*
-`n_samples` | <code>[int](#int)</code> | Number of random samples per library size for bootstrapping. | <code>20</code>
-`library_pool` | <code>[ndarray](#numpy.ndarray)</code> | 1-D array of integer indices from which library members are sampled. | *required*
-`prediction_pool` | <code>[ndarray](#numpy.ndarray)</code> | 1-D array of integer indices that are predicted. | *required*
-`sample_func` | <code>[SampleFunc](#edmkit.ccm.SampleFunc) or None</code> | Function responsible for drawing a library sample of a given size. When None, a fresh RNG-backed sampler is created per call. | <code>None</code>
-`batch_size` | <code>[int](#int) or None</code> | If specified, predictions are made in batches to limit memory usage. | <code>20</code>
+`X` | <code>[ndarray](#numpy.ndarray)</code> | The input data of shape (N,) or (N, E) | *required*
+`Y` | <code>[ndarray](#numpy.ndarray)</code> | The target data of shape (N,) or (N, E'), sampled together with `X`. | *required*
+`Q` | <code>[ndarray](#numpy.ndarray)</code> | The query points of shape (M,) or (M, E), shared by all sampled libraries as a read-only view. | *required*
+`lib_sizes` | <code>[ndarray](#numpy.ndarray)</code> | The 1D array of library sizes, yielded in the given order. Sizes may exceed N only if `replace` is True. | *required*
+`predict_func` | <code>[PredictFunc](#edmkit.types.PredictFunc)</code> | The batched prediction function, such as `simplex_projection` or ``functools.partial(smap, theta=...)``. | *required*
+`n_samples` | <code>[int](#int)</code> | The number of libraries to sample for each size in `lib_sizes`. | <code>20</code>
+`replace` | <code>[bool](#bool)</code> | Whether to sample the library points with replacement. | <code>True</code>
+`seed` | <code>[int](#int) or None</code> | The seed of the random generator. If None, uses fresh entropy. | <code>42</code>
+`mask` | <code>[ndarray](#numpy.ndarray) or None</code> | Boolean mask of shape (M, N) indicating, for each query in `Q`, which library points to include. Each task selects the columns of its sampled points. Use `theiler_window` for temporal exclusion. | <code>None</code>
+`batch_size` | <code>[int](#int) or None</code> | The maximum number of libraries per task. If None, uses `n_samples`. | <code>20</code>
 
-**Returns:**
-
-Name | Type | Description
----- | ---- | -----------
-`samples` | <code>[ndarray](#numpy.ndarray)</code> | Per-sample skill scores of shape ``(n_samples, len(lib_sizes))``.
-
-### `ccm`
-
-```python
-ccm(X: np.ndarray, Y: np.ndarray, lib_sizes: np.ndarray, predict_func: PredictFunc, metric_func: MetricFunc, n_samples: int = 20, *, library_pool: np.ndarray, prediction_pool: np.ndarray, sample_func: SampleFunc | None = None, aggregate_func: AggregateFunc = np.mean, batch_size: int | None = 20) -> np.ndarray
-```
-
-Perform Convergent Cross Mapping using a custom prediction function.
-
-CCM tests for causality from X to Y by using the attractor reconstructed from Y
-to predict values of X. If X causes Y, then Y's attractor contains information
-about X, allowing cross-mapping from Y to X.
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`X` | <code>[ndarray](#numpy.ndarray)</code> | Library delay vectors of shape ``(T,)`` or ``(T, E)`` (potential response). | *required*
-`Y` | <code>[ndarray](#numpy.ndarray)</code> | Target values of shape ``(T,)`` or ``(T, E')`` (potential driver). A 2D `Y` cross-maps to a delay vector; the metric scores all columns jointly. | *required*
-`lib_sizes` | <code>[ndarray](#numpy.ndarray)</code> | Array of library sizes to test convergence. | *required*
-`predict_func` | <code>[PredictFunc](#edmkit.types.PredictFunc)</code> | Prediction function with signature (X, Y, Q) -> predictions. Can be `simplex_projection`, `smap` with partial application, or a custom function. | *required*
-`metric_func` | <code>[MetricFunc](#edmkit.metrics.MetricFunc)</code> | Metric function with signature (predictions, observations) -> metric value. | *required*
-`n_samples` | <code>[int](#int)</code> | Number of random samples per library size for bootstrapping. | <code>100</code>
-`library_pool` | <code>[ndarray](#numpy.ndarray)</code> | 1-D array of integer indices from which library members are sampled. | *required*
-`prediction_pool` | <code>[ndarray](#numpy.ndarray)</code> | 1-D array of integer indices that are predicted. | *required*
-`sample_func` | <code>[SampleFunc](#edmkit.ccm.SampleFunc) or None</code> | Function responsible for drawing a library sample of a given size. It receives ``(pool, size)`` and returns an array of indices. When None, a fresh RNG-backed sampler is created per call. | <code>None</code>
-`aggregate_func` | <code>[AggregateFunc](#edmkit.ccm.AggregateFunc)</code> | Reducer applied to the skill samples for each library size. | <code>np.mean</code>
-`batch_size` | <code>[int](#int) or None</code> | If not specified, batch_size == n_samples. If specified, predictions are made in batches to limit memory usage. | <code>20</code>
-
-**Returns:**
+**Yields:**
 
 Name | Type | Description
 ---- | ---- | -----------
-`correlations` | <code>[ndarray](#numpy.ndarray)</code> | Mean correlation coefficient for each library size.
+`index` | <code>[tuple](#tuple)[[int](#int), [slice](#slice)]</code> | The position of the task's libraries in an array of shape (len(`lib_sizes`), `n_samples`), such as the scores.
+`samples` | <code>[Callable](#collections.abc.Callable)[[], [ndarray](#numpy.ndarray)]</code> | The task that returns the predictions on B sampled libraries, of shape (B, M, E'), where B <= `batch_size` and E' = 1 if `Y` is 1D.
 
 **Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `X` and `Y` have different lengths. - If `lib_sizes` contains non-positive values. - If `predict_func` is not callable. - If `n_samples` is not positive. - If `aggregate_func` is not callable. - If `library_pool` or `prediction_pool` is invalid.
-
-<details class="note" open markdown="1">
-<summary>Notes</summary>
-
-- Higher correlation at larger library sizes indicates convergence and suggests X influences Y (X -> Y causality)
-- Convergence is the key signature of causality in CCM
-- The method uses Y's attractor to predict X (cross-mapping)
-
-</details>
+<code>[ValueError](#ValueError)</code> | - If `X`, `Y`, or `Q` is empty or not 1D or 2D. - If the input arrays `X` and `Y` do not have the same number of points. - If the dimension of `X` and `Q` do not match. - If `lib_sizes` is not a nonempty 1D array of positive integers. - If some size in `lib_sizes` exceeds N when `replace` is False. - If `n_samples` or `batch_size` is not positive. - If `mask` does not have shape (M, N). - If `predict_func` raises when a task is executed.
 
 **Examples:**
 
 ```python
-from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
-from edmkit.ccm import ccm
+from edmkit.ccm import bootstrap
 from edmkit.embedding import embed
 from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
-from edmkit.smap import smap
 
-# Generate coupled logistic maps (X drives Y)
-N = 1000
-rx, ry, Bxy = 3.8, 3.5, 0.02
-X = np.zeros(N)
-Y = np.zeros(N)
-X[0], Y[0] = 0.4, 0.2
+# Generate a simple time series (logistic map)
+N = 300
+x = np.zeros(N)
+x[0] = 0.4
 for i in range(1, N):
-    X[i] = X[i - 1] * (rx - rx * X[i - 1])
-    Y[i] = Y[i - 1] * (ry - ry * Y[i - 1]) + Bxy * X[i - 1]
+    x[i] = 3.9 * x[i - 1] * (1 - x[i - 1])
 
-tau = 1
-E = 2
+tau = 2
+E = 3
 
-# To test X -> Y causality, cross-map from Y's attractor to X
 coordinates = np.array([[0, tau * j] for j in range(E)])
-Y_embedding, _ = embed(coordinates, Y)
+embedding, _ = embed(coordinates, x)
 shift = tau * (E - 1)
-X_aligned = X[shift:]
 
-library_pool = np.arange(Y_embedding.shape[0] // 2)
-prediction_pool = np.arange(Y_embedding.shape[0] // 2, Y_embedding.shape[0])
+pool_size = 200
+Tp = 1
+X = embedding[: pool_size - shift]
+Y = x[shift + Tp : pool_size + Tp]
+Q = embedding[pool_size - shift : -Tp]
+actual = x[pool_size + Tp :, None]
 
-# logarithmic within range 10 to max library size
-lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=5, dtype=int)
+lib_sizes = np.array([10, 50, 190])
+n_samples = 100
 
-# Using simplex projection
-correlations = ccm(
-    Y_embedding,
-    X_aligned,
-    lib_sizes=lib_sizes,
-    predict_func=simplex_projection,
-    metric_func=pearson_correlation,
-    library_pool=library_pool,
-    prediction_pool=prediction_pool,
-)
 
-# Using S-Map with partial application
-correlations = ccm(
-    Y_embedding,
-    X_aligned,
-    lib_sizes=lib_sizes,
-    predict_func=partial(smap, theta=2.0, alpha=1e-10),
-    metric_func=pearson_correlation,
-    library_pool=library_pool,
-    prediction_pool=prediction_pool,
-)
+def score(samples):
+    predictions = samples()  # (B, M, 1)
+    return pearson_correlation(predictions, np.broadcast_to(actual, predictions.shape))
+
+
+scores = np.empty((len(lib_sizes), n_samples))
+tasks = bootstrap(X, Y, Q, lib_sizes, predict_func=simplex_projection, n_samples=n_samples)
+indices, samples = zip(*tasks)
+with ThreadPoolExecutor() as executor:
+    for index, result in zip(indices, executor.map(score, samples)):
+        scores[index] = result
+
+for lib_size, correlation in zip(lib_sizes, scores.mean(axis=1)):
+    print(f"Correlation (L={lib_size}): {correlation:.3f}")
 ```
 

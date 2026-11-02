@@ -44,43 +44,51 @@ Ex, taux = 2, 1
 
 ## Cross-map both directions
 
-For each hypothesis: embed the effect, align the cause, sweep library size with `with_simplex_projection`.
+For each hypothesis: embed the effect, align the cause, sweep library size with `bootstrap`, and score each batch of predictions in a thread pool.
 
 ```python
-from edmkit.ccm import make_sample_func, with_simplex_projection
+from concurrent.futures import ThreadPoolExecutor
+
+from edmkit.ccm import bootstrap
 from edmkit.embedding import embed
+from edmkit.metrics import pearson_correlation
+from edmkit.simplex_projection import simplex_projection
 
 
-def cross_map(effect, cause, E, tau, seed):
+def cross_map(effect, cause, E, tau, seed, n_samples=100):
     coordinates = np.array([[0, tau * j] for j in range(E)])
     embedded, _ = embed(coordinates, effect)
     aligned = cause[(E - 1) * tau :]
 
-    mid = embedded.shape[0] // 2
-    library_pool = np.arange(mid)
-    prediction_pool = np.arange(mid, embedded.shape[0])
+    mid = len(embedded) // 2
+    lib_sizes = np.geomspace(10, mid, num=12).astype(int)
+    actual = aligned[mid:, None]
 
-    lib_sizes = np.logspace(
-        np.log10(10),
-        np.log10(library_pool[-1]),
-        num=12,
-        dtype=int,
+    def score(samples):
+        predictions = samples()  # (B, M, 1)
+        return pearson_correlation(predictions, np.broadcast_to(actual, predictions.shape))
+
+    scores = np.empty((len(lib_sizes), n_samples))
+    tasks = bootstrap(
+        embedded[:mid],
+        aligned[:mid],
+        embedded[mid:],
+        lib_sizes,
+        predict_func=simplex_projection,
+        n_samples=n_samples,
+        replace=False,
+        seed=seed,
     )
-
-    rho = with_simplex_projection(
-        embedded,
-        aligned,
-        lib_sizes=lib_sizes,
-        n_samples=100,
-        library_pool=library_pool,
-        prediction_pool=prediction_pool,
-        sample_func=make_sample_func(seed=seed),
-    )
-    return lib_sizes, rho
+    indices, samples = zip(*tasks)
+    with ThreadPoolExecutor() as executor:
+        for index, result in zip(indices, executor.map(score, samples)):
+            scores[index] = result
+    return lib_sizes, scores
 
 
-sizes_xy, rho_xy = cross_map(effect=y, cause=x, E=Ey, tau=tauy, seed=42)
-sizes_yx, rho_yx = cross_map(effect=x, cause=y, E=Ex, tau=taux, seed=43)
+sizes_xy, scores_xy = cross_map(effect=y, cause=x, E=Ey, tau=tauy, seed=42)
+sizes_yx, scores_yx = cross_map(effect=x, cause=y, E=Ex, tau=taux, seed=43)
+rho_xy, rho_yx = scores_xy.mean(axis=1), scores_yx.mean(axis=1)
 
 print("x -> y:", rho_xy.round(3))
 print("y -> x:", rho_yx.round(3))
@@ -107,36 +115,18 @@ ax.grid(True, which="both", alpha=0.3)
 
 For these coupling parameters, expect `x -> y` to converge near `0.8` while `y -> x` stays near `0`.
 
-## Bootstrap confidence intervals
+## Bootstrap distributions
 
-`with_simplex_projection` returns one mean per library size. Use `bootstrap` for raw per-sample correlations and percentile bands.
+`cross_map` keeps the per-sample scores, so their distribution across sampled libraries needs no extra run.
 
 ```python
-from edmkit.ccm import bootstrap
-from edmkit.simplex_projection import simplex_projection
-
-coordinates_y = np.array([[0, tauy * j] for j in range(Ey)])
-embedded_y, _ = embed(coordinates_y, y)
-x_aligned = x[(Ey - 1) * tauy :]
-mid = embedded_y.shape[0] // 2
-
-samples = bootstrap(
-    embedded_y,
-    x_aligned,
-    lib_sizes=sizes_xy,
-    predict_func=simplex_projection,
-    n_samples=200,
-    library_pool=np.arange(mid),
-    prediction_pool=np.arange(mid, embedded_y.shape[0]),
-)
-# samples.shape == (200, len(sizes_xy))
-
-median = np.median(samples, axis=0)
-lo = np.quantile(samples, 0.05, axis=0)
-hi = np.quantile(samples, 0.95, axis=0)
+median = np.median(scores_xy, axis=1)
+lo, hi = np.quantile(scores_xy, [0.05, 0.95], axis=1)
 ```
 
-Plot `median` with `lo`/`hi` as a shaded band. Convergence above a surrogate's band is the publication-grade claim.
+Plot `median` with `lo`/`hi` as a shaded band. These bands describe variation across library samples; they are not confidence intervals for a causal effect.
+
+To use S-Map, pass `predict_func=partial(smap, theta=2.0)` after importing `partial` from `functools` and `smap` from `edmkit.smap`. Scoring stays the same.
 
 ## Surrogate test
 
@@ -146,8 +136,8 @@ Shuffling the candidate cause breaks any genuine coupling while preserving its m
 rng = np.random.default_rng(0)
 x_shuffled = rng.permutation(x)
 
-_, rho_surrogate = cross_map(effect=y, cause=x_shuffled, E=Ey, tau=tauy, seed=44)
-print("surrogate x -> y:", rho_surrogate.round(3))
+_, scores_surrogate = cross_map(effect=y, cause=x_shuffled, E=Ey, tau=tauy, seed=44)
+print("surrogate x -> y:", scores_surrogate.mean(axis=1).round(3))
 ```
 
 The surrogate curve should be flat near zero. If it tracks the real curve, the apparent convergence is an artifact — usually shared trends, periodicity, or non-stationarity.
@@ -175,4 +165,4 @@ For stricter tests, use phase-randomized surrogates (preserves the spectrum) or 
 
 - [Convergent Cross Mapping](/edmkit/concepts/ccm/) — theory and notation.
 - [Choosing E and tau](/edmkit/guides/choosing-parameters/) — the embedding step CCM depends on.
-- [`ccm` API reference](/edmkit/reference/ccm/) — `bootstrap`, `with_smap`, and the generic `ccm`.
+- [`ccm` API reference](/edmkit/reference/ccm/) — task generation, shapes, and sampling options.

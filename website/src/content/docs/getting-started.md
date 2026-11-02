@@ -72,9 +72,14 @@ CCM predicts a candidate *cause* from the *effect's* reconstructed attractor. If
 The example couples two logistic maps so `x` drives `y` but not the reverse, then asks CCM to recover that asymmetry.
 
 ```python
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
-from edmkit.ccm import with_simplex_projection
+
+from edmkit.ccm import bootstrap
 from edmkit.embedding import embed
+from edmkit.metrics import pearson_correlation
+from edmkit.simplex_projection import simplex_projection
 
 # 1. Build coupled logistic maps. x drives y with coupling 0.02; the reverse is zero.
 N, rx, ry, beta = 1000, 3.8, 3.5, 0.02
@@ -91,21 +96,35 @@ coordinates = np.array([[0, tau * j] for j in range(E)])
 y_embedded, _ = embed(coordinates, y)
 x_aligned = x[tau * (E - 1) :]
 
-# 3. Reserve disjoint pools so the library cannot trivially memorize the queries.
-mid = y_embedded.shape[0] // 2
-library_pool = np.arange(mid)
-prediction_pool = np.arange(mid, y_embedded.shape[0])
-lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=8, dtype=int)
+# 3. Reserve disjoint library and query sets.
+mid = len(y_embedded) // 2
+lib_sizes = np.geomspace(10, mid, num=8).astype(int)
+n_samples = 100
+actual = x_aligned[mid:, None]
 
-# 4. Sweep library sizes and read the convergence pattern.
-rho_x_drives_y = with_simplex_projection(
-    y_embedded,
-    x_aligned,
-    lib_sizes=lib_sizes,
-    library_pool=library_pool,
-    prediction_pool=prediction_pool,
+
+# 4. Score each batch of predictions in a thread pool.
+def score(samples):
+    predictions = samples()  # (B, M, 1)
+    return pearson_correlation(predictions, np.broadcast_to(actual, predictions.shape))
+
+
+scores = np.empty((len(lib_sizes), n_samples))
+tasks = bootstrap(
+    y_embedded[:mid],
+    x_aligned[:mid],
+    y_embedded[mid:],
+    lib_sizes,
+    predict_func=simplex_projection,
+    n_samples=n_samples,
+    replace=False,
 )
-print("x -> y skill:", rho_x_drives_y.round(3))
+indices, samples = zip(*tasks)
+with ThreadPoolExecutor() as executor:
+    for index, result in zip(indices, executor.map(score, samples)):
+        scores[index] = result
+
+print("x -> y skill:", scores.mean(axis=1).round(3))
 ```
 
 `rho` should rise with library size and then saturate. That convergence is the signature of `x -> y` coupling. See [Convergent Cross Mapping](/edmkit/concepts/ccm/) for the theory and the [causality guide](/edmkit/guides/causality-with-ccm/) for interpretation.

@@ -1,7 +1,9 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 
 from edmkit import generate
-from edmkit.ccm import ccm
+from edmkit.ccm import bootstrap
 from edmkit.embedding import embed
 from edmkit.metrics import pearson_correlation
 from edmkit.simplex_projection import simplex_projection
@@ -25,18 +27,22 @@ if __name__ == "__main__":
     )
     assert np.isfinite(tensor_prediction.numpy()).all()
 
-    n = len(embedding)
-    correlations = ccm(
-        embedding,
-        x[1:],
-        np.array([10, 20]),
-        simplex_projection,
-        pearson_correlation,
-        n_samples=3,
-        library_pool=np.arange(n // 2),
-        prediction_pool=np.arange(n // 2, n),
-    )
-    assert correlations.shape == (2,) and np.isfinite(correlations).all()
+    mid = len(embedding) // 2
+    actual = x[mid + 1 :, None]
+    lib_sizes = np.array([10, 20])
+    n_samples = 3
+
+    def score(samples):
+        predictions = samples()
+        return pearson_correlation(predictions, np.broadcast_to(actual, predictions.shape))
+
+    scores = np.empty((len(lib_sizes), n_samples))
+    tasks = bootstrap(embedding[:mid], x[1 : mid + 1], embedding[mid:], lib_sizes, predict_func=simplex_projection, n_samples=n_samples, batch_size=2)
+    indices, samples = zip(*tasks)
+    with ThreadPoolExecutor() as executor:
+        for index, result in zip(indices, executor.map(score, samples)):
+            scores[index] = result
+    assert np.isfinite(scores).all()
 
     _, lorenz = generate.rk45(generate.lorenz(10.0, 28.0, 8.0 / 3.0), np.ones(3), 0.01, 1)
     _, mackey_glass = generate.mackey_glass(17.0, 10, 0.2, 0.1, 0.9, 1.0, 50)

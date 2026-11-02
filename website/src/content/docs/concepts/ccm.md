@@ -45,12 +45,17 @@ Raw skill alone is not informative: confounded or correlated variables can both 
 
 ## Using `edmkit.ccm`
 
-The module offers two wrappers (`with_simplex_projection`, `with_smap`) and a general entry point `ccm` that accepts any `(X, Y, Q) -> predictions` function.
+`bootstrap` samples libraries and yields `(index, samples)` tasks. Calling `samples()` returns the predictions of a batch of sampled libraries, and `index` is where that batch belongs in a `(len(lib_sizes), n_samples)` array of scores.
 
 ```python
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
-from edmkit.ccm import with_simplex_projection
+
+from edmkit.ccm import bootstrap
 from edmkit.embedding import embed
+from edmkit.metrics import pearson_correlation
+from edmkit.simplex_projection import simplex_projection
 
 # Test "x causes y": embed y, align x, then cross-map.
 tau, E = 1, 3
@@ -58,71 +63,78 @@ coordinates = np.array([[0, tau * j] for j in range(E)])
 y_embedded, _ = embed(coordinates, y)
 x_aligned = x[tau * (E - 1) :]
 
-n_states = y_embedded.shape[0]
-library_pool = np.arange(n_states // 2)
-prediction_pool = np.arange(n_states // 2, n_states)
-lib_sizes = np.logspace(np.log10(10), np.log10(library_pool[-1]), num=10, dtype=int)
+mid = len(y_embedded) // 2
+lib_sizes = np.geomspace(10, mid, num=10).astype(int)
+n_samples = 100
+actual = x_aligned[mid:, None]
 
-rho = with_simplex_projection(
-    y_embedded,
-    x_aligned,
-    lib_sizes=lib_sizes,
-    library_pool=library_pool,
-    prediction_pool=prediction_pool,
+
+def score(samples):
+    predictions = samples()  # (B, M, 1)
+    return pearson_correlation(predictions, np.broadcast_to(actual, predictions.shape))
+
+
+scores = np.empty((len(lib_sizes), n_samples))
+tasks = bootstrap(
+    y_embedded[:mid],
+    x_aligned[:mid],
+    y_embedded[mid:],
+    lib_sizes,
+    predict_func=simplex_projection,
+    n_samples=n_samples,
+    replace=False,
 )
+indices, samples = zip(*tasks)
+with ThreadPoolExecutor() as executor:
+    for index, result in zip(indices, executor.map(score, samples)):
+        scores[index] = result
+
+rho = scores.mean(axis=1)
 ```
 
-`rho` has shape `(len(lib_sizes),)` — one mean per library size. Plot on a log-x axis to read convergence.
+Plot `rho` against `lib_sizes` to read convergence.
 
-## `library_pool` and `prediction_pool`
+## Sampling and temporal exclusion
 
-These decide which indices can be sampled into the library and which the function predicts.
-
-- **Disjoint halves.** First half library, second half prediction. Prevents the library from memorizing its own predictions.
-- **Full pool.** Both pools cover the full range. Combined with random subsampling and the Theiler effect, this is closer to the original Sugihara et al. formulation. Use it when the data is short.
-
-`sample_func` controls the random sampling. Pass `make_sample_func(seed=42)` for reproducibility:
+The example reserves disjoint halves for the library and the queries. When they overlap, exclude self-points and temporally close neighbors with a mask:
 
 ```python
-from edmkit.ccm import make_sample_func, with_simplex_projection
+from edmkit.theiler_window import theiler_window
 
-rho = with_simplex_projection(
+times = np.arange(len(y_embedded))
+mask = theiler_window(times, times, width=(E - 1) * tau)
+tasks = bootstrap(
     y_embedded,
     x_aligned,
-    lib_sizes=lib_sizes,
-    library_pool=library_pool,
-    prediction_pool=prediction_pool,
-    sample_func=make_sample_func(seed=42),
+    y_embedded,
+    lib_sizes,
+    predict_func=simplex_projection,
+    n_samples=n_samples,
+    replace=False,
+    mask=mask,
 )
 ```
+
+The mask refers to the original library, and each task selects the columns of its sampled points. If a sampled library has too few valid neighbors, the task raises when it is executed.
+
+`replace=True` (the default) draws with replacement; `replace=False` draws random subsets. A fixed `seed` gives the same libraries regardless of `batch_size` or execution order.
 
 ## Bootstrap distributions
 
-For a confidence band instead of a single mean, switch to `bootstrap`. It returns raw per-sample correlations.
+The scores support any aggregation:
 
 ```python
-from edmkit.ccm import bootstrap
-from edmkit.simplex_projection import simplex_projection
-
-samples = bootstrap(
-    y_embedded,
-    x_aligned,
-    lib_sizes=lib_sizes,
-    predict_func=simplex_projection,
-    n_samples=100,
-    library_pool=library_pool,
-    prediction_pool=prediction_pool,
-)
-# samples.shape == (100, len(lib_sizes))
+median = np.median(scores, axis=1)
+low, high = np.quantile(scores, [0.05, 0.95], axis=1)
 ```
 
-Plot the median with a percentile band against `lib_sizes` to show uncertainty alongside convergence.
+These bands describe variability across sampled libraries. They are not, by themselves, confidence intervals for a causal effect.
 
 ## Things to watch for
 
-- **Direction.** "Test `X` causes `Y`" means embed `Y` and predict `X` from it. In `with_simplex_projection`, `X` is the embedded effect and `Y` is the candidate cause.
+- **Direction.** "Test `X` causes `Y`" means embed `Y` and predict `X` from it. In `bootstrap`, `X` is the embedded effect and `Y` is the candidate cause.
 - **Embedding quality.** CCM stands or falls on the effect's embedding. Choose `(E, tau)` for the effect first — see [Choosing E and tau](/edmkit/guides/choosing-parameters/).
-- **Synchronous coupling.** With strong delay-zero coupling, both directions converge and CCM cannot disambiguate. Time-shifted CCM helps; build it by shifting the target before calling `ccm`.
+- **Synchronous coupling.** With strong delay-zero coupling, both directions converge and CCM cannot disambiguate. Time-shifted CCM helps; build it by shifting the target before calling `bootstrap`.
 - **Shared external forcing.** A common driver `Z` can make both directions converge without direct coupling. Surrogate tests (shuffled or seasonality-matched) are the usual safeguard.
 - **Sample size.** Small library sizes produce noisy correlations that swing across subsamples. Use a log grid from tens up to the pool size, and 50–200 bootstrap samples for stable means.
 
