@@ -50,12 +50,14 @@ class KNNProblem(NamedTuple):
     x: np.ndarray
     q: np.ndarray
     k: int
+    mask: np.ndarray | None = None
 
 
 class KNNCase(NamedTuple):
     x: np.ndarray
     q: np.ndarray
     k: int
+    mask: np.ndarray | None = None
 
 
 def simplex_projection_reference(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None = None, mask: np.ndarray | None = None) -> np.ndarray:
@@ -97,9 +99,11 @@ def soft_simplex_projection_reference(
     return weights @ y / weights.sum(axis=1, keepdims=True)
 
 
-def knn_reference(x: np.ndarray, q: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+def knn_reference(x: np.ndarray, q: np.ndarray, k: int, mask: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Brute-force k-nearest-neighbor search via full pairwise distances and argsort."""
     distances = np.linalg.norm(q[:, None, :] - x[None, :, :], axis=-1)
+    if mask is not None:
+        distances[~mask] = np.inf
     indices = np.argsort(distances, axis=1, kind="stable")[:, :k]
     nearest = np.take_along_axis(distances, indices, axis=1)
     return nearest, indices
@@ -154,9 +158,9 @@ def check_soft_simplex_projection(
     np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
 
 
-def check_knn(x: np.ndarray, q: np.ndarray, k: int) -> None:
-    distances, indices = knn(x, q, k)
-    expected_distances, expected_indices = knn_reference(x, q, k)
+def check_knn(x: np.ndarray, q: np.ndarray, k: int, mask: np.ndarray | None = None) -> None:
+    distances, indices = knn(x, q, k, mask)
+    expected_distances, expected_indices = knn_reference(x, q, k, mask)
     np.testing.assert_allclose(distances, expected_distances)
     np.testing.assert_array_equal(indices, expected_indices)
 
@@ -302,7 +306,13 @@ def knn_problems(draw):
     rng = np.random.default_rng(draw(st.integers(0, 2**32 - 1)))
     x = rng.normal(size=(n, e))
     q = rng.normal(size=(m, e))
-    return KNNProblem(x, q, k)
+    mask = None
+    if draw(st.booleans()):
+        mask = np.zeros((m, n), dtype=bool)
+        for query in range(m):
+            n_valid = draw(st.integers(k, n))
+            mask[query, rng.permutation(n)[:n_valid]] = True
+    return KNNProblem(x, q, k, mask)
 
 
 SIMPLEX_PROJECTION_VALID = {
@@ -751,10 +761,34 @@ KNN_VALID = {
         np.array([[1.5], [8.0]]),
         2,
     ),
+    "masked-initial-fetch-complete": KNNCase(
+        np.arange(8.0)[:, None],
+        np.array([[0.1], [6.9]]),
+        2,
+        np.array([[True] * 7 + [False], [False] + [True] * 7]),
+    ),
+    "masked-mixed-fetch-rounds": KNNCase(
+        np.arange(16.0)[:, None],
+        np.array([[0.1], [0.1], [0.1]]),
+        2,
+        np.array([[True] * 16, [False] * 4 + [True] * 12, [False] * 14 + [True] * 2]),
+    ),
+    "masked-all-library-points": KNNCase(
+        np.arange(4.0)[:, None],
+        np.array([[0.1]]),
+        4,
+        np.ones((1, 4), dtype=bool),
+    ),
 }
 
 KNN_INVALID = {
     "k-exceeds-library-size": KNNCase(np.zeros((3, 2)), np.zeros((1, 2)), 4),
+    "masked-too-few-neighbors": KNNCase(
+        np.arange(8.0)[:, None],
+        np.array([[0.1], [0.1]]),
+        2,
+        np.array([[True] * 8, [False] * 7 + [True]]),
+    ),
 }
 
 

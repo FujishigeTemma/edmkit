@@ -164,8 +164,10 @@ def _numpy(
     X_aug = np.concatenate([np.ones_like(X[..., :1]), X], axis=-1)  # (N, E+1) or (B, N, E+1)
 
     # Weighted design matrices for all query points: A^T @ W @ A and A^T @ W @ Y
-    XTX = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, X_aug)  # (M, E+1, E+1) or (B, M, E+1, E+1)
-    XTY = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, Y)  # (M, E+1, E') or (B, M, E+1, E')
+    XX = (X_aug[..., :, None] * X_aug[..., None, :]).reshape(*X_aug.shape[:-1], -1)  # (N, (E+1)^2) or (B, N, (E+1)^2)
+    XY = (X_aug[..., :, None] * Y[..., None, :]).reshape(*X_aug.shape[:-1], -1)  # (N, (E+1)E') or (B, N, (E+1)E')
+    XTX = np.matmul(W, XX).reshape(*W.shape[:-1], E + 1, E + 1)  # (M, E+1, E+1) or (B, M, E+1, E+1)
+    XTY = np.matmul(W, XY).reshape(*W.shape[:-1], E + 1, Y.shape[-1])  # (M, E+1, E') or (B, M, E+1, E')
 
     # Tikhonov regularization
     eye = np.eye(E + 1)

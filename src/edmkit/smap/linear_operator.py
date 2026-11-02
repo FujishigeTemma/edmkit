@@ -145,7 +145,8 @@ def _numpy(
     Q_aug = np.concatenate([np.ones_like(Q[..., :1]), Q], axis=-1)  # (M, E+1) or (B, M, E+1)
 
     # Weighted design matrices for all query points: A^T @ W @ A
-    XTX = np.einsum("...pn,...ni,...nj->...pij", W, X_aug, X_aug)  # (M, E+1, E+1) or (B, M, E+1, E+1)
+    outer = (X_aug[..., :, None] * X_aug[..., None, :]).reshape(*X_aug.shape[:-1], -1)  # (N, (E+1)^2) or (B, N, (E+1)^2)
+    XTX = np.matmul(W, outer).reshape(*W.shape[:-1], E + 1, E + 1)  # (M, E+1, E+1) or (B, M, E+1, E+1)
 
     # Tikhonov regularization
     eye = np.eye(E + 1)

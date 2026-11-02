@@ -148,7 +148,7 @@ def _numpy(
         if mask is not None:
             mask = mask[None]
 
-    B, N, E = X.shape
+    B, _, E = X.shape
     M = Q.shape[1]
     k = E + 1 if k is None else k
     if k <= 0:
@@ -157,19 +157,7 @@ def _numpy(
     distances = np.empty((B, M, k))
     indices = np.empty((B, M, k), dtype=np.intp)
     for b in range(B):
-        if mask is None:
-            distances[b], indices[b] = knn(X[b], Q[b], k)
-        else:  # over-fetch, then drop the masked-out candidates
-            n_exclude = int((~mask[b]).sum(axis=-1).max())
-            if N - n_exclude < k:
-                raise ValueError(
-                    f"Not enough unmasked points in X to find {k} neighbors, got N={N} with up to {n_exclude} points masked out per query"
-                )
-            _distances, _indices = knn(X[b], Q[b], k + n_exclude)
-            _distances = np.where(np.take_along_axis(mask[b], _indices, axis=-1), _distances, np.inf)
-            top_k = np.argsort(_distances, axis=-1)[..., :k]
-            distances[b] = np.take_along_axis(_distances, top_k, axis=-1)
-            indices[b] = np.take_along_axis(_indices, top_k, axis=-1)
+        distances[b], indices[b] = knn(X[b], Q[b], k, None if mask is None else mask[b])
 
     batch_index = np.arange(B)[:, None, None]  # (B, 1, 1)
     Y_neighbors = Y[batch_index, indices]  # (B, M, k, E')

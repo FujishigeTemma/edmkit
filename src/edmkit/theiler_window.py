@@ -29,6 +29,6 @@ def theiler_window(
     mask : np.ndarray
         Boolean mask of shape (M, N) or (B, M, N), True where the library point lies outside the window.
     """
-    t1 = np.asarray(t1)
-    t2 = np.asarray(t2)
-    return np.abs(t1[..., :, None] - t2[..., None, :]) > width
+    t1 = np.asarray(t1)[..., :, None]
+    t2 = np.asarray(t2)[..., None, :]
+    return (t2 < t1 - width) | (t2 > t1 + width)
