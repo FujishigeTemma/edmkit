@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
 from edmkit.simplex_projection.knn import knn
-from edmkit.util import pairwise_distance, topk
+from edmkit.util import materialize, pairwise_distance, topk
 
 __all__ = ["linear_operator"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
+
+    from edmkit.types import Mask
 
 
 @overload
@@ -19,7 +22,7 @@ def linear_operator(
     Q: np.ndarray,
     *,
     k: int | None = None,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
 ) -> np.ndarray: ...
 
 
@@ -29,7 +32,7 @@ def linear_operator(
     Q: Tensor,
     *,
     k: int | None = None,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
 ) -> Tensor: ...
 
 
@@ -51,8 +54,8 @@ def linear_operator(
         The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`.
     k : int or None, default None
         The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`.
-    mask : np.ndarray or Tensor or None
-        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors.
+    mask : Mask or None
+        ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include when finding nearest neighbors.
 
     Returns
     -------
@@ -64,7 +67,6 @@ def linear_operator(
     ValueError
         - If `k` is not positive.
         - If the batch size or dimension of `X` and `Q` do not match.
-        - If `mask` does not have shape (M, N) or (B, M, N).
         - If fewer than `k` library points are unmasked for some query.
 
     Examples
@@ -93,7 +95,7 @@ def _numpy(
     Q: np.ndarray,
     *,
     k: int | None = None,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
 ) -> np.ndarray:
     # ensure at least 2D
     if X.ndim == 1:
@@ -105,8 +107,6 @@ def _numpy(
         raise ValueError(f"X and Q must both be 2D or both be 3D arrays, got X.ndim={X.ndim}, Q.ndim={Q.ndim}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
-    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
-        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
 
     return_ndim = X.ndim
 
@@ -114,7 +114,7 @@ def _numpy(
     if X.ndim == 2:
         X, Q = X[None], Q[None]
         if mask is not None:
-            mask = mask[None]
+            mask = lambda _, *index, mask=mask: mask(*index)
 
     B, N, E = X.shape
     M = Q.shape[1]
@@ -125,7 +125,7 @@ def _numpy(
     distances = np.empty((B, M, k))
     indices = np.empty((B, M, k), dtype=np.intp)
     for b in range(B):
-        distances[b], indices[b] = knn(X[b], Q[b], k, None if mask is None else mask[b])
+        distances[b], indices[b] = knn(X[b], Q[b], k, None if mask is None else partial(mask, b))
 
     # clamp to avoid division by zero
     d_min = np.fmax(distances.min(axis=-1, keepdims=True), 1e-6)  # (B, M, 1)
@@ -145,8 +145,10 @@ def _tensor(
     Q: Tensor,
     *,
     k: int | None = None,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
 ) -> Tensor:
+    from tinygrad import Tensor
+
     # ensure at least 2D
     if X.ndim == 1:
         X = X[:, None]
@@ -157,16 +159,15 @@ def _tensor(
         raise ValueError(f"X and Q must both be 2D or both be 3D tensors, got X.ndim={X.ndim}, Q.ndim={Q.ndim}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
-    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
-        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
+    _mask = None if mask is None else Tensor(materialize(mask, Q.shape[:-1] + X.shape[-2:-1]))
 
     return_ndim = X.ndim
 
     # treat the unbatched case as a single batch
     if X.ndim == 2:
         X, Q = X[None], Q[None]
-        if mask is not None:
-            mask = mask[None]
+        if _mask is not None:
+            _mask = _mask[None]
 
     B, N, E = (int(X.shape[0]), int(X.shape[1]), int(X.shape[2]))
     M = int(Q.shape[1])
@@ -177,8 +178,8 @@ def _tensor(
     # clamp to avoid NaN gradient
     D = pairwise_distance(Q, X).clamp(min_=1e-12).sqrt()  # (B, M, N)
 
-    if mask is not None:
-        D = mask.where(D, float("inf"))
+    if _mask is not None:
+        D = _mask.where(D, float("inf"))
 
     distances, indices = topk(D, k, largest=False)  # (B, M, k)
 

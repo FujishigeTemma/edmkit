@@ -83,14 +83,20 @@ BURN_IN = 1000
 
 
 @cache
+def trajectory(B: int, T: int) -> np.ndarray:
+    """`B` Lorenz trajectories of length `T` after the burn-in, of shape (B, T, 3)."""
+    X0 = np.array([1.0, 1.0, 1.0]) + np.random.default_rng(0).normal(scale=0.1, size=(B, 3))
+    _, states = generate.rk45(generate.lorenz(10.0, 28.0, 8 / 3), X0, dt=DT, t_max=(BURN_IN + T) * DT)
+    return states[:, BURN_IN:]
+
+
+@cache
 def lorenz(shape: Shape) -> tuple[np.ndarray, np.ndarray]:
     """Delay embedding `X` of the Lorenz x-coordinate and its one-step-ahead value `Y`."""
     B, E = shape.B or 1, shape.E or 1
     shift = TAU * (E - 1)
     T = shape.N + shift + 1
-    X0 = np.array([1.0, 1.0, 1.0]) + np.random.default_rng(0).normal(scale=0.1, size=(B, 3))
-    _, states = generate.rk45(generate.lorenz(10.0, 28.0, 8 / 3), X0, dt=DT, t_max=(BURN_IN + T) * DT)
-    x = states[:, BURN_IN:, 0]  # (B, T)
+    x = trajectory(B, T)[..., 0]  # (B, T)
     coordinates = np.array([[0, TAU * j] for j in range(E)])
     X = np.stack([embed(coordinates, xb)[0][: shape.N] for xb in x])  # (B, N, E)
     Y = x[:, shift + 1 : shift + 1 + shape.N, None]  # (B, N, 1)

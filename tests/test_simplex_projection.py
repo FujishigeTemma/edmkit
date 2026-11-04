@@ -10,6 +10,7 @@ from scipy.special import expit
 
 from edmkit.simplex_projection import knn, linear_operator, simplex_projection, soft_linear_operator, soft_simplex_projection
 from edmkit.theiler_window import theiler_window
+from edmkit.util import materialize
 
 
 class SimplexProjectionProblem(NamedTuple):
@@ -110,10 +111,12 @@ def knn_reference(x: np.ndarray, q: np.ndarray, k: int, mask: np.ndarray | None 
 
 
 def check_simplex_projection(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
-    actual = simplex_projection(x, y, q, k=k, mask=mask)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = simplex_projection(x, y, q, k=k, mask=rule)
     if k is None:
         # an explicit k=None must be indistinguishable from omitting k entirely
-        default = simplex_projection(x, y, q, mask=mask)
+        default = simplex_projection(x, y, q, mask=rule)
         np.testing.assert_array_equal(actual, default)
     if x.ndim == 2:
         expected = simplex_projection_reference(x, y, q, k=k, mask=mask)
@@ -138,10 +141,12 @@ def check_soft_simplex_projection(
     mask: np.ndarray | None,
     softness: float,
 ) -> None:
-    actual = soft_simplex_projection(x, y, q, k=k, mask=mask, softness=softness)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = soft_simplex_projection(x, y, q, k=k, mask=rule, softness=softness)
     if k is None:
         # an explicit k=None must be indistinguishable from omitting k entirely
-        default = soft_simplex_projection(x, y, q, mask=mask, softness=softness)
+        default = soft_simplex_projection(x, y, q, mask=rule, softness=softness)
         np.testing.assert_array_equal(actual, default)
     if x.ndim == 2:
         expected = soft_simplex_projection_reference(x, y, q, k=k, mask=mask, softness=softness)
@@ -159,7 +164,9 @@ def check_soft_simplex_projection(
 
 
 def check_knn(x: np.ndarray, q: np.ndarray, k: int, mask: np.ndarray | None = None) -> None:
-    distances, indices = knn(x, q, k, mask)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    distances, indices = knn(x, q, k, rule)
     expected_distances, expected_indices = knn_reference(x, q, k, mask)
     np.testing.assert_allclose(distances, expected_distances)
     np.testing.assert_array_equal(indices, expected_indices)
@@ -168,10 +175,11 @@ def check_knn(x: np.ndarray, q: np.ndarray, k: int, mask: np.ndarray | None = No
 def check_simplex_projection_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    expected = simplex_projection(x, y, q, k=k, mask=mask)
-    tensor_mask = None if mask is None else Tensor(mask)
-    actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q), k=k, mask=tensor_mask).numpy()
+    expected = simplex_projection(x, y, q, k=k, mask=rule)
+    actual = simplex_projection(Tensor(x), Tensor(y), Tensor(q), k=k, mask=rule).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
@@ -198,10 +206,11 @@ def check_soft_simplex_projection_tensor(
 ) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    expected = soft_simplex_projection(x, y, q, k=k, mask=mask, softness=softness)
-    tensor_mask = None if mask is None else Tensor(mask)
-    actual = soft_simplex_projection(Tensor(x), Tensor(y), Tensor(q), k=k, mask=tensor_mask, softness=softness).numpy()
+    expected = soft_simplex_projection(x, y, q, k=k, mask=rule, softness=softness)
+    actual = soft_simplex_projection(Tensor(x), Tensor(y), Tensor(q), k=k, mask=rule, softness=softness).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
 
@@ -361,14 +370,14 @@ SIMPLEX_PROJECTION_VALID = {
         np.random.default_rng(38).normal(size=20),
         np.random.default_rng(37).normal(size=(20, 2)),
         None,
-        theiler_window(np.arange(20), np.arange(20), 2),
+        materialize(theiler_window(np.arange(20), np.arange(20), 2), (20, 20)),
     ),
     "theiler-self-query-batched-3d": SimplexProjectionCase(
         np.random.default_rng(39).normal(size=(2, 20, 2)),
         np.random.default_rng(40).normal(size=(2, 20, 2)),
         np.random.default_rng(39).normal(size=(2, 20, 2)),
         None,
-        np.tile(theiler_window(np.arange(20), np.arange(20), 2), (2, 1, 1)),
+        np.tile(materialize(theiler_window(np.arange(20), np.arange(20), 2), (20, 20)), (2, 1, 1)),
     ),
 }
 SIMPLEX_PROJECTION_VALID["single-query-multitarget-2d"] = SimplexProjectionCase(
@@ -399,19 +408,12 @@ SIMPLEX_PROJECTION_INVALID = {
         None,
         np.array([[True, True, False, False, False]]),
     ),
-    "mask-not-per-query": SimplexProjectionCase(
-        np.zeros((12, 2)),
-        np.zeros(12),
-        np.zeros((4, 2)),
-        None,
-        np.ones(12, dtype=bool),
-    ),
     "theiler-window-too-wide": SimplexProjectionCase(
         np.zeros((10, 2)),
         np.zeros(10),
         np.zeros((10, 2)),
         None,
-        theiler_window(np.arange(10), np.arange(10), 100),
+        materialize(theiler_window(np.arange(10), np.arange(10), 100), (10, 10)),
     ),
     "zero-k": SimplexProjectionCase(
         SIMPLEX_PROJECTION_VALID["scalar-2d"].x,
@@ -443,8 +445,9 @@ def test_simplex_projection_valid(case: SimplexProjectionCase, mode) -> None:
 
 @pytest.mark.parametrize("case", SIMPLEX_PROJECTION_INVALID.values(), ids=SIMPLEX_PROJECTION_INVALID.keys())
 def test_simplex_projection_invalid(case: SimplexProjectionCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        simplex_projection(case.x, case.y, case.q, k=case.k, mask=case.mask)
+        simplex_projection(case.x, case.y, case.q, k=case.k, mask=None if mask is None else (lambda *index: mask[index]))
 
 
 SOFT_SIMPLEX_PROJECTION_VALID = {
@@ -498,7 +501,7 @@ SOFT_SIMPLEX_PROJECTION_VALID = {
         np.random.default_rng(42).normal(size=20),
         np.random.default_rng(41).normal(size=(20, 2)),
         None,
-        theiler_window(np.arange(20), np.arange(20), 2),
+        materialize(theiler_window(np.arange(20), np.arange(20), 2), (20, 20)),
         0.02,
     ),
 }
@@ -516,14 +519,6 @@ SOFT_SIMPLEX_PROJECTION_MODES = {
 
 SOFT_SIMPLEX_PROJECTION_INVALID = {
     "insufficient-library": SoftSimplexProjectionCase(np.zeros((3, 2)), np.zeros(3), np.zeros((1, 2)), None, None, 0.02),
-    "mask-not-per-query": SoftSimplexProjectionCase(
-        np.zeros((12, 2)),
-        np.zeros(12),
-        np.zeros((4, 2)),
-        None,
-        np.ones(12, dtype=bool),
-        0.02,
-    ),
     "too-few-unmasked-neighbors": SoftSimplexProjectionCase(
         np.arange(10.0).reshape(5, 2),
         np.arange(5.0),
@@ -566,8 +561,9 @@ def test_soft_simplex_projection_valid(case: SoftSimplexProjectionCase, mode) ->
 
 @pytest.mark.parametrize("case", SOFT_SIMPLEX_PROJECTION_INVALID.values(), ids=SOFT_SIMPLEX_PROJECTION_INVALID.keys())
 def test_soft_simplex_projection_invalid(case: SoftSimplexProjectionCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        soft_simplex_projection(case.x, case.y, case.q, k=case.k, mask=case.mask, softness=case.softness)
+        soft_simplex_projection(case.x, case.y, case.q, k=case.k, mask=None if mask is None else (lambda *index: mask[index]), softness=case.softness)
 
 
 class LinearOperatorProblem(NamedTuple):
@@ -601,7 +597,9 @@ class SoftLinearOperatorCase(NamedTuple):
 
 
 def check_linear_operator(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
-    actual = linear_operator(x, q, k=k, mask=mask)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = linear_operator(x, q, k=k, mask=rule)
     # projecting the identity target yields the operator itself
     identity = np.eye(x.shape[-2])
     if x.ndim == 2:
@@ -620,10 +618,11 @@ def check_linear_operator(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.
 def check_linear_operator_tensor(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, q = (array.astype(np.float32) for array in (x, q))
-    expected = linear_operator(x, q, k=k, mask=mask)
-    tensor_mask = None if mask is None else Tensor(mask)
-    actual = linear_operator(Tensor(x), Tensor(q), k=k, mask=tensor_mask).numpy()
+    expected = linear_operator(x, q, k=k, mask=rule)
+    actual = linear_operator(Tensor(x), Tensor(q), k=k, mask=rule).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
@@ -641,7 +640,9 @@ def check_linear_operator_tensor_gradient(x: np.ndarray, q: np.ndarray, k: int |
 
 
 def check_soft_linear_operator(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None, softness: float) -> None:
-    actual = soft_linear_operator(x, q, k=k, mask=mask, softness=softness)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = soft_linear_operator(x, q, k=k, mask=rule, softness=softness)
     # projecting the identity target yields the operator itself
     identity = np.eye(x.shape[-2])
     if x.ndim == 2:
@@ -660,10 +661,11 @@ def check_soft_linear_operator(x: np.ndarray, q: np.ndarray, k: int | None, mask
 def check_soft_linear_operator_tensor(x: np.ndarray, q: np.ndarray, k: int | None, mask: np.ndarray | None, softness: float) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, q = (array.astype(np.float32) for array in (x, q))
-    expected = soft_linear_operator(x, q, k=k, mask=mask, softness=softness)
-    tensor_mask = None if mask is None else Tensor(mask)
-    actual = soft_linear_operator(Tensor(x), Tensor(q), k=k, mask=tensor_mask, softness=softness).numpy()
+    expected = soft_linear_operator(x, q, k=k, mask=rule, softness=softness)
+    actual = soft_linear_operator(Tensor(x), Tensor(q), k=k, mask=rule, softness=softness).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
 
@@ -719,8 +721,9 @@ def test_linear_operator_valid(case: LinearOperatorCase, mode) -> None:
 
 @pytest.mark.parametrize("case", LINEAR_OPERATOR_INVALID.values(), ids=LINEAR_OPERATOR_INVALID.keys())
 def test_linear_operator_invalid(case: LinearOperatorCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        linear_operator(case.x, case.q, k=case.k, mask=case.mask)
+        linear_operator(case.x, case.q, k=case.k, mask=None if mask is None else (lambda *index: mask[index]))
 
 
 SOFT_LINEAR_OPERATOR_VALID = {
@@ -751,8 +754,9 @@ def test_soft_linear_operator_valid(case: SoftLinearOperatorCase, mode) -> None:
 
 @pytest.mark.parametrize("case", SOFT_LINEAR_OPERATOR_INVALID.values(), ids=SOFT_LINEAR_OPERATOR_INVALID.keys())
 def test_soft_linear_operator_invalid(case: SoftLinearOperatorCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        soft_linear_operator(case.x, case.q, k=case.k, mask=case.mask, softness=case.softness)
+        soft_linear_operator(case.x, case.q, k=case.k, mask=None if mask is None else (lambda *index: mask[index]), softness=case.softness)
 
 
 KNN_VALID = {
@@ -804,5 +808,6 @@ def test_knn_valid(case: KNNCase) -> None:
 
 @pytest.mark.parametrize("case", KNN_INVALID.values(), ids=KNN_INVALID.keys())
 def test_knn_invalid(case: KNNCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        knn(*case)
+        knn(case.x, case.q, case.k, None if mask is None else (lambda *index: mask[index]))

@@ -1,10 +1,12 @@
 import numpy as np
 from kdtree import KDTree
 
+from edmkit.types import Mask
+
 __all__: list[str] = []
 
 
-def knn(X: np.ndarray, Q: np.ndarray, k: int, mask: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+def knn(X: np.ndarray, Q: np.ndarray, k: int, mask: Mask | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Find the k-nearest neighbors of `Q` in `X` using `kdtree.KDTree`, optionally restricted by `mask`.
 
     Parameters
@@ -15,8 +17,8 @@ def knn(X: np.ndarray, Q: np.ndarray, k: int, mask: np.ndarray | None = None) ->
         The query points (M, E)
     k : int
         The number of nearest neighbors to find (typically E+1 for simplex projection).
-    mask : np.ndarray or None
-        Boolean mask (M, N). X[mask[i]] are the valid points for Q[i].
+    mask : Mask or None
+        ``mask(i, j)`` is True where X[j] is a valid point for Q[i].
 
     Returns
     -------
@@ -43,28 +45,23 @@ def knn(X: np.ndarray, Q: np.ndarray, k: int, mask: np.ndarray | None = None) ->
         # over fetch (k_query > k)
         _distances, _indices = tree.query(Q[pending], k=k_query)
 
-        # filter out masked points
-        valid = mask[pending[:, None], _indices]
+        # evaluate the mask and filter the resultss
+        valid = np.broadcast_to(np.asarray(mask(pending[:, None], _indices), dtype=bool), _indices.shape)
+        count = valid.sum(axis=-1)
 
-        # consider only queries that have at least k valid neighbors
-        done = valid.sum(axis=-1) >= k
+        if k_query == N and count.min() < k:
+            raise ValueError(f"Not enough unmasked points in X to find {k} neighbors, got {count.min()} for some query")
 
-        # take the first k valid neighbors for the queries that are done
-        valid = valid[done]
-        first_k = valid & (np.cumsum(valid, axis=-1) <= k)
+        # take the first k valid neighbors for the queries that have them
+        done = count >= k
+        first_k = valid[done] & (np.cumsum(valid[done], axis=-1) <= k)
         distances[pending[done]] = _distances[done][first_k].reshape(-1, k)
         indices[pending[done]] = _indices[done][first_k].reshape(-1, k)
 
         return pending[~done]
 
-    k_query = min(2 * k, N)
+    k_query = min(k + 1, N)
     pending = fetch(np.arange(Q.shape[0]), k_query)
-
-    if pending.size > 0 and mask[pending].sum(axis=-1, dtype=np.int32).min() < k:
-        raise ValueError(
-            f"Not enough unmasked points in X to find {k} neighbors, got {mask[pending].sum(axis=-1, dtype=np.int32).min()} for some query"
-        )
-
     while pending.size > 0:
         k_query = min(2 * k_query, N)
         pending = fetch(pending, k_query)

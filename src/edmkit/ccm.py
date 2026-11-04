@@ -3,7 +3,7 @@ from functools import partial
 
 import numpy as np
 
-from edmkit.types import PredictFunc
+from edmkit.types import Mask, PredictFunc
 
 __all__ = ["bootstrap"]
 
@@ -18,7 +18,7 @@ def bootstrap(
     n_samples: int = 20,
     replace: bool = True,
     seed: int | None = 42,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
     batch_size: int | None = 20,
 ) -> Iterator[tuple[tuple[int, slice], Callable[[], np.ndarray]]]:
     """
@@ -44,9 +44,8 @@ def bootstrap(
         Whether to sample the library points with replacement.
     seed : int or None, default 42
         The seed of the random generator. If None, uses fresh entropy.
-    mask : np.ndarray or None
-        Boolean mask of shape (M, N) indicating, for each query in `Q`, which library points to include.
-        Each task selects the columns of its sampled points. Use `theiler_window` for temporal exclusion.
+    mask : Mask or None
+        ``mask(i, j)`` indicating, for each query in `Q`, which points of `X` to include. Use `theiler_window` for temporal exclusion.
     batch_size : int or None, default 20
         The maximum number of libraries per task. If None, uses `n_samples`.
 
@@ -66,7 +65,6 @@ def bootstrap(
         - If `lib_sizes` is not a nonempty 1D array of positive integers.
         - If some size in `lib_sizes` exceeds N when `replace` is False.
         - If `n_samples` or `batch_size` is not positive.
-        - If `mask` does not have shape (M, N).
         - If `predict_func` raises when a task is executed.
 
     Examples
@@ -144,8 +142,6 @@ def bootstrap(
     batch_size = n_samples if batch_size is None else batch_size
     if n_samples <= 0 or batch_size <= 0:
         raise ValueError(f"n_samples and batch_size must be positive, got n_samples={n_samples}, batch_size={batch_size}")
-    if mask is not None and (mask.shape != (len(Q), len(X)) or mask.dtype != np.bool_):
-        raise ValueError(f"mask must be boolean with shape {(len(Q), len(X))}, got shape={mask.shape}, dtype={mask.dtype}")
 
     rng = np.random.default_rng(seed)
     for i, lib_size in enumerate(lib_sizes):
@@ -165,8 +161,8 @@ def samples(
     indices: np.ndarray,
     *,
     predict_func: PredictFunc,
-    mask: np.ndarray | None,
+    mask: Mask | None,
 ) -> np.ndarray:
     queries = np.broadcast_to(Q, (len(indices), *Q.shape))
-    sampled_mask = None if mask is None else mask[:, indices].transpose(1, 0, 2)
-    return predict_func(X[indices], Y[indices], queries, mask=sampled_mask)
+    # position j of library b is the point indices[b, j] of X
+    return predict_func(X[indices], Y[indices], queries, mask=None if mask is None else (lambda b, i, j: mask(i, indices[b, j])))

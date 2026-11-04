@@ -5,9 +5,11 @@ uv run -m benchmarks.plot .benchmarks/<machine>/<run>.json [out.png]
 import json
 import sys
 from itertools import groupby
+from pathlib import Path
 from typing import NamedTuple
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import NullFormatter
 
 from benchmarks.run import BASE, Shape
 
@@ -50,17 +52,22 @@ def main(path: str, out: str = "benchmarks.png") -> None:
     # fields swept over more than one value
     fields = [field for field in Shape._fields if len({getattr(r.shape, field) for r in results if swept(r.shape, field)}) > 1]
 
+    # one color per backend/data pair across all panels
+    colors = {label: f"C{i}" for i, label in enumerate(sorted({f"{r.backend}/{r.data}" for r in results}))}
+
     fig, axes = plt.subplots(len(funcs), len(fields), figsize=(4 * len(fields), 3 * len(funcs)), squeeze=False)
     for row, func in zip(axes, funcs):
         for ax, field in zip(row, fields):
             for label, xs, ys in curves([r for r in results if r.func == func], field):
-                ax.plot(xs, ys, marker="o", label=label)
+                ax.plot(xs, ys, marker="o", label=label, color=colors[label])
             ax.set(xscale="log", yscale="log", title=f"{func} vs {field}", xlabel=field, ylabel="median [s]")
+            ax.xaxis.set_minor_formatter(NullFormatter())
             ax.grid(True, which="both", alpha=0.3)
-    axes[0][0].legend(fontsize=7)
+            ax.legend(fontsize=7)
     fig.tight_layout()
-    fig.savefig(out, dpi=120)
-    print(f"saved {out}")
+    destination = Path(__file__).parent / out
+    fig.savefig(destination, dpi=120)
+    print(f"saved {destination}")
 
 
 if __name__ == "__main__":

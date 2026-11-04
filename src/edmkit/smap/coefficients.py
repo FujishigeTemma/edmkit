@@ -4,12 +4,14 @@ from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
-from edmkit.util import pairwise_distance_np
+from edmkit.util import materialize, pairwise_distance_np
 
 __all__ = ["coefficients"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
+
+    from edmkit.types import Mask
 
 
 @overload
@@ -20,7 +22,7 @@ def coefficients(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
 ) -> np.ndarray: ...
 
 
@@ -32,7 +34,7 @@ def coefficients(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
 ) -> Tensor: ...
 
 
@@ -64,8 +66,8 @@ def coefficients(
         Locality parameter. (0: global linear, >0: local linear)
     alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
-    mask : np.ndarray or Tensor or None
-        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include in the regression.
+    mask : Mask or None
+        ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include in the regression.
 
     Returns
     -------
@@ -78,7 +80,6 @@ def coefficients(
         - If `theta` is negative.
         - If the input arrays `X` and `Y` do not have the same number of points.
         - If the batch size or dimension of `X` and `Q` do not match.
-        - If `mask` does not have shape (M, N) or (B, M, N).
         - If fewer than E + 1 library points are unmasked for some query.
 
     Examples
@@ -111,7 +112,7 @@ def _numpy(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
 ) -> np.ndarray:
     if theta < 0:
         raise ValueError(f"theta must be non-negative, got theta={theta}")
@@ -132,12 +133,11 @@ def _numpy(
         raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
-    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
-        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
+    _mask = None if mask is None else materialize(mask, Q.shape[:-1] + X.shape[-2:-1])
 
     N, E = X.shape[-2:]
 
-    n_exclude = 0 if mask is None else int((~mask).sum(axis=-1).max())
+    n_exclude = 0 if _mask is None else int((~_mask).sum(axis=-1).max())
     if N - n_exclude < E + 1:
         raise ValueError(
             f"Not enough unmasked points in X to fit S-Map with {E + 1} coefficients, got N={N} with up to {n_exclude} points masked out per query"
@@ -149,16 +149,16 @@ def _numpy(
     if theta == 0.0:
         W = np.ones_like(D)
     else:
-        if mask is None:
+        if _mask is None:
             d_mean = D.mean(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
         else:
-            n_valid = mask.sum(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
-            d_mean = np.where(mask, D, 0.0).sum(axis=-1, keepdims=True) / n_valid
+            n_valid = _mask.sum(axis=-1, keepdims=True)  # (M, 1) or (B, M, 1)
+            d_mean = np.where(_mask, D, 0.0).sum(axis=-1, keepdims=True) / n_valid
         W = np.exp(-theta * D / np.maximum(d_mean, 1e-6))
 
     # Zero out masked-out library points
-    if mask is not None:
-        W = np.where(mask, W, 0.0)
+    if _mask is not None:
+        W = np.where(_mask, W, 0.0)
 
     # Add intercept term
     X_aug = np.concatenate([np.ones_like(X[..., :1]), X], axis=-1)  # (N, E+1) or (B, N, E+1)
@@ -190,7 +190,7 @@ def _tensor(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
 ) -> Tensor:
     # Lazy import: tinygrad starts a per-CPU async-executor pool at import time
     # Loading it only on the tensor path keeps the numpy path free of that scheduler pressure.
@@ -218,8 +218,7 @@ def _tensor(
         raise ValueError(f"batch size and length of X and Y must match, got X.shape={X.shape} and Y.shape={Y.shape}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
-    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
-        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
+    _mask = None if mask is None else Tensor(materialize(mask, Q.shape[:-1] + X.shape[-2:-1]))
 
     E = int(X.shape[-1])
 
@@ -230,17 +229,17 @@ def _tensor(
     if theta == 0.0:
         W = Tensor.ones_like(D)
     else:
-        if mask is None:
+        if _mask is None:
             d_mean = D.mean(axis=-1, keepdim=True)  # (M, 1) or (B, M, 1)
         else:
-            valid = mask.cast(D.dtype)  # (M, N) or (B, M, N)
+            valid = _mask.cast(D.dtype)  # (M, N) or (B, M, N)
             n_valid = valid.sum(axis=-1, keepdim=True)  # (M, 1) or (B, M, 1)
             d_mean = (D * valid).sum(axis=-1, keepdim=True) / n_valid.clamp(min_=1)
         W = (-theta * D / d_mean.clamp(min_=1e-6)).exp()
 
     # Zero out masked-out library points
-    if mask is not None:
-        W = mask.where(W, 0)
+    if _mask is not None:
+        W = _mask.where(W, 0)
 
     # Add intercept term
     X_aug = Tensor.ones_like(X[..., :1]).cat(X, dim=-1)  # (N, E+1) or (B, N, E+1)

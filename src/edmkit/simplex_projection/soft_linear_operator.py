@@ -4,12 +4,14 @@ from typing import TYPE_CHECKING, overload
 
 import numpy as np
 
-from edmkit.util import pairwise_distance, pairwise_distance_np, topk
+from edmkit.util import materialize, pairwise_distance, pairwise_distance_np, topk
 
 __all__ = ["soft_linear_operator"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
+
+    from edmkit.types import Mask
 
 
 @overload
@@ -18,7 +20,7 @@ def soft_linear_operator(
     Q: np.ndarray,
     *,
     k: int | None = None,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
     softness: float = 0.02,
 ) -> np.ndarray: ...
 
@@ -29,7 +31,7 @@ def soft_linear_operator(
     Q: Tensor,
     *,
     k: int | None = None,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
     softness: float = 0.02,
 ) -> Tensor: ...
 
@@ -53,8 +55,8 @@ def soft_linear_operator(
         The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`.
     k : int or None, default None
         The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`.
-    mask : np.ndarray or Tensor or None
-        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors.
+    mask : Mask or None
+        ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include when finding nearest neighbors.
     softness : float, default 0.02
         Width of the boundary between neighbors and non-neighbors, as a fraction of the neighborhood radius.
 
@@ -69,7 +71,6 @@ def soft_linear_operator(
         - If `k` is not positive.
         - If `softness` is not positive.
         - If the batch size or dimension of `X` and `Q` do not match.
-        - If `mask` does not have shape (M, N) or (B, M, N).
         - If fewer than `k + 1` library points are unmasked for some query.
 
     Examples
@@ -98,7 +99,7 @@ def _numpy(
     Q: np.ndarray,
     *,
     k: int | None = None,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
     softness: float = 0.02,
 ) -> np.ndarray:
     if softness <= 0:
@@ -114,23 +115,22 @@ def _numpy(
         raise ValueError(f"X and Q must both be 2D or both be 3D arrays, got X.ndim={X.ndim}, Q.ndim={Q.ndim}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
-    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
-        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
+    _mask = None if mask is None else materialize(mask, Q.shape[:-1] + X.shape[-2:-1])
 
     N, E = X.shape[-2:]
     k = E + 1 if k is None else k
     if k <= 0:
         raise ValueError(f"k must be positive, got k={k}")
-    n_exclude = 0 if mask is None else int((~mask).sum(axis=-1).max())
+    n_exclude = 0 if _mask is None else int((~_mask).sum(axis=-1).max())
     if N - n_exclude < k + 1:
         raise ValueError(f"Not enough unmasked points in X to find {k + 1} neighbors, got N={N} with up to {n_exclude} points masked out per query")
 
     # clamp to align with _tensor()
     D = np.sqrt(np.maximum(pairwise_distance_np(Q, X), 1e-12))  # (M, N) or (B, M, N)
 
-    if mask is not None:
+    if _mask is not None:
         # a finite sentinel instead of inf to avoid NaN
-        D = np.where(mask, D, D.max(axis=-1, keepdims=True) * 2 + 1)
+        D = np.where(_mask, D, D.max(axis=-1, keepdims=True) * 2 + 1)
 
     neighbors = np.sort(np.partition(D, k, axis=-1)[..., : k + 1], axis=-1)  # (M, k + 1) or (B, M, k + 1)
 
@@ -142,8 +142,8 @@ def _numpy(
 
     # exp(-D / d_min) * sigmoid((radius - D) / (softness * radius)), with the sigmoid in logarithms
     weights = np.exp(-D / d_min - np.logaddexp(0.0, (D - radius) / (softness * radius)))  # (M, N) or (B, M, N)
-    if mask is not None:
-        weights = np.where(mask, weights, 0.0)
+    if _mask is not None:
+        weights = np.where(_mask, weights, 0.0)
 
     return weights / weights.sum(axis=-1, keepdims=True)
 
@@ -153,9 +153,11 @@ def _tensor(
     Q: Tensor,
     *,
     k: int | None = None,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
     softness: float = 0.02,
 ) -> Tensor:
+    from tinygrad import Tensor
+
     if softness <= 0:
         raise ValueError(f"softness must be positive, got softness={softness}")
 
@@ -169,8 +171,7 @@ def _tensor(
         raise ValueError(f"X and Q must both be 2D or both be 3D tensors, got X.ndim={X.ndim}, Q.ndim={Q.ndim}")
     if Q.shape[:-2] != X.shape[:-2] or Q.shape[-1] != X.shape[-1]:
         raise ValueError(f"batch size and dimension of X and Q must match, got X.shape={X.shape} and Q.shape={Q.shape}")
-    if mask is not None and mask.shape != Q.shape[:-1] + X.shape[-2:-1]:
-        raise ValueError(f"mask shape must be {Q.shape[:-1] + X.shape[-2:-1]}, got mask.shape={mask.shape}")
+    _mask = None if mask is None else Tensor(materialize(mask, Q.shape[:-1] + X.shape[-2:-1]))
 
     N = int(X.shape[-2])
     E = int(X.shape[-1])
@@ -183,9 +184,9 @@ def _tensor(
     # clamp to avoid NaN gradient
     D = pairwise_distance(Q, X).clamp(min_=1e-12).sqrt()  # (M, N) or (B, M, N)
 
-    if mask is not None:
+    if _mask is not None:
         # a finite sentinel instead of inf to avoid NaN
-        D = mask.where(D, D.max(axis=-1, keepdim=True) * 2 + 1)
+        D = _mask.where(D, D.max(axis=-1, keepdim=True) * 2 + 1)
 
     neighbors = topk(D, k + 1, largest=False)[0]  # (M, k + 1) or (B, M, k + 1)
 
@@ -197,7 +198,7 @@ def _tensor(
 
     gate = ((radius - D) / (softness * radius)).sigmoid()  # (M, N) or (B, M, N)
     weights = (-D / d_min).exp() * gate  # (M, N) or (B, M, N)
-    if mask is not None:
-        weights = mask.where(weights, 0)
+    if _mask is not None:
+        weights = _mask.where(weights, 0)
 
     return weights / weights.sum(axis=-1, keepdim=True)

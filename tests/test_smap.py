@@ -9,6 +9,7 @@ from hypothesis import strategies as st
 
 from edmkit.smap import coefficients, linear_operator, smap
 from edmkit.theiler_window import theiler_window
+from edmkit.util import materialize
 
 
 class SmapProblem(NamedTuple):
@@ -68,7 +69,9 @@ def smap_reference(
 
 
 def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
-    actual = smap(x, y, q, theta=theta, alpha=alpha, mask=mask)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = smap(x, y, q, theta=theta, alpha=alpha, mask=rule)
     if x.ndim == 2:
         expected = smap_reference(
             x,
@@ -101,15 +104,17 @@ def check_smap(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha:
 def check_smap_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    expected = smap(x, y, q, theta=theta, alpha=alpha, mask=mask)
+    expected = smap(x, y, q, theta=theta, alpha=alpha, mask=rule)
     actual = smap(
         Tensor(x),
         Tensor(y),
         Tensor(q),
         theta=theta,
         alpha=alpha,
-        mask=None if mask is None else Tensor(mask),
+        mask=rule,
     ).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
@@ -240,7 +245,7 @@ SMAP_VALID = {
         np.random.default_rng(18).normal(size=(20, 2)),
         1.5,
         1e-4,
-        theiler_window(np.arange(20), np.arange(20), 2),
+        materialize(theiler_window(np.arange(20), np.arange(20), 2), (20, 20)),
     ),
 }
 
@@ -272,21 +277,14 @@ SMAP_INVALID = {
         0.0,
         np.array([[True, True, False, False, False]]),
     ),
-    "mask-not-per-query": SmapCase(
-        np.zeros((5, 2)),
-        np.zeros(5),
-        np.zeros((2, 2)),
-        1.0,
-        0.0,
-        np.ones(5, dtype=bool),
-    ),
 }
 
 
 @pytest.mark.parametrize("case", SMAP_INVALID.values(), ids=SMAP_INVALID.keys())
 def test_smap_invalid(case: SmapCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        smap(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
+        smap(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=None if mask is None else (lambda *index: mask[index]))
 
 
 class LinearOperatorProblem(NamedTuple):
@@ -306,7 +304,9 @@ class LinearOperatorCase(NamedTuple):
 
 
 def check_linear_operator(x: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
-    actual = linear_operator(x, q, theta=theta, alpha=alpha, mask=mask)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = linear_operator(x, q, theta=theta, alpha=alpha, mask=rule)
     # projecting the identity target yields the operator itself
     identity = np.eye(x.shape[-2])
     if x.ndim == 2:
@@ -325,9 +325,11 @@ def check_linear_operator(x: np.ndarray, q: np.ndarray, theta: float, alpha: flo
 def check_linear_operator_tensor(x: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, q = (array.astype(np.float32) for array in (x, q))
-    expected = linear_operator(x, q, theta=theta, alpha=alpha, mask=mask)
-    actual = linear_operator(Tensor(x), Tensor(q), theta=theta, alpha=alpha, mask=None if mask is None else Tensor(mask)).numpy()
+    expected = linear_operator(x, q, theta=theta, alpha=alpha, mask=rule)
+    actual = linear_operator(Tensor(x), Tensor(q), theta=theta, alpha=alpha, mask=rule).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
@@ -378,8 +380,9 @@ LINEAR_OPERATOR_INVALID = {
 
 @pytest.mark.parametrize("case", LINEAR_OPERATOR_INVALID.values(), ids=LINEAR_OPERATOR_INVALID.keys())
 def test_linear_operator_invalid(case: LinearOperatorCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        linear_operator(case.x, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
+        linear_operator(case.x, case.q, theta=case.theta, alpha=case.alpha, mask=None if mask is None else (lambda *index: mask[index]))
 
 
 class CoefficientsProblem(NamedTuple):
@@ -439,7 +442,9 @@ def coefficients_reference(
 
 
 def check_coefficients(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
-    actual = coefficients(x, y, q, theta=theta, alpha=alpha, mask=mask)
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    actual = coefficients(x, y, q, theta=theta, alpha=alpha, mask=rule)
     if x.ndim == 2:
         expected = coefficients_reference(x, y, q, theta=theta, alpha=alpha, mask=mask)
         if y.ndim == 1:
@@ -458,9 +463,11 @@ def check_coefficients(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float
 def check_coefficients_tensor(x: np.ndarray, y: np.ndarray, q: np.ndarray, theta: float, alpha: float, mask: np.ndarray | None) -> None:
     from tinygrad import Tensor
 
+    # the dense `mask` is the oracle; the API receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
     x, y, q = (array.astype(np.float32) for array in (x, y, q))
-    expected = coefficients(x, y, q, theta=theta, alpha=alpha, mask=mask)
-    actual = coefficients(Tensor(x), Tensor(y), Tensor(q), theta=theta, alpha=alpha, mask=None if mask is None else Tensor(mask)).numpy()
+    expected = coefficients(x, y, q, theta=theta, alpha=alpha, mask=rule)
+    actual = coefficients(Tensor(x), Tensor(y), Tensor(q), theta=theta, alpha=alpha, mask=rule).numpy()
     assert actual.shape == expected.shape
     np.testing.assert_allclose(actual, expected, atol=5e-3, rtol=5e-3)
 
@@ -506,5 +513,6 @@ COEFFICIENTS_INVALID = {name: CoefficientsCase(*case) for name, case in SMAP_INV
 
 @pytest.mark.parametrize("case", COEFFICIENTS_INVALID.values(), ids=COEFFICIENTS_INVALID.keys())
 def test_coefficients_invalid(case: CoefficientsCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
-        coefficients(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=case.mask)
+        coefficients(case.x, case.y, case.q, theta=case.theta, alpha=case.alpha, mask=None if mask is None else (lambda *index: mask[index]))

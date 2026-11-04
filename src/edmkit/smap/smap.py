@@ -11,6 +11,8 @@ __all__ = ["smap"]
 if TYPE_CHECKING:
     from tinygrad import Tensor
 
+    from edmkit.types import Mask
+
 
 @overload
 def smap(
@@ -20,7 +22,7 @@ def smap(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
 ) -> np.ndarray: ...
 
 
@@ -32,7 +34,7 @@ def smap(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
 ) -> Tensor: ...
 
 
@@ -60,8 +62,8 @@ def smap(
         Locality parameter. (0: global linear, >0: local linear)
     alpha : float, default 1e-10
         Regularization parameter to stabilize the inversion.
-    mask : np.ndarray or Tensor or None
-        Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include in the regression.
+    mask : Mask or None
+        ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include in the regression.
 
     Returns
     -------
@@ -75,7 +77,6 @@ def smap(
         - If `theta` is negative.
         - If the input arrays `X` and `Y` do not have the same number of points.
         - If the batch size or dimension of `X` and `Q` do not match.
-        - If `mask` does not have shape (M, N) or (B, M, N).
         - If fewer than E + 1 library points are unmasked for some query.
 
     Examples
@@ -130,7 +131,7 @@ def _numpy(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: np.ndarray | None = None,
+    mask: Mask | None = None,
 ):
     return_ndim = Y.ndim
 
@@ -161,7 +162,7 @@ def _tensor(
     *,
     theta: float,
     alpha: float = 1e-10,
-    mask: Tensor | None = None,
+    mask: Mask | None = None,
 ):
     return_ndim = Y.ndim
 

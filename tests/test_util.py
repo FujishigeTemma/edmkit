@@ -8,7 +8,8 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
-from edmkit.util import autocorrelation, dtw, pad, pairwise_distance, pairwise_distance_np, topk
+from edmkit.types import Mask
+from edmkit.util import autocorrelation, dtw, materialize, pad, pairwise_distance, pairwise_distance_np, topk
 
 
 class PairwiseDistanceNPProblem(NamedTuple):
@@ -379,3 +380,52 @@ def test_topk_invalid(case: TopkCase) -> None:
 
     with pytest.raises(ValueError):
         topk(Tensor(case.a), case.k, case.dim, case.largest)
+
+
+class MaterializeProblem(NamedTuple):
+    mask: Mask
+    shape: tuple[int, ...]
+
+
+class MaterializeCase(NamedTuple):
+    mask: Mask
+    shape: tuple[int, ...]
+
+
+def check_materialize(mask: Mask, shape: tuple[int, ...]) -> None:
+    actual = materialize(mask, shape)
+    assert actual.shape == shape
+    assert actual.dtype == np.bool_
+    # the oracle evaluates the mask on one index tuple at a time
+    for index in np.ndindex(shape):
+        assert actual[index] == bool(mask(*index))
+
+
+@st.composite
+def materialize_problems(draw):
+    shape = tuple(draw(st.lists(st.integers(1, 4), min_size=2, max_size=3)))
+    table = draw(hnp.arrays(np.bool_, shape))
+    # a mask may ignore some of its index arrays, so its result broadcasts to the full shape
+    used = draw(st.lists(st.booleans(), min_size=len(shape), max_size=len(shape)))
+    return MaterializeProblem(lambda *index: table[tuple(i if keep else 0 for i, keep in zip(index, used))], shape)
+
+
+@given(problem=materialize_problems())
+def test_materialize_compatibility(problem: MaterializeProblem) -> None:
+    check_materialize(*problem)
+
+
+TABLE = np.arange(12).reshape(3, 4) % 3 == 0
+
+MATERIALIZE_VALID = {
+    "table": MaterializeCase(lambda i, j: TABLE[i, j], (3, 4)),
+    "query-only": MaterializeCase(lambda i, j: i != 1, (3, 4)),
+    "library-only": MaterializeCase(lambda i, j: j % 2 == 0, (3, 4)),
+    "constant": MaterializeCase(lambda i, j: np.asarray(True), (3, 4)),
+    "batched": MaterializeCase(lambda b, i, j: TABLE[i, j] ^ (b == 1), (2, 3, 4)),
+}
+
+
+@pytest.mark.parametrize("case", MATERIALIZE_VALID.values(), ids=MATERIALIZE_VALID.keys())
+def test_materialize_valid(case: MaterializeCase) -> None:
+    check_materialize(*case)

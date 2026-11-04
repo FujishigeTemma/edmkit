@@ -1,14 +1,23 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, SupportsInt
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
-__all__ = ["autocorrelation", "dtw", "pad", "pairwise_distance", "pairwise_distance_np", "topk"]
+__all__ = ["autocorrelation", "dtw", "materialize", "pad", "pairwise_distance", "pairwise_distance_np", "topk"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
+
+    from edmkit.types import Mask
+
+
+def materialize(mask: Mask, shape: Sequence[SupportsInt]) -> np.ndarray:
+    """Evaluate `mask` on every index pair, giving the dense boolean array of `shape`, such as (M, N) or (B, M, N)."""
+    shape = tuple(int(size) for size in shape)
+    return np.broadcast_to(np.asarray(mask(*np.indices(shape, sparse=True)), dtype=bool), shape)
 
 
 def pad(As: list[np.ndarray]):

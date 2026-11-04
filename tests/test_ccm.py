@@ -13,6 +13,7 @@ from edmkit.ccm import bootstrap
 from edmkit.simplex_projection import simplex_projection
 from edmkit.smap import smap
 from edmkit.types import PredictFunc
+from edmkit.util import materialize
 
 
 class BootstrapProblem(NamedTuple):
@@ -53,7 +54,9 @@ def check_bootstrap(
     mask: np.ndarray | None,
     batch_size: int | None,
 ) -> None:
-    run = partial(bootstrap, x, y, q, lib_sizes, n_samples=n_samples, replace=replace, seed=seed, mask=mask)
+    # the dense `mask` is the oracle; bootstrap receives it as a rule
+    rule = None if mask is None else (lambda *index: mask[index])
+    run = partial(bootstrap, x, y, q, lib_sizes, n_samples=n_samples, replace=replace, seed=seed, mask=rule)
     predictor = Mock(wraps=predict_func)
     tasks = list(run(predict_func=cast(PredictFunc, predictor), batch_size=batch_size))
     assert predictor.call_count == 0
@@ -89,13 +92,14 @@ def check_bootstrap(
         if mask is None:
             assert predictor.call_args.kwargs["mask"] is None
         else:
+            sampled_mask = materialize(predictor.call_args.kwargs["mask"], (B, len(Q), lib_sizes[i]))
             for b, draw in enumerate(indices):
-                np.testing.assert_array_equal(predictor.call_args.kwargs["mask"][b], mask[:, draw])
+                np.testing.assert_array_equal(sampled_mask[b], mask[:, draw])
         if not replace:
             for draw in indices:
                 assert len(np.unique(draw)) == lib_sizes[i]
             if lib_sizes[i] == len(X):
-                expected = predict_func(X, Y, Q, mask=mask)
+                expected = predict_func(X, Y, Q, mask=rule)
                 np.testing.assert_allclose(predictions[index], np.broadcast_to(expected, (B, *expected.shape)), rtol=1e-9, atol=1e-9)
 
     # The tasks fill every sample exactly once.
@@ -187,8 +191,6 @@ BOOTSTRAP_INVALID = {
     "negative-samples": BootstrapCase(X, Y, Q, np.array([3]), n_samples=-1),
     "zero-batch": BootstrapCase(X, Y, Q, np.array([3]), batch_size=0),
     "negative-batch": BootstrapCase(X, Y, Q, np.array([3]), batch_size=-1),
-    "wrong-mask-shape": BootstrapCase(X, Y, Q, np.array([3]), mask=MASK[:, :-1]),
-    "nonboolean-mask": BootstrapCase(X, Y, Q, np.array([3]), mask=MASK.astype(int)),
     "negative-seed": BootstrapCase(X, Y, Q, np.array([3]), seed=-1),
     "insufficient-neighbors-at-execution": BootstrapCase(X, Y, Q, np.array([1])),
     "masked-out-at-execution": BootstrapCase(X, Y, Q, np.array([12]), replace=False, mask=np.zeros_like(MASK)),
@@ -202,6 +204,7 @@ def test_bootstrap_valid(case: BootstrapCase) -> None:
 
 @pytest.mark.parametrize("case", BOOTSTRAP_INVALID.values(), ids=BOOTSTRAP_INVALID.keys())
 def test_bootstrap_invalid(case: BootstrapCase) -> None:
+    mask = case.mask
     with pytest.raises(ValueError):
         for _, samples in bootstrap(
             case.x,
@@ -212,7 +215,7 @@ def test_bootstrap_invalid(case: BootstrapCase) -> None:
             n_samples=case.n_samples,
             replace=case.replace,
             seed=case.seed,
-            mask=case.mask,
+            mask=None if mask is None else (lambda *index: mask[index]),
             batch_size=case.batch_size,
         ):
             samples()

@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol, overload
 
 import numpy as np
 
-__all__ = ["PredictFunc"]
+__all__ = ["Mask", "PredictFunc"]
 
 if TYPE_CHECKING:
     from tinygrad import Tensor
+
+type Mask = Callable[..., np.ndarray]
+"""``mask(i, j)`` (or ``mask(b, i, j)`` for batched inputs) is True where library point ``j`` may be used for query ``i``.
+
+A dense boolean array `a` becomes a mask as ``lambda *index: a[index]``.
+"""
 
 
 class PredictFunc(Protocol):
@@ -23,7 +30,7 @@ class PredictFunc(Protocol):
         Y: np.ndarray,
         Q: np.ndarray,
         *,
-        mask: np.ndarray | None = None,
+        mask: Mask | None = None,
     ) -> np.ndarray: ...
 
     @overload
@@ -33,5 +40,5 @@ class PredictFunc(Protocol):
         Y: Tensor,
         Q: Tensor,
         *,
-        mask: Tensor | None = None,
+        mask: Mask | None = None,
     ) -> Tensor: ...
