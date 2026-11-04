@@ -10,29 +10,39 @@ This library is a collection of tools and utilities that are useful for Empirica
 
 ![](./benchmarks/compare.png)
 
-| simplex N | edmkit [ms] | pyEDM [ms] | speedup |
-|---:|---:|---:|---:|
-| 500 | 0.2 | 1.4 | 8x |
-| 1,000 | 0.4 | 2.3 | 5x |
-| 2,000 | 0.9 | 4.2 | 5x |
-| 5,000 | 2.3 | 10.7 | 5x |
-| 10,000 | 4.9 | 22.8 | 5x |
-| 20,000 | 10.3 | 46.8 | 5x |
+Measured on an Apple M4 Pro on November 4, 2026. Times are medians from `pytest-benchmark`. Parallel CCM uses 14 workers. Peak memory is process-tree RSS in MiB, sampled separately from timing for each case. It includes the interpreter, input, and worker processes. Summed RSS can count shared pages in more than one process.
 
-| smap N | edmkit [ms] | pyEDM [ms] | speedup |
-|---:|---:|---:|---:|
-| 500 | 1.9 | 38.0 | 20x |
-| 1,000 | 7.5 | 132.1 | 18x |
-| 2,000 | 21.6 | 522.6 | 24x |
-| 5,000 | 183.7 | 3,364 | 18x |
+| simplex N | edmkit [ms] | pyEDM [ms] | speedup | edmkit peak [MiB] | pyEDM peak [MiB] |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | 0.17 | 1.5 | 9.0× | 168 | 169 |
+| 1,000 | 0.39 | 2.4 | 6.1× | 169 | 170 |
+| 2,000 | 0.81 | 4.4 | 5.5× | 168 | 170 |
+| 5,000 | 2.2 | 11.5 | 5.3× | 170 | 175 |
+| 10,000 | 4.7 | 23.8 | 5.0× | 172 | 180 |
+| 20,000 | 10.2 | 50.3 | 4.9× | 176 | 193 |
+
+| smap N | edmkit [ms] | pyEDM [ms] | speedup | edmkit peak [MiB] | pyEDM peak [MiB] |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | 2.1 | 36.6 | 17.9× | 176 | 180 |
+| 1,000 | 8.7 | 128.3 | 14.7× | 192 | 216 |
+| 2,000 | 22.0 | 513.6 | 23.4× | 261 | 357 |
+| 5,000 | 193.9 | 3,376.7 | 17.4× | 744 | 1,344 |
 
 | ccm N | edmkit [ms] | pyEDM [ms] | speedup | edmkit parallel [ms] | pyEDM parallel [ms] | speedup |
-|---:|---:|---:|---:|---:|---:|---:|
-| 500 | 116.7 | 148.4 | 1.3x | 22.0 | 64.5 | 2.9x |
-| 1,000 | 197.1 | 316.8 | 1.6x | 31.8 | 89.7 | 2.8x |
-| 2,000 | 382.8 | 696.8 | 1.8x | 58.6 | 133.8 | 2.3x |
-| 5,000 | 788.0 | 1,863 | 2.4x | 108.9 | 283.5 | 2.6x |
-| 10,000 | 1,470 | 4,166 | 2.8x | 197.0 | 558.9 | 2.8x |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | 106.4 | 151.7 | 1.4× | 19.5 | 68.0 | 3.5× |
+| 1,000 | 168.4 | 327.0 | 1.9× | 26.3 | 91.9 | 3.5× |
+| 2,000 | 329.7 | 745.1 | 2.3× | 48.8 | 148.3 | 3.0× |
+| 5,000 | 668.9 | 1,945.7 | 2.9× | 97.4 | 397.5 | 4.1× |
+| 10,000 | 1,253.6 | 4,176.7 | 3.3× | 164.6 | 585.4 | 3.6× |
+
+| ccm N | edmkit peak [MiB] | pyEDM peak [MiB] | edmkit parallel peak [MiB] | pyEDM parallel peak [MiB] |
+| ---: | ---: | ---: | ---: | ---: |
+| 500 | 171 | 170 | 191 | 1,417 |
+| 1,000 | 173 | 176 | 196 | 1,429 |
+| 2,000 | 179 | 186 | 207 | 1,460 |
+| 5,000 | 204 | 224 | 239 | 1,624 |
+| 10,000 | 230 | 362 | 297 | 1,804 |
 
 
 ## Installation

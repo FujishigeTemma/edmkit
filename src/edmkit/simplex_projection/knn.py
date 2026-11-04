@@ -32,38 +32,34 @@ def knn(X: np.ndarray, Q: np.ndarray, k: int, mask: Mask | None = None) -> tuple
     if N < k:
         raise ValueError(f"Not enough points in X to find {k} neighbors, got N={N}")
 
-    tree = KDTree(X)
-    if mask is None:
+    # smaller leaves improve pruning in low dimensions.
+    tree = KDTree(X, leafsize=16 if X.shape[-1] <= 8 else 32)
+    if mask is None or len(Q) == 0:
         return tree.query(Q, k=k)
 
     distances = np.empty((Q.shape[0], k))
     indices = np.empty((Q.shape[0], k), dtype=np.intp)
 
-    def fetch(pending: np.ndarray, k_query: int) -> np.ndarray:
-        """Fill `distances` and `indices` with the k nearest neighbors for the `pending` queries, returning the queries that still need more neighbors."""
+    pending = np.arange(Q.shape[0])
+    k_query = min(k + 1, N)
 
-        # over fetch (k_query > k)
-        _distances, _indices = tree.query(Q[pending], k=k_query)
+    while pending.size > 0:
+        _distances, _indices = tree.query(Q if pending.size == len(Q) else Q[pending], k=k_query)
 
-        # evaluate the mask and filter the resultss
+        # evaluate the mask and keep the first k valid candidates.
         valid = np.broadcast_to(np.asarray(mask(pending[:, None], _indices), dtype=bool), _indices.shape)
         count = valid.sum(axis=-1)
 
         if k_query == N and count.min() < k:
             raise ValueError(f"Not enough unmasked points in X to find {k} neighbors, got {count.min()} for some query")
 
-        # take the first k valid neighbors for the queries that have them
         done = count >= k
-        first_k = valid[done] & (np.cumsum(valid[done], axis=-1) <= k)
-        distances[pending[done]] = _distances[done][first_k].reshape(-1, k)
-        indices[pending[done]] = _indices[done][first_k].reshape(-1, k)
+        if done.any():
+            first_k = valid & (valid.cumsum(axis=-1, dtype=np.uint32) <= k) & done[:, None]
+            distances[pending[done]] = _distances[first_k].reshape(-1, k)
+            indices[pending[done]] = _indices[first_k].reshape(-1, k)
 
-        return pending[~done]
-
-    k_query = min(k + 1, N)
-    pending = fetch(np.arange(Q.shape[0]), k_query)
-    while pending.size > 0:
+        pending = pending[~done]
         k_query = min(2 * k_query, N)
-        pending = fetch(pending, k_query)
 
     return distances, indices

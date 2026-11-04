@@ -145,8 +145,6 @@ def _numpy(
     # treat the unbatched case as a single batch
     if X.ndim == 2:
         X, Y, Q = X[None], Y[None], Q[None]
-        if mask is not None:
-            mask = lambda _, *index, mask=mask: mask(*index)
 
     B, _, E = X.shape
     M = Q.shape[1]
@@ -154,19 +152,18 @@ def _numpy(
     if k <= 0:
         raise ValueError(f"k must be positive, got k={k}")
 
-    distances = np.empty((B, M, k))
-    indices = np.empty((B, M, k), dtype=np.intp)
+    predictions = np.empty((B, M, Y.shape[-1]), dtype=np.result_type(np.float64, Y.dtype))
     for b in range(B):
-        distances[b], indices[b] = knn(X[b], Q[b], k, None if mask is None else partial(mask, b))
+        distances, indices = knn(X[b], Q[b], k, partial(mask, b) if return_ndim == 3 and mask is not None else mask)
 
-    batch_index = np.arange(B)[:, None, None]  # (B, 1, 1)
-    Y_neighbors = Y[batch_index, indices]  # (B, M, k, E')
+        # Neighbors are sorted. Clamp the scale and reuse the distance buffer.
+        d_min = np.fmax(distances[:, :1], 1e-6)
+        np.divide(distances, -d_min, out=distances)
+        weights = np.exp(distances, out=distances)
 
-    # clamp to avoid division by zero
-    d_min = np.fmax(distances.min(axis=-1, keepdims=True), 1e-6)  # (B, M, 1)
-    weights = np.exp(-distances / d_min)  # (B, M, k)
-
-    predictions = np.matmul(weights[..., None, :], Y_neighbors).squeeze(-2) / weights.sum(axis=-1, keepdims=True)  # (B, M, E')
+        prediction = predictions[b]
+        np.matmul(weights[:, None, :], Y[b, indices], out=prediction[:, None, :])
+        prediction /= weights.sum(axis=-1, keepdims=True)
 
     if return_ndim == 1:
         return predictions[0, :, 0]  # (M,)
