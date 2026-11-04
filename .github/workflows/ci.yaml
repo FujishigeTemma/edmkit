@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
       - name: Ty type check
-        run: uv run ty check
+        run: uv run --group benchmark ty check
 
   test:
     name: Test (${{ matrix.os }})
