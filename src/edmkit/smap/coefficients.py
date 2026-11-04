@@ -245,9 +245,16 @@ def _tensor(
     X_aug = Tensor.ones_like(X[..., :1]).cat(X, dim=-1)  # (N, E+1) or (B, N, E+1)
 
     # Weighted design matrices for all query points: A^T @ W @ A and A^T @ W @ Y, without materializing diag(W)
-    X_augT = X_aug.transpose(-1, -2).unsqueeze(-3)  # (1, E+1, N) or (B, 1, E+1, N)
-    XTX = X_augT.matmul(W.unsqueeze(-1) * X_aug.unsqueeze(-3))  # (M, E+1, E+1) or (B, M, E+1, E+1)
-    XTY = X_augT.matmul(W.unsqueeze(-1) * Y.unsqueeze(-3))  # (M, E+1, E') or (B, M, E+1, E')
+    # workaround: pad E+1 for tinygrad's matmul tiling
+    multiple = 1 if E + 1 <= 16 else 8 if E + 1 <= 64 else 16
+    X_pad = X_aug.pad((0, -(E + 1) % multiple))  # (N, n) or (B, N, n)
+    n = int(X_pad.shape[-1])
+    X_padT = X_pad.transpose(-1, -2).unsqueeze(-3)  # (1, n, N) or (B, 1, n, N)
+    XTX = X_padT.matmul(W.unsqueeze(-1) * X_pad.unsqueeze(-3))  # (M, n, n) or (B, M, n, n)
+    XTY = X_padT.matmul(W.unsqueeze(-1) * Y.unsqueeze(-3))  # (M, n, E') or (B, M, n, E')
+    if n > E + 1:
+        XTX = XTX.contiguous()[..., : E + 1, : E + 1]  # (M, E+1, E+1) or (B, M, E+1, E+1)
+        XTY = XTY.contiguous()[..., : E + 1, :]  # (M, E+1, E') or (B, M, E+1, E')
 
     # Tikhonov regularization
     eye = Tensor.eye(E + 1, dtype=X.dtype).to(X.device)

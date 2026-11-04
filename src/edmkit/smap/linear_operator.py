@@ -217,13 +217,18 @@ def _tensor(
     X_aug = Tensor.ones_like(X[..., :1]).cat(X, dim=-1)  # (N, E+1) or (B, N, E+1)
     Q_aug = Tensor.ones_like(Q[..., :1]).cat(Q, dim=-1)  # (M, E+1) or (B, M, E+1)
 
-    X_augT = X_aug.transpose(-1, -2)  # (E+1, N) or (B, E+1, N)
+    # workaround: pad E+1 for tinygrad's matmul tiling
+    multiple = 1 if E + 1 <= 16 else 8 if E + 1 <= 64 else 16
+    X_pad = X_aug.pad((0, -(E + 1) % multiple))  # (N, n) or (B, N, n)
+    n = int(X_pad.shape[-1])
     # Reuse each library point's outer product when fitting multiple queries: A^T @ W @ A
     if Q.shape[-2] == 1:
-        XTX = X_augT.unsqueeze(-3).matmul(W.unsqueeze(-1) * X_aug.unsqueeze(-3))
+        XTX = X_pad.transpose(-1, -2).unsqueeze(-3).matmul(W.unsqueeze(-1) * X_pad.unsqueeze(-3))  # (M, n, n) or (B, M, n, n)
     else:
-        outer = (X_aug.unsqueeze(-1) * X_aug.unsqueeze(-2)).reshape(*X_aug.shape[:-1], (E + 1) ** 2)
-        XTX = W.matmul(outer).reshape(*W.shape[:-1], E + 1, E + 1)  # (M, E+1, E+1) or (B, M, E+1, E+1)
+        outer = (X_pad.unsqueeze(-1) * X_pad.unsqueeze(-2)).reshape(*X_pad.shape[:-1], n * n)
+        XTX = W.matmul(outer).reshape(*W.shape[:-1], n, n)  # (M, n, n) or (B, M, n, n)
+    if n > E + 1:
+        XTX = XTX.contiguous()[..., : E + 1, : E + 1]  # (M, E+1, E+1) or (B, M, E+1, E+1)
 
     # Tikhonov regularization
     eye = Tensor.eye(E + 1, dtype=X.dtype).to(X.device)
@@ -235,4 +240,4 @@ def _tensor(
     # XTX is symmetric, so solving against the query gives the row of the hat matrix: q^T @ XTX^-1 @ A^T @ W
     Z = solve(XTX, Q_aug.unsqueeze(-1)).squeeze(-1)  # (M, E+1) or (B, M, E+1)
 
-    return W * Z.matmul(X_augT)  # (M, N) or (B, M, N)
+    return W * Z.matmul(X_aug.transpose(-1, -2))  # (M, N) or (B, M, N)
