@@ -114,7 +114,7 @@ shift = tau * (E - 1)
 
 lib_size = 200
 Tp = 1
-X = embedding[:lib_size - shift]
+X = embedding[: lib_size - shift]
 Y = x[shift + Tp : lib_size + Tp]
 Q = embedding[lib_size - shift : -Tp]
 actual = x[lib_size + Tp :]
@@ -230,7 +230,7 @@ shift = tau * (E - 1)
 
 lib_size = 200
 Tp = 1
-X = Tensor(embedding[:lib_size - shift])
+X = Tensor(embedding[: lib_size - shift])
 Y = Tensor(x[shift + Tp : lib_size + Tp])
 Q = Tensor(embedding[lib_size - shift : -Tp])
 actual = x[lib_size + Tp :]

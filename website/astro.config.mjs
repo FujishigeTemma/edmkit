@@ -16,6 +16,12 @@ export default defineConfig({
       sidebar: [
         { label: "Getting Started", slug: "getting-started" },
         {
+          label: "Examples",
+          items: [{ autogenerate: { directory: "examples" } }],
+        },
+        { label: "Pitfalls", slug: "pitfalls" },
+        { label: "Benchmarks", slug: "benchmarks" },
+        {
           label: "API Reference",
           items: [{ autogenerate: { directory: "reference" } }],
         },

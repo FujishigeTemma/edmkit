@@ -1,8 +1,38 @@
 ---
 title: edmkit
-description: 
+description: Simple, fast Empirical Dynamic Modeling library for Python
 template: splash
 hero:
-  tagline:
+  tagline: Simple, fast Empirical Dynamic Modeling library for Python
   actions:
+    - text: Getting Started
+      link: getting-started/
+      icon: right-arrow
+    - text: GitHub
+      link: https://github.com/FujishigeTemma/edmkit
+      icon: external
+      variant: minimal
 ---
+
+```bash
+uv add edmkit
+```
+
+Every prediction method in edmkit has the same shape: learn from library pairs `X → Y`, then predict at query points `Q`.
+
+```python
+import numpy as np
+
+from edmkit.simplex_projection import simplex_projection
+from edmkit.smap import smap
+
+rng = np.random.default_rng(0)
+X = rng.uniform(-1, 1, size=(500, 2))  # library inputs
+Y = np.sin(3 * X[:, 0]) * X[:, 1]  # library targets
+Q = rng.uniform(-1, 1, size=(5, 2))  # query points
+
+print(simplex_projection(X, Y, Q))
+print(smap(X, Y, Q, theta=2.0))
+```
+
+Inputs can be NumPy arrays or tinygrad Tensors. Results are tested against [pyEDM](https://github.com/SugiharaLab/pyEDM).

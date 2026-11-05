@@ -13,6 +13,8 @@ from matplotlib.ticker import NullFormatter
 
 from benchmarks.run import BASE, Shape
 
+OUTPUT_DIR = Path(__file__).parent.parent / "website" / "src" / "assets" / "benchmarks"
+
 
 class Result(NamedTuple):
     func: str
@@ -65,7 +67,8 @@ def main(path: str, out: str = "benchmarks.png") -> None:
             ax.grid(True, which="both", alpha=0.3)
             ax.legend(fontsize=7)
     fig.tight_layout()
-    destination = Path(__file__).parent / out
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    destination = OUTPUT_DIR / out
     fig.savefig(destination, dpi=120)
     print(f"saved {destination}")
 

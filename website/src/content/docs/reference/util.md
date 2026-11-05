@@ -2,7 +2,7 @@
 title: util
 description: Utility functions for distance computation, padding, and more.
 sidebar:
-  order: 9
+  order: 10
 ---
 
 ## `util`
@@ -17,7 +17,7 @@ Name | Description
 [`topk`](#edmkit.util.topk) | Computes the top-k elements of the tensor along the specified `dim`.
 [`pairwise_distance_np`](#edmkit.util.pairwise_distance_np) | Compute the pairwise squared Euclidean distance between points in `A` (or between points in `A` and `B`).
 [`dtw`](#edmkit.util.dtw) | Computes the Dynamic Time Warping (DTW) distance between two sequences `x` and `y`.
-[`autocorrelation`](#edmkit.util.autocorrelation) | Computes the autocorrelation of a given 1D numpy array up to a specified maximum lag.
+[`autocorrelation`](#edmkit.util.autocorrelation) | Computes the autocorrelation of a given 1D numpy array at lags below a specified maximum lag.
 
 ### `materialize`
 
@@ -168,19 +168,19 @@ Name | Type | Description
 autocorrelation(x: np.ndarray, max_lag: int, step: int = 1)
 ```
 
-Computes the autocorrelation of a given 1D numpy array up to a specified maximum lag.
+Computes the autocorrelation of a given 1D numpy array at lags below a specified maximum lag.
 
 **Parameters:**
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `x` | <code>[ndarray](#numpy.ndarray)</code> | The input array for which to compute the autocorrelation. | *required*
-`max_lag` | <code>[int](#int)</code> | The maximum lag up to which the autocorrelation is computed. | *required*
+`max_lag` | <code>[int](#int)</code> | Exclusive upper bound of the lags, also capped at ``len(x)``. | *required*
 `step` | <code>[int](#int)</code> | The step size for the lag. Default is 1. | <code>1</code>
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | Array of shape ``(max_lag // step + 1,)`` containing the autocorrelation values.
+<code>[ndarray](#numpy.ndarray)</code> | Autocorrelation at lags ``range(0, min(max_lag, len(x)), step)``.
 

@@ -79,7 +79,7 @@ shift = tau * (E - 1)
 
 pool_size = 200
 Tp = 1
-X = embedding[:pool_size - shift]
+X = embedding[: pool_size - shift]
 Y = x[shift + Tp : pool_size + Tp]
 Q = embedding[pool_size - shift : -Tp]
 actual = x[pool_size + Tp :, None]

@@ -239,21 +239,21 @@ def dtw(A: np.ndarray, B: np.ndarray):
 
 def autocorrelation(x: np.ndarray, max_lag: int, step: int = 1):
     """
-    Computes the autocorrelation of a given 1D numpy array up to a specified maximum lag.
+    Computes the autocorrelation of a given 1D numpy array at lags below a specified maximum lag.
 
     Parameters
     ----------
     x : np.ndarray
         The input array for which to compute the autocorrelation.
     max_lag : int
-        The maximum lag up to which the autocorrelation is computed.
+        Exclusive upper bound of the lags, also capped at ``len(x)``.
     step : int, optional
         The step size for the lag. Default is 1.
 
     Returns
     -------
     np.ndarray
-        Array of shape ``(max_lag // step + 1,)`` containing the autocorrelation values.
+        Autocorrelation at lags ``range(0, min(max_lag, len(x)), step)``.
     """
     x = x - np.mean(x)
 

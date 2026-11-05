@@ -10,7 +10,7 @@ from griffe import Alias, Attribute, ExprList, GriffeLoader, Module, Object, Par
 from griffe import TypeAlias as GriffeTypeAlias
 from griffe2md import ConfigDict, default_config, render_object_docs
 
-OUTPUT_DIR = Path(__file__).parent / "src" / "content" / "docs" / "reference"
+OUTPUT_DIR = Path(__file__).parent.parent / "website" / "src" / "content" / "docs" / "reference"
 
 
 class ModuleMeta(NamedTuple):
@@ -27,7 +27,8 @@ MODULES: dict[str, ModuleMeta] = {
     "metrics": ModuleMeta("Prediction evaluation metrics.", 6),
     "splits": ModuleMeta("Time-series cross-validation strategies.", 7),
     "generate": ModuleMeta("Synthetic chaotic time series generators.", 8),
-    "util": ModuleMeta("Utility functions for distance computation, padding, and more.", 9),
+    "wavelet": ModuleMeta("Continuous and discrete wavelet transforms.", 9),
+    "util": ModuleMeta("Utility functions for distance computation, padding, and more.", 10),
 }
 
 CONFIG: ConfigDict = {

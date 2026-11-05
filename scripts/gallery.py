@@ -32,7 +32,7 @@ from edmkit.generate import (
 )
 from edmkit.wavelet import cwt, morlet
 
-OUTPUT_DIR = Path(__file__).parent / "gallery"
+OUTPUT_DIR = Path(__file__).parent.parent / "website" / "src" / "assets" / "gallery"
 
 # widths of one column and of the full text of a two-column conference paper (ICML), in inches
 COLUMN_WIDTH = 3.25
