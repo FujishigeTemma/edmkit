@@ -11,20 +11,17 @@ sidebar:
 
 Name | Description
 ---- | -----------
-[`bootstrap`](#edmkit.ccm.bootstrap) | Generate tasks that perform `predict_func` from `X` to `Y` on randomly sampled libraries for each size in `lib_sizes`.
+[`bootstrap`](#edmkit.ccm.bootstrap) | Iterate `predict_func(X[library], Y[library], Q)` for `n_samples` times for each library size in `lib_sizes`.
 
 ### `bootstrap`
 
 ```python
-bootstrap(X: np.ndarray, Y: np.ndarray, Q: np.ndarray, lib_sizes: np.ndarray, *, predict_func: PredictFunc, n_samples: int = 20, replace: bool = True, seed: int | None = 42, mask: np.ndarray | None = None, batch_size: int | None = 20) -> Iterator[tuple[tuple[int, slice], Callable[[], np.ndarray]]]
+bootstrap(X: np.ndarray, Y: np.ndarray, Q: np.ndarray, lib_sizes: np.ndarray, *, predict_func: PredictFunc, n_samples: int = 20, replace: bool = True, seed: int | None = 42, mask: Mask | None = None, batch_size: int | None = 20) -> Iterator[tuple[tuple[int, slice], Callable[[], np.ndarray]]]
 ```
 
-Generate tasks that perform `predict_func` from `X` to `Y` on randomly sampled libraries for each size in `lib_sizes`.
+Iterate `predict_func(X[library], Y[library], Q)` for `n_samples` times for each library size in `lib_sizes`.
 
-Iterating only samples the library indices. Each task gathers its libraries and calls `predict_func` when executed,
-so tasks can be executed in any order or passed to ``executor.map``.
-For a fixed `seed`, the sampled libraries do not depend on `batch_size` or on the execution order.
-Tasks share the input arrays, so `X`, `Y`, `Q`, and `mask` must not be modified until all tasks have finished.
+By gathering the results of the returned tasks, you can get `(len(lib_sizes), n_samples, M, E')` array of predictions.
 
 **Parameters:**
 
@@ -38,7 +35,7 @@ Name | Type | Description | Default
 `n_samples` | <code>[int](#int)</code> | The number of libraries to sample for each size in `lib_sizes`. | <code>20</code>
 `replace` | <code>[bool](#bool)</code> | Whether to sample the library points with replacement. | <code>True</code>
 `seed` | <code>[int](#int) or None</code> | The seed of the random generator. If None, uses fresh entropy. | <code>42</code>
-`mask` | <code>[ndarray](#numpy.ndarray) or None</code> | Boolean mask of shape (M, N) indicating, for each query in `Q`, which library points to include. Each task selects the columns of its sampled points. Use `theiler_window` for temporal exclusion. | <code>None</code>
+`mask` | <code>[Mask](#edmkit.types.Mask) or None</code> | ``mask(i, j)`` indicating, for each query in `Q`, which points of `X` to include. Use `theiler_window` for temporal exclusion. | <code>None</code>
 `batch_size` | <code>[int](#int) or None</code> | The maximum number of libraries per task. If None, uses `n_samples`. | <code>20</code>
 
 **Yields:**
@@ -52,7 +49,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `X`, `Y`, or `Q` is empty or not 1D or 2D. - If the input arrays `X` and `Y` do not have the same number of points. - If the dimension of `X` and `Q` do not match. - If `lib_sizes` is not a nonempty 1D array of positive integers. - If some size in `lib_sizes` exceeds N when `replace` is False. - If `n_samples` or `batch_size` is not positive. - If `mask` does not have shape (M, N). - If `predict_func` raises when a task is executed.
+<code>[ValueError](#ValueError)</code> | - If `X`, `Y`, or `Q` is empty or not 1D or 2D. - If the input arrays `X` and `Y` do not have the same number of points. - If the dimension of `X` and `Q` do not match. - If `lib_sizes` is not a nonempty 1D array of positive integers. - If some size in `lib_sizes` exceeds N when `replace` is False. - If `n_samples` or `batch_size` is not positive. - If `predict_func` raises when a task is executed.
 
 **Examples:**
 
@@ -82,7 +79,7 @@ shift = tau * (E - 1)
 
 pool_size = 200
 Tp = 1
-X = embedding[: pool_size - shift]
+X = embedding[:pool_size - shift]
 Y = x[shift + Tp : pool_size + Tp]
 Q = embedding[pool_size - shift : -Tp]
 actual = x[pool_size + Tp :, None]

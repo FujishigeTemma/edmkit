@@ -29,7 +29,7 @@ Name | Type | Description | Default
 `X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
 `k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
-`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
+`mask` | <code>[Mask](#edmkit.types.Mask) or None</code> | ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include when finding nearest neighbors. | <code>None</code>
 
 **Returns:**
 
@@ -41,7 +41,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k` library points are unmasked for some query.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the batch size or dimension of `X` and `Q` do not match. - If fewer than `k` library points are unmasked for some query.
 
 **Examples:**
 
@@ -76,7 +76,7 @@ Name | Type | Description | Default
 `Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
 `k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
-`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
+`mask` | <code>[Mask](#edmkit.types.Mask) or None</code> | ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include when finding nearest neighbors. | <code>None</code>
 
 **Returns:**
 
@@ -88,7 +88,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k` library points are unmasked for some query.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If the batch size or dimension of `X` and `Q` do not match. - If fewer than `k` library points are unmasked for some query.
 
 **Examples:**
 
@@ -114,7 +114,7 @@ shift = tau * (E - 1)
 
 lib_size = 200
 Tp = 1
-X = embedding[: lib_size - shift]
+X = embedding[:lib_size - shift]
 Y = x[shift + Tp : lib_size + Tp]
 Q = embedding[lib_size - shift : -Tp]
 actual = x[lib_size + Tp :]
@@ -142,7 +142,7 @@ Name | Type | Description | Default
 `X` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The input data of shape (N,) or (N, E) or (B, N, E) | *required*
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
 `k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
-`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
+`mask` | <code>[Mask](#edmkit.types.Mask) or None</code> | ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include when finding nearest neighbors. | <code>None</code>
 `softness` | <code>[float](#float)</code> | Width of the boundary between neighbors and non-neighbors, as a fraction of the neighborhood radius. | <code>0.02</code>
 
 **Returns:**
@@ -155,7 +155,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k + 1` library points are unmasked for some query.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the batch size or dimension of `X` and `Q` do not match. - If fewer than `k + 1` library points are unmasked for some query.
 
 **Examples:**
 
@@ -190,7 +190,7 @@ Name | Type | Description | Default
 `Y` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The target data of shape (N,) or (N, E') or (B, N, E') | *required*
 `Q` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor)</code> | The query points of shape (M,) or (M, E) or (B, M, E) for which to find the nearest neighbors in `X`. | *required*
 `k` | <code>[int](#int) or None</code> | The number of nearest neighbors to use. If None, uses E + 1, where E is the dimension of `X`. | <code>None</code>
-`mask` | <code>[ndarray](#numpy.ndarray) or [Tensor](#tinygrad.Tensor) or None</code> | Boolean mask of shape (M, N) or (B, M, N) indicating, for each query in `Q`, which library points to include when finding nearest neighbors. | <code>None</code>
+`mask` | <code>[Mask](#edmkit.types.Mask) or None</code> | ``mask(i, j)``, or ``mask(b, i, j)``, indicating for each query in `Q` which library points to include when finding nearest neighbors. | <code>None</code>
 `softness` | <code>[float](#float)</code> | Width of the boundary between neighbors and non-neighbors, as a fraction of the neighborhood radius. For distinct boundary distances: ``soft_simplex_projection(X, Y, Q, softness) -> simplex_projection(X, Y, Q) as softness -> 0`` | <code>0.02</code>
 
 **Returns:**
@@ -203,7 +203,7 @@ Name | Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If the batch size or dimension of `X` and `Q` do not match. - If `mask` does not have shape (M, N) or (B, M, N). - If fewer than `k + 1` library points are unmasked for some query.
+<code>[ValueError](#ValueError)</code> | - If `k` is not positive. - If `softness` is not positive. - If the input arrays `X` and `Y` do not have the same number of points. - If the batch size or dimension of `X` and `Q` do not match. - If fewer than `k + 1` library points are unmasked for some query.
 
 **Examples:**
 
@@ -230,7 +230,7 @@ shift = tau * (E - 1)
 
 lib_size = 200
 Tp = 1
-X = Tensor(embedding[: lib_size - shift])
+X = Tensor(embedding[:lib_size - shift])
 Y = Tensor(x[shift + Tp : lib_size + Tp])
 Q = Tensor(embedding[lib_size - shift : -Tp])
 actual = x[lib_size + Tp :]

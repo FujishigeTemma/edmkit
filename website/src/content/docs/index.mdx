@@ -1,61 +1,8 @@
 ---
 title: edmkit
-description: Empirical Dynamic Modeling for Python — forecast nonlinear time series and test causal hypotheses directly from data.
+description: 
 template: splash
 hero:
-  tagline: Forecast nonlinear time series and test causal hypotheses without writing down an equation.
+  tagline:
   actions:
-    - text: Read the introduction
-      link: /edmkit/concepts/edm/
-      icon: right-arrow
-      variant: primary
-    - text: Quick start
-      link: /edmkit/getting-started/
-      variant: secondary
-    - text: View on GitHub
-      link: https://github.com/FujishigeTemma/edmkit
-      icon: external
-      variant: minimal
 ---
-
-import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
-
-## What you can do with edmkit
-
-<CardGrid>
-  <Card title="Forecast nonlinear systems" icon="rocket">
-    Reconstruct an attractor from one observed series and predict its next state with simplex projection or S-Map.
-  </Card>
-  <Card title="Quantify nonlinearity" icon="puzzle">
-    Sweep S-Map's locality parameter to measure how much prediction skill depends on local geometry.
-  </Card>
-  <Card title="Test causal direction" icon="approve-check-circle">
-    Use Convergent Cross Mapping (CCM) to separate genuine coupling from shared trends and confounded correlation.
-  </Card>
-  <Card title="Keep analyses tractable" icon="random">
-    NumPy-first APIs, a Rust-backed KDTree, batched operations, and an optional tinygrad GPU backend.
-  </Card>
-</CardGrid>
-
-## Where to start
-
-<LinkCard
-  title="Getting Started"
-  href="/edmkit/getting-started/"
-  description="Install edmkit and run a forecast and causality test in five minutes."
-/>
-<LinkCard
-  title="What is EDM?"
-  href="/edmkit/concepts/edm/"
-  description="The intuition, the algorithms edmkit ships, and when EDM helps."
-/>
-<LinkCard
-  title="Choosing E and tau"
-  href="/edmkit/guides/choosing-parameters/"
-  description="Pick embedding parameters with cross-validation."
-/>
-<LinkCard
-  title="Testing causality with CCM"
-  href="/edmkit/guides/causality-with-ccm/"
-  description="A full CCM workflow with convergence diagnostics and pitfalls."
-/>

@@ -11,11 +11,21 @@ sidebar:
 
 Name | Description
 ---- | -----------
+[`materialize`](#edmkit.util.materialize) | Evaluate `mask` on every index pair, giving the dense boolean array of `shape`, such as (M, N) or (B, M, N).
 [`pad`](#edmkit.util.pad) | Pad the `np.ndarray` in `Xs` to merge them into a single `np.ndarray`.
 [`pairwise_distance`](#edmkit.util.pairwise_distance) | Compute the pairwise squared Euclidean distance between points in `A` (or between points in `A` and `B`).
+[`topk`](#edmkit.util.topk) | Computes the top-k elements of the tensor along the specified `dim`.
 [`pairwise_distance_np`](#edmkit.util.pairwise_distance_np) | Compute the pairwise squared Euclidean distance between points in `A` (or between points in `A` and `B`).
 [`dtw`](#edmkit.util.dtw) | Computes the Dynamic Time Warping (DTW) distance between two sequences `x` and `y`.
 [`autocorrelation`](#edmkit.util.autocorrelation) | Computes the autocorrelation of a given 1D numpy array up to a specified maximum lag.
+
+### `materialize`
+
+```python
+materialize(mask: Mask, shape: Sequence[SupportsInt]) -> np.ndarray
+```
+
+Evaluate `mask` on every index pair, giving the dense boolean array of `shape`, such as (M, N) or (B, M, N).
 
 ### `pad`
 
@@ -69,6 +79,40 @@ Type | Description
 Type | Description
 ---- | -----------
 <code>[ValueError](#ValueError)</code> | - If `A` is not a 2D or 3D tensor. - If `B` is not `None` and `A` and `B` have different number of dimensions.
+
+### `topk`
+
+```python
+topk(A: Tensor, k: int, dim: int = -1, largest: bool = True, sorted_: bool = True) -> tuple[Tensor, Tensor]
+```
+
+Computes the top-k elements of the tensor along the specified `dim`.
+
+Order of indices for equivalent elements is always preserved.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`A` | <code>[Tensor](#tinygrad.Tensor)</code> | Input tensor. | *required*
+`k` | <code>[int](#int)</code> | The number of elements to take, at most ``A.shape[dim]``. | *required*
+`dim` | <code>[int](#int)</code> | The dimension along which to take the elements. | <code>-1</code>
+`largest` | <code>[bool](#bool)</code> | Take the largest elements if True, otherwise the smallest. | <code>True</code>
+`sorted_` | <code>[bool](#bool)</code> | Must be True; the elements are returned in order, as `Tensor.topk` requires. | <code>True</code>
+
+**Returns:**
+
+Name | Type | Description
+---- | ---- | -----------
+`values` | <code>[Tensor](#tinygrad.Tensor)</code> | The top-k elements, ordered from the most extreme, with ``A.shape[dim]`` replaced by `k`.
+`indices` | <code>[Tensor](#tinygrad.Tensor)</code> | Their indices along `dim`, of the same shape as `values`. Equal elements keep their order.
+
+**Raises:**
+
+Type | Description
+---- | -----------
+<code>[NotImplementedError](#NotImplementedError)</code> | - If `sorted_` is False.
+<code>[ValueError](#ValueError)</code> | - If `k` exceeds ``A.shape[dim]``.
 
 ### `pairwise_distance_np`
 

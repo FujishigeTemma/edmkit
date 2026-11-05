@@ -1,6 +1,8 @@
 # edmkit
 
-This library is a collection of tools and utilities that are useful for Empirical Data Modeling (EDM) and related tasks. The library is designed to be fast and lightweight, and easy to use.
+This library is a collection of tools and utilities that are useful for Empirical Data Modeling (EDM) and related tasks.
+The library is designed to be fast and lightweight, and easy to use.
+Implementations are tested against the `pyEDM`.
 
 ## Benchmarks
 
