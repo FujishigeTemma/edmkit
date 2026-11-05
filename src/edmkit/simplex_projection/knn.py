@@ -48,14 +48,15 @@ def knn(X: np.ndarray, Q: np.ndarray, k: int, mask: Mask | None = None) -> tuple
 
         # evaluate the mask and keep the first k valid candidates.
         valid = np.broadcast_to(np.asarray(mask(pending[:, None], _indices), dtype=bool), _indices.shape)
-        count = valid.sum(axis=-1)
+        ranks = valid.cumsum(axis=-1, dtype=np.uint32)
+        count = ranks[:, -1]
 
         if k_query == N and count.min() < k:
             raise ValueError(f"Not enough unmasked points in X to find {k} neighbors, got {count.min()} for some query")
 
         done = count >= k
         if done.any():
-            first_k = valid & (valid.cumsum(axis=-1, dtype=np.uint32) <= k) & done[:, None]
+            first_k = valid & (ranks <= k) & done[:, None]
             distances[pending[done]] = _distances[first_k].reshape(-1, k)
             indices[pending[done]] = _indices[first_k].reshape(-1, k)
 

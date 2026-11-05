@@ -1,5 +1,5 @@
 """
-uv run pytest benchmarks -m "not (dense and huge)" --benchmark-autosave
+uv run --group benchmark pytest benchmarks -m "not (dense and huge)" --benchmark-autosave
 """
 
 from __future__ import annotations

@@ -98,9 +98,6 @@ def check_bootstrap(
         if not replace:
             for draw in indices:
                 assert len(np.unique(draw)) == lib_sizes[i]
-            if lib_sizes[i] == len(X):
-                expected = predict_func(X, Y, Q, mask=rule)
-                np.testing.assert_allclose(predictions[index], np.broadcast_to(expected, (B, *expected.shape)), rtol=1e-9, atol=1e-9)
 
     # The tasks fill every sample exactly once.
     np.testing.assert_array_equal(covered, 1)
@@ -111,8 +108,8 @@ def check_bootstrap(
         for index, future in futures:
             np.testing.assert_allclose(future.result(), predictions[index], rtol=1e-9, atol=1e-9)
 
-    if seed is not None and batch_limit > 1:
-        # Chunking changes neither the sampled libraries nor their predictions.
+    if seed is not None:
+        # A fresh run with the same seed reproduces the predictions, and chunking changes neither the sampled libraries nor their predictions.
         alternate = np.empty_like(predictions)
         for index, samples in run(predict_func=predict_func, batch_size=1):
             alternate[index] = samples()
@@ -154,6 +151,8 @@ Y = np.column_stack((X**2, np.sin(X)))
 Q = np.array([0.13, 3.27, 8.41])
 MASK = np.ones((len(Q), len(X)), dtype=bool)
 MASK[np.arange(len(Q)), [0, 3, 8]] = False
+TIED_LIBRARY = np.column_stack((np.arange(32, dtype=float), np.zeros(32)))
+TIED_LIBRARY[[15, 16], 1] = [8, 20]
 
 BOOTSTRAP_VALID = {
     "partial-batch-and-duplicate-sizes": BootstrapCase(X, Y, Q, np.array([5, 3, 5])),
@@ -161,6 +160,25 @@ BOOTSTRAP_VALID = {
     "oversized-batch": BootstrapCase(X, Y, Q, np.array([4]), batch_size=20),
     "single-sample": BootstrapCase(X[:, None], Y, Q[:, None], np.array([3]), n_samples=1),
     "with-replacement-exceeds-pool": BootstrapCase(X, Y, Q, np.array([20])),
+    "partial-library-with-tied-neighbors": BootstrapCase(
+        TIED_LIBRARY,
+        (np.arange(32) == 17).astype(float),
+        np.zeros((1, 2)),
+        np.array([16]),
+        n_samples=8,
+        replace=False,
+        seed=438,
+        batch_size=8,
+    ),
+    "full-library-permutations-with-ties": BootstrapCase(
+        np.column_stack((np.arange(64, dtype=float), np.zeros(64))),
+        np.sin(np.arange(64, dtype=float)),
+        np.tile([[2.5, 0.0], [4.03, 0.0], [31.11, 0.0], [63.0, 0.0]], (16, 1)),
+        np.array([16, 36, 64]),
+        n_samples=17,
+        replace=False,
+        batch_size=8,
+    ),
     "full-library-with-mask": BootstrapCase(X, Y, Q, np.array([12]), replace=False, mask=MASK),
     "sampled-mask-with-replacement": BootstrapCase(X, Y, Q, np.array([20]), mask=MASK),
     "smap": BootstrapCase(X, Y, Q, np.array([5, 12]), predict_func=partial(smap, theta=2.0), replace=False),

@@ -365,6 +365,27 @@ SIMPLEX_PROJECTION_VALID = {
         None,
         None,
     ),
+    "mixed-exact-and-disjoint-queries": SimplexProjectionCase(
+        np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [3.0, 0.0], [5.0, 0.0], [1e-5, 0.0]]),
+        np.arange(12.0).reshape(6, 2),
+        np.array([[5.0, 0.0], [1.0, 0.0], [0.0, 0.0], [3.1, 0.0]]),
+        None,
+        None,
+    ),
+    "one-dimensional-queries-on-both-sides": SimplexProjectionCase(
+        np.array([[5.0], [0.0], [2.0], [9.0]]),
+        np.array([30.0, 10.0, 20.0, 40.0]),
+        np.array([[-1.0], [1.75], [5.0], [12.0]]),
+        None,
+        None,
+    ),
+    "one-dimensional-aligned-queries-in-library-order": SimplexProjectionCase(
+        np.array([[1e-5], [2.0], [0.0], [9.0]]),
+        np.array([30.0, 10.0, 20.0, 40.0]),
+        np.array([[1e-5], [2.0], [0.0], [9.0]]),
+        None,
+        None,
+    ),
     "theiler-self-query-2d": SimplexProjectionCase(
         np.random.default_rng(37).normal(size=(20, 2)),
         np.random.default_rng(38).normal(size=20),
@@ -390,6 +411,18 @@ SIMPLEX_PROJECTION_VALID["single-query-multitarget-2d"] = SimplexProjectionCase(
 
 SIMPLEX_PROJECTION_VALID["custom-k-one"] = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=1)
 SIMPLEX_PROJECTION_VALID["custom-k-five"] = SIMPLEX_PROJECTION_VALID["masked-multitarget-batched-3d"]._replace(k=5)
+
+NEAR_DUPLICATES = np.column_stack((np.r_[[-3e-5, 0, 0, 1e-5], np.arange(1, 253)], np.zeros(256)))
+SIMPLEX_PROJECTION_VALID["aligned-queries-with-near-duplicates"] = SimplexProjectionCase(
+    NEAR_DUPLICATES, np.sin(np.arange(len(NEAR_DUPLICATES))), NEAR_DUPLICATES.copy(), None, None
+)
+SIMPLEX_PROJECTION_VALID["two-dimensional-queries-with-ties-and-dense-column"] = SimplexProjectionCase(
+    np.column_stack((np.r_[np.zeros(130), 10.0, 11.0, 12.0, 13.0, 200.0], np.r_[np.arange(130), np.zeros(5)])),
+    np.sin(np.arange(135, dtype=float)),
+    np.tile([[0.0, 64.5], [11.5, 0.0]], (32, 1)),
+    None,
+    None,
+)
 
 SIMPLEX_PROJECTION_MODES = {
     "numpy": check_simplex_projection,
